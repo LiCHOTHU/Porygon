@@ -39,6 +39,7 @@ def extract_trajectory(
     camera_names, 
     camera_height=84, 
     camera_width=84,
+    randomize_camera_poses=False,
 ):
     """
     Helper function to extract observations, rewards, and dones along a trajectory using
@@ -60,6 +61,31 @@ def extract_trajectory(
     env.reset()
     obs = env.reset_to(initial_state)
 
+    if randomize_camera_poses:
+        base_pos = env.env.sim.data.body('gripper0_eef').xpos
+
+        camera_name = 'agentview'
+        cam_id = env.env.sim.model.camera_name2id(camera_name)
+        old_position = env.env.sim.model.cam_pos[cam_id].copy()
+        old_rotation = env.env.sim.model.cam_quat[cam_id].copy()
+
+        theta = np.random.uniform(-2 * np.pi / 3, 2 * np.pi / 3)
+        r = old_position[0] - base_pos[0]
+        x = r * np.cos(theta) + base_pos[0]
+        y = r * np.sin(theta) + base_pos[1]
+        z = old_position[2]
+        new_position = np.array([x, y, z])
+
+        Rz = Rotation.from_euler('z', theta).as_matrix()
+        R_ref = Rotation.from_quat(old_rotation, scalar_first=True).as_matrix()
+        R_total = Rz @ R_ref
+        new_quat = Rotation.from_matrix(R_total).as_quat(scalar_first=True)
+
+        env.env.sim.model.cam_pos[cam_id] = new_position
+        env.env.sim.model.cam_quat[cam_id] = new_quat
+        env.env.sim.step()
+        obs = env.get_observation()
+
     traj = dict(
         obs=[], 
         rewards=[], 
@@ -76,12 +102,15 @@ def extract_trajectory(
     for t in range(1, traj_len + 1):
 
         # get next observation
-        if t == traj_len or True:
+        if t == traj_len:
             # play final action to get next observation for last timestep
             next_obs, _, _, _ = env.step(actions[t - 1])
         else:
-            # reset to simulator state to get observation
-            next_obs = env.reset_to({"states" : states[t]})
+            # reset to previous state and step with action to update controller properly
+            prev_state = {"states": states[t - 1]}
+            env.reset_to(prev_state)
+            # step with the action to update both state and controller
+            next_obs, _, _, _ = env.step(actions[t - 1])
 
         for cam_name in camera_names:
             depth_f32 = obs[cam_name + "_depth"]
@@ -117,6 +146,7 @@ def extract_trajectory(
             done = done or env.is_success()["task"]
         done = int(done)
 
+        # Extract absolute action from controller after proper state/action update
         controller = env.env.robots[0].controller
         goal_pos = controller.goal_pos
         goal_ori = controller.goal_ori[:2, :].reshape(-1)
@@ -199,6 +229,7 @@ def dataset_states_to_obs(args):
             camera_names=args.camera_names, 
             camera_height=args.camera_height, 
             camera_width=args.camera_width,
+            randomize_camera_poses=args.randomize_camera_poses,
         )
 
         # maybe copy reward or done signal from source file
@@ -299,6 +330,11 @@ if __name__ == "__main__":
         "--copy_dones", 
         action='store_true',
         help="(optional) copy dones from source file instead of inferring them",
+    )
+    parser.add_argument(
+        "--randomize_camera_poses",
+        action='store_true',
+        help="(optional) randomize camera poses",
     )
   
     args = parser.parse_args()
