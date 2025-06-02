@@ -76,6 +76,7 @@ def extract_trajectory(
     for t in range(1, traj_len + 1):
 
         # get next observation
+        # Need to do this every time step so that abs actions are correct
         if t == traj_len or True:
             # play final action to get next observation for last timestep
             next_obs, _, _, _ = env.step(actions[t - 1])
