@@ -21,3 +21,8 @@ echo "All jobs submitted!"
 
 #  python scripts/process_mimicgen.py --hdf5_path /storage/home/hcoda1/7/mghanem8/p-agarg35-0/codes/quest_v0/data/mimicgen/core_depth/coffee_d1.hdf5 --output_dir /storage/home/hcoda1/7/mghanem8/p-agarg35-0/codes/quest_v0/data/mimicgen/core_depth_abs/coffee_d1.hdf5 --depth
 
+uv run scripts/process_mimicgen.py \
+    --hdf5_path /storage/home/hcoda1/1/awilcox31/vast/imitation/data/mimicgen/core/coffee_d1.hdf5 \
+    --output_dir /storage/home/hcoda1/1/awilcox31/vast/imitation/data/mimicgen/testing/coffee_rand_d1.hdf5 \
+    --depth \
+    --randomize_camera_poses
