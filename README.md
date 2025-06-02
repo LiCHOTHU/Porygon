@@ -92,6 +92,18 @@ pip install robosuite_models
 cd imitation
 ```
 
+## Training
+
+Example script to train a diffusion policy with a ResNet backbone on the LIBERO-90 benchmark
+
+```bash
+uv run train.py \
+    --config-name=train.yaml \
+    task=libero \
+    algo=diffusion_policy \
+    algo/encoder=rgb  \
+    algo.chunk_size=8
+```
 
 
 ## Development
