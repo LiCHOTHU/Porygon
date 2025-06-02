@@ -1,0 +1,79 @@
+# Warning: untested
+
+
+suite_name: metaworld
+mode: train
+horizon: 200
+demo_noise: 0.2
+
+img_height: 128
+img_width: 128
+
+shape_meta:
+  action_dim: 4
+  observation:
+    rgb:
+      corner_rgb:
+        - 3
+        - ${task.img_height}
+        - ${task.img_width}
+      corner2_rgb:
+        - 3
+        - ${task.img_height}
+        - ${task.img_width}
+    depth:
+      corner_depth:
+        - 1
+        - ${task.img_height}
+        - ${task.img_width}
+      corner2_depth:
+        - 1
+        - ${task.img_height}
+        - ${task.img_width}
+    lowdim:
+      agent_pos: 3
+      ee_open: 1
+  task:
+    type: onehot
+    n_tasks: ${task.n_tasks}
+
+# build_dataset(data_prefix, benchmark_name, benchmark_name, seq_len, obs_seq_len, obs_modality):
+dataset:
+  _target_: imitation.utils.metaworld_utils.build_dataset
+  data_prefix: ${data_prefix}
+  suite_name: ${task.suite_name}
+  benchmark_name: ${task.benchmark_name}
+  mode: ${task.mode}
+  seq_len: ${algo.dataset.seq_len}
+  frame_stack: ${algo.dataset.frame_stack}
+  obs_seq_len: ${algo.dataset.obs_seq_len}
+  lowdim_obs_seq_len: ${algo.dataset.lowdim_obs_seq_len}
+  shape_meta: ${task.shape_meta}
+  load_obs: ${training.load_obs}
+  n_demos: ${task.demos_per_env}
+  load_next_obs: ${algo.dataset.load_next_obs}
+  dataset_keys: ${algo.dataset.dataset_keys}
+
+env_factory:
+  _target_: imitation.envs.metaworld.wrappers.MetaWorldWrapper
+  _partial_: true 
+  shape_meta: ${task.shape_meta}
+  img_height: ${task.img_height}
+  img_width: ${task.img_width}
+  cameras: ['corner', 'corner2']
+  env_kwargs: null
+
+env_runner:
+  _target_: imitation.envs.metaworld.runner.MetaWorldRunner
+  env_factory:
+    _target_: imitation.envs.metaworld.wrappers.MetaWorldFrameStack
+    _partial_: true
+    env_factory: ${task.env_factory}
+    num_stack: ${algo.frame_stack}
+  benchmark_name: ${task.benchmark_name}
+  mode: ${task.mode}
+  rollouts_per_env: ${rollout.rollouts_per_env}
+  fps: 24
+  debug: false
+  max_episode_length: ${task.horizon}
+  

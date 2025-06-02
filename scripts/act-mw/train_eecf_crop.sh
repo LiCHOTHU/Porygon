@@ -1,0 +1,48 @@
+exp_name="act_no_crop_3"
+blocks=(10 15)
+seeds=(0 1)
+downsample_modes=("feat")
+
+for block in ${blocks[@]}; do
+    for seed in ${seeds[@]}; do
+        for downsample_mode in ${downsample_modes[@]}; do
+            # attention reduction
+            sbatch slurm/run_v100.sbatch python train.py \
+                --config-name=train_prior.yaml \
+                task=metaworld_mt50_hybrid \
+                exp_name=${exp_name} \
+                variant_name=flagship_eecf_crop_fixed_block_${block} \
+                algo=act \
+                algo/encoder=hybrid  \
+                algo.chunk_size=${block} \
+                algo.policy.temporal_agg=true \
+                +algo.policy.eecf=true \
+                algo/aug=color_jitter \
+                ~task.shape_meta.observation.lowdim \
+                +task.shape_meta.observation.lowdim={ee_open:1} \
+                algo.encoder.backbone_type=clip \
+                algo.encoder.finetune=false \
+                algo.encoder.hand_frame=true \
+                algo.encoder.do_crop=true \
+                algo.embed_dim=512 \
+                +algo.encoder.downsample_mode=feat \
+                +algo.encoder.fps_library=dgl \
+                +algo.encoder.pointcloud_extractor_factory.reduction=attention \
+                training.use_tqdm=false \
+                training.use_amp=false \
+                training.save_all_checkpoints=true \
+                train_dataloader.persistent_workers=true \
+                train_dataloader.num_workers=6 \
+                train_dataloader.batch_size=64 \
+                make_unique_experiment_dir=false \
+                training.n_epochs=2000 \
+                training.resume=true \
+                training.save_interval=5 \
+                rollout.interval=200 \
+                task.demos_per_env=10 \
+                seed=${seed}
+            
+        done
+    done
+done
+

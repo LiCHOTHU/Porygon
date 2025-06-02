@@ -1,0 +1,2 @@
+_target_: imitation.algos.utils.data_augmentation.ZAxisRotationAug
+_partial_: true

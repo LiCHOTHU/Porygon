@@ -1,0 +1,13 @@
+defaults:
+  - fm_policy_S
+  - _self_
+  - override encoder: rgb_no_pool
+
+policy:
+  velocity_net_kwargs:
+    time_dim: 256
+    num_blocks: 4
+    dim_feedforward: 1024
+    nhead: 4
+
+embed_dim: 512

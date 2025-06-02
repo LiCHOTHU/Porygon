@@ -1,0 +1,7 @@
+defaults:
+  - rgb
+  - _self_
+
+image_encoder_factory:
+  remove_layer_num: 2
+  do_projection: false

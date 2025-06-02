@@ -1,0 +1,10 @@
+defaults:
+  - dit_policy_S
+  - _self_
+  - override encoder: rgb_no_pool
+
+policy:
+  noise_net_kwargs:
+    num_blocks: 6
+    dim_feedforward: 2048
+    nhead: 8

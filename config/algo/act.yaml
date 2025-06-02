@@ -1,0 +1,57 @@
+defaults:
+  - base
+  - _self_
+
+policy:
+  _target_: imitation.algos.act.ACT
+  autoencoder:
+    _target_: imitation.algos.utils.act_utils.detr_vae.DETRVAE
+    transformer:
+      _target_: imitation.algos.utils.act_utils.transformer.build_transformer
+      d_model: 256
+      nhead: 8
+      num_encoder_layers: 6
+      num_decoder_layers: 6
+      dim_feedforward: 2048
+      dropout: 0.1
+      activation: "relu"
+      normalize_before: false
+      return_intermediate_dec: true
+    encoder:
+      _target_: imitation.algos.utils.act_utils.detr_vae.build_encoder
+      d_model: 256
+      nhead: 8
+      num_encoder_layers: 6
+      dim_feedforward: 2048
+      dropout: 0.1
+      activation: "relu"
+      normalize_before: false
+    action_dim: ${task.shape_meta.action_dim}
+    chunk_size: ${algo.chunk_size}
+    downsample_factor: ${algo.downsample_factor}
+    attn_pdrop: 0.1
+    use_causal_encoder: true
+    use_causal_decoder: true
+    encoder_heads: 4
+    encoder_layers: 2
+    decoder_heads: 4
+    decoder_layers: 4
+    vq_type: "fsq" # "vq" or "fsq"
+    # fsq_level: [8,5,5,5]
+    fsq_level: null
+    codebook_dim: 512 # only used for vq
+    codebook_size: ${algo.codebook_size} # if fsq level is null then it will automatically compute it according to this
+  loss_fn:
+    _target_: torch.nn.L1Loss
+  action_horizon: ${algo.action_horizon}
+  embed_dim: ${algo.embed_dim}
+  device: ${device}
+
+name: act
+
+embed_dim: 384 # stage 2 transformer hidden dim
+lowdim_embed_dim: 128 # each lowdim obs modality is embedded to this dim
+image_embed_dim: 256 # each image obs vision encoder's output is embedded to this dim
+
+codebook_size: 1024 # note for fsq this will be computed automatically to be 1000, see get_fsq_level function in imitation/algos/quest_modules/skill_vae.py
+downsample_factor: 4

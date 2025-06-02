@@ -1,0 +1,28 @@
+defaults:
+  - chunk_base
+  - _self_
+  - override encoder: rgb_no_pool
+
+policy:
+  _target_: imitation.algos.dit_policy.DiffusionTransformerPolicy
+  train_diffusion_steps: ${algo.diffusion_train_steps}
+  eval_diffusion_steps: ${algo.diffusion_inf_steps}
+  dropout: ${algo.dropout}
+  feat_norm: layer_norm
+  embed_dim: ${algo.embed_dim}
+  noise_net_kwargs:
+    time_dim: 128
+    hidden_dim: ${algo.embed_dim}
+    num_blocks: 4
+    dim_feedforward: 512
+    dropout: ${algo.dropout}
+    nhead: 4
+    activation: "gelu"
+
+name: dit_policy
+
+dropout: 0.1
+diffusion_train_steps: 100
+diffusion_inf_steps: 8
+
+embed_dim: 256
