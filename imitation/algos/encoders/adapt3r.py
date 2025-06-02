@@ -85,6 +85,9 @@ class Adapt3REncoder(PointCloudBaseEncoder):
         # Setup position encoding
         self._init_position_encoding(xyz_proj_type, hidden_dim)
 
+        # Setup language projection
+        self._init_language_projection(hidden_dim)
+
     def _init_pointcloud_extractor(self, factory, in_shape: int) -> None:
         """Initialize the point cloud extractor."""
         self.pointcloud_extractor = factory(in_shape=in_shape)
@@ -157,9 +160,14 @@ class Adapt3REncoder(PointCloudBaseEncoder):
 
         n_cam, B, fs, _, _, _ = rgb.shape
 
+        # pcd_vis = einops.rearrange(pcd, "ncam b fs h w c -> (b fs) (ncam h w) c")
+        # rgb_vis = einops.rearrange(rgb, "ncam b fs c h w -> (b fs) (ncam h w) c")
+        # for i in range(pcd_vis.shape[0]):
+        #     pcu.show_point_cloud(pcd_vis[i], rgb_vis[i])
 
         rgb = einops.rearrange(rgb, "ncam b fs c h w -> (b fs ncam) c h w")
         pcd = einops.rearrange(pcd, "ncam b fs h w c -> (b fs ncam) c h w")
+
             
         # Pass each view independently through backbone
         if self.do_image:
@@ -239,10 +247,11 @@ class Adapt3REncoder(PointCloudBaseEncoder):
             cat_cloud,
             mask=mask,
         )
+        out = list(einops.rearrange(out, "b fs d -> fs b d"))
 
         lowdim_out = self._encode_lowdim(obs_data)
 
-        return [out], lowdim_out
+        return out, lowdim_out
 
 
 
