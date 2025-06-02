@@ -26,6 +26,7 @@ def task_name_to_task_files(task_name):
     return [f"{task_name}.hdf5"]
 
 def build_single_task_dataset(data_prefix,
+                              data_subfolder,
                               task_name, 
                               seq_len, 
                               frame_stack,
@@ -36,7 +37,7 @@ def build_single_task_dataset(data_prefix,
                               n_demos=None,
                               dataset_keys=('actions',)
                               ):
-    dataset_path = os.path.join(data_prefix, 'mimicgen', 'core_depth_abs')
+    dataset_path = os.path.join(data_prefix, 'mimicgen', data_subfolder)
 
     obs_modality = {
         'rgb': list(shape_meta['observation']['rgb'].keys()),

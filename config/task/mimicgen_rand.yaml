@@ -1,0 +1,5 @@
+defaults:
+  - mimicgen
+  - _self_
+
+data_subfolder: core_depth_abs_rand

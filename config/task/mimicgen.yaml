@@ -11,6 +11,7 @@ demos_per_env: 1000
 img_height: 128
 img_width: 128
 horizon: 300
+data_subfolder: core_depth_abs
 
 shape_meta:
   action_dim: 7
@@ -46,6 +47,7 @@ shape_meta:
 dataset:
   _target_: imitation.envs.mimicgen.utils.build_single_task_dataset
   data_prefix: ${data_prefix}
+  data_subfolder: ${task.data_subfolder}
   task_name: ${task.task_name}
   seq_len: ${algo.dataset.seq_len}
   frame_stack: ${algo.dataset.frame_stack}
