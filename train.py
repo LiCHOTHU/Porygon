@@ -43,8 +43,6 @@ def main(cfg):
         cfg.train_dataloader, 
         dataset=dataset)
     
-    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-
     # start training
     optimizers = model.get_optimizers()
     schedulers = model.get_schedulers(optimizers,
@@ -58,6 +56,9 @@ def main(cfg):
     
     # Set up logging
     logger = utils.setup_logger('training.log', experiment_dir)
+    total_params = sum(p.numel() for p in model.parameters())
+    logger.info(f'Total parameters: {total_params:,}')
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f'Trainable parameters: {trainable_params:,}')
     logger.info(f"Starting experiment: {experiment_name}")
     logger.info(f"Experiment directory: {experiment_dir}")

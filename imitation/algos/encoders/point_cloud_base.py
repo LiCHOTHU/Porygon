@@ -3,7 +3,6 @@ import einops
 import dgl.geometry as dgl_geo
 import torch
 
-import imitation.envs.libero.utils as lu
 from imitation.algos.utils.misc import weight_init
 from imitation.algos.encoders.base import BaseEncoder
 import imitation.envs.utils as eu
@@ -51,6 +50,7 @@ class PointCloudBaseEncoder(BaseEncoder):
             self.lowdim_encoder = None
 
         if task_suite_name == "libero":
+            import imitation.envs.libero.utils as lu
             boundaries = lu.get_boundaries(benchmark_name=task_benchmark_name, tight=tight_crop)
         elif task_suite_name == "metaworld":
             # TODO
@@ -187,7 +187,8 @@ class PointCloudBaseEncoder(BaseEncoder):
             lowdim.append(obs_data[name])
         lowdim = torch.cat(lowdim, dim=-1)
         encodings = self.lowdim_encoder(lowdim)
-        return [encodings]
+        encodings = list(einops.rearrange(encodings, "b fs d -> fs b d"))
+        return encodings
 
     def _build_point_cloud(self, obs_data):
         out = {}
