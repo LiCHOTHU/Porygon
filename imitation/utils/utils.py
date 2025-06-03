@@ -265,7 +265,7 @@ def setup_logger(log_file: str, experiment_dir: Optional[str] = None) -> logging
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.StreamHandler(),
-            logging.FileHandler(log_file)
+            # logging.FileHandler(log_file)
         ]
     )
     logger = logging.getLogger(__name__)

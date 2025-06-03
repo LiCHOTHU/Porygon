@@ -1,94 +1,86 @@
 export HYDRA_FULL_ERROR=1
-task_names=("square" "threading")
-exp_name=mimicgen_corl_new_hand_crop
+task_names=(
+    "square_d1" 
+    "threading_d1" 
+    "coffee_d1"
+    )
+exp_name=mimicgen_oops
+# seeds=(0 1 2 3 4)
 seeds=(0 1)
-n_epochs=501
+n_epochs=251
+
+
+        
 for task_name in ${task_names[@]}; do
     for seed in ${seeds[@]}; do
-        # sbatch slurm/run_l40s.sbatch 
-        # python train.py \
-        #     --config-name=train_prior.yaml \
-        #     task=mimicgen_hybrid_base \
-        #     exp_name=${exp_name} \
-        #     task.task_name=${task_name} \
-        #     variant_name=adapt3r \
-        #     algo=diffusion_policy \
-        #     algo/encoder=hybrid  \
-        #     algo.chunk_size=8 \
-        #     +algo.policy.eecf=true \
-        #     algo.encoder.do_hand_crop=true \
-        #     +algo.encoder.tight_crop=true \
-        #     algo.encoder.do_lang=true \
-        #     training.save_interval=10 \
-        #     train_dataloader.num_workers=4 \
-        #     rollout.interval=1000 \
-        #     task.demos_per_env=1000\
-        #     training.n_epochs=${n_epochs} \
-        #     seed=${seed}
-
         # RGB
-        # sbatch slurm/run_l40s.sbatch python train.py \
-        echo python train.py \
-            --config-name=train_prior.yaml \
-            task=mimicgen_rgb_base \
+        echo uv run train.py \
+            --config-name=train.yaml \
+            task=mimicgen \
             task.task_name=${task_name} \
             exp_name=${exp_name} \
-            variant_name=rgb_500_epochs \
+            variant_name=rgb \
             algo=diffusion_policy \
+            algo/encoder=rgb \
             algo.chunk_size=16 \
             training.save_interval=10 \
             train_dataloader.num_workers=4 \
-            rollout.interval=1000 \
-            task.demos_per_env=1000 \
+            rollout.interval=25 \
             training.n_epochs=${n_epochs} \
-            logging.mode=disabled \
+            pace_copy=true \
             seed=${seed}
 
-        # # RGBD
-        # sbatch slurm/run_l40s.sbatch python train.py \
-        #     --config-name=train_prior.yaml \
-        #     task=mimicgen_rgbd_base \
-        #     task.task_name=${task_name} \
-        #     exp_name=${exp_name} \
-        #     variant_name=rgbd \
-        #     algo=diffusion_policy \
-        #     algo.chunk_size=16 \
-        #     training.save_interval=10 \
-        #     train_dataloader.num_workers=4 \
-        #     rollout.interval=1000 \
-        #     task.demos_per_env=1000 \
-        #     training.n_epochs=${n_epochs} \
-        #     seed=${seed}
+        # RGBD
+        echo uv run train.py \
+            --config-name=train.yaml \
+            task=mimicgen \
+            task.task_name=${task_name} \
+            exp_name=${exp_name} \
+            variant_name=rgbd \
+            algo=diffusion_policy \
+            algo/encoder=rgbd \
+            algo.chunk_size=16 \
+            training.save_interval=10 \
+            train_dataloader.num_workers=4 \
+            rollout.interval=25 \
+            training.n_epochs=${n_epochs} \
+            pace_copy=true \
+            seed=${seed}
 
-        # # DP3
-        # # echo python train.py \
-        # sbatch slurm/run_l40s.sbatch python train.py \
-        #     --config-name=train_prior.yaml \
-        #     task=mimicgen_hybrid_base \
-        #     task.task_name=${task_name} \
-        #     exp_name=${exp_name} \
-        #     variant_name=dp3 \
-        #     algo=diffusion_policy \
-        #     algo/encoder=hybrid_dp3 \
-        #     algo.chunk_size=16 \
-        #     training.save_interval=10 \
-        #     train_dataloader.num_workers=4 \
-        #     rollout.interval=1000 \
-        #     task.demos_per_env=1000 \
-        #     training.n_epochs=${n_epochs} \
-        #     seed=${seed}
+        # DP3
+        echo uv run train.py \
+            --config-name=train.yaml \
+            task=mimicgen \
+            task.task_name=${task_name} \
+            exp_name=${exp_name} \
+            variant_name=dp3 \
+            algo=diffusion_policy \
+            algo/encoder=dp3 \
+            algo.chunk_size=16 \
+            training.save_interval=10 \
+            train_dataloader.num_workers=4 \
+            rollout.interval=25 \
+            training.n_epochs=${n_epochs} \
+            pace_copy=true \
+            seed=${seed}
+
+        # Adapt3r
+        echo uv run train.py \
+            --config-name=train.yaml \
+            task=mimicgen \
+            exp_name=${exp_name} \
+            task.task_name=${task_name} \
+            variant_name=adapt3r_ft \
+            algo=diffusion_policy \
+            algo/encoder=adapt3r  \
+            algo.chunk_size=16 \
+            algo.encoder.finetune=true \
+            training.save_interval=10 \
+            train_dataloader.num_workers=4 \
+            rollout.interval=25 \
+            training.n_epochs=${n_epochs} \
+            pace_copy=true \
+            seed=${seed}
     done
 done
 
-
-python train.py \
-    --config-name=train_debug.yaml \
-    task=mimicgen_rgb_base \
-    task.task_name=square \
-    algo=diffusion_policy \
-    algo.chunk_size=16 \
-    training.save_interval=10 \
-    train_dataloader.num_workers=4 \
-    rollout.interval=1000 \
-    task.demos_per_env=1000 \
-    training.n_epochs=1000

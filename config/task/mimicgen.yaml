@@ -54,6 +54,8 @@ dataset:
   obs_seq_len: ${algo.dataset.obs_seq_len}
   shape_meta: ${task.shape_meta}
   load_obs: ${training.load_obs}
+  load_image: ${algo.encoder.load_image}
+  load_depth: ${algo.encoder.load_depth}
   n_demos: ${task.demos_per_env}
   dataset_keys: ${algo.dataset.dataset_keys}
   extra_obs_modality:

@@ -34,14 +34,16 @@ def build_single_task_dataset(data_prefix,
                               obs_seq_len=1, 
                               extra_obs_modality=None,
                               load_obs=True,
+                              load_image=True,
+                              load_depth=True,
                               n_demos=None,
                               dataset_keys=('actions',)
                               ):
     dataset_path = os.path.join(data_prefix, 'mimicgen', data_subfolder)
 
     obs_modality = {
-        'rgb': list(shape_meta['observation']['rgb'].keys()),
-        'depth': list(shape_meta['observation']['depth'].keys()),
+        'rgb': list(shape_meta['observation']['rgb'].keys()) if load_image else [],
+        'depth': list(shape_meta['observation']['depth'].keys()) if load_depth else [],
         'low_dim': list(shape_meta['observation']['lowdim'].keys())
     }
 

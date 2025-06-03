@@ -73,10 +73,11 @@ class DP3Encoder(PointCloudBaseEncoder):
             cat_cloud,
             mask=mask,
         )
+        out = list(einops.rearrange(out, "b fs d -> fs b d"))
 
         lowdim_out = self._encode_lowdim(obs_data)
 
-        return [out], lowdim_out
+        return out, lowdim_out
 
 
 
