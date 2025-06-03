@@ -91,7 +91,8 @@ class OTTER3DEncoder(PointCloudBaseEncoder):
     def _init_clip(self) -> None:
         """Initialize CLIP model and hooks for feature extraction."""
         # Load CLIP model and preprocessing
-        self.clip_model, self.normalize = clip.load(self.clip_model_name)
+        self.clip_model, processor = clip.load(self.clip_model_name)
+        self.normalize = processor.transforms[-1]
         
         # Freeze CLIP parameters and convert to float
         self.clip_model.eval()
@@ -183,7 +184,6 @@ class OTTER3DEncoder(PointCloudBaseEncoder):
         pcd = einops.rearrange(pcd, "ncam b fs h w c -> (b fs ncam) c h w")
         
         # Extract CLIP features
-        breakpoint()
         patch_features, text_features = self._extract_clip_features(rgb, data["lang_inst"])
         
         # Get text-aware visual features

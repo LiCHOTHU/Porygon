@@ -149,13 +149,10 @@ def build_dataset(data_prefix,
         descriptions.append(task_description)
         manip_datasets.append(task_i_dataset)
         break
-    if task_embedding_format == "lang":
-        task_embs = descriptions
-    else:
-        task_embs = get_task_embs(task_embedding_format, descriptions)
+    task_embs = get_task_embs(task_embedding_format, descriptions)
     benchmark.set_task_embs(task_embs)
     datasets = [
-        SequenceVLDataset(ds, emb, i) for i,(ds, emb) in enumerate(zip(manip_datasets, task_embs))
+        SequenceVLDataset(ds, task_id=i, **emb) for i, (ds, emb) in enumerate(zip(manip_datasets, task_embs))
     ]
     n_demos = [data.n_demos for data in datasets]
     n_sequences = [data.total_num_sequences for data in datasets]
@@ -241,6 +238,7 @@ def get_task_embs(task_embedding_format, descriptions):
         task_embs = model(tokens["input_ids"], tokens["attention_mask"])[
             "pooler_output"
         ].detach()
+        key = 'task_emb'
     elif task_embedding_format == "gpt2":
         tz = AutoTokenizer.from_pretrained("gpt2")
         tz.pad_token = tz.eos_token
@@ -254,6 +252,7 @@ def get_task_embs(task_embedding_format, descriptions):
             return_tensors="pt",  # ask the function to return PyTorch tensors
         )
         task_embs = model(**tokens)["last_hidden_state"].detach()[:, -1]
+        key = 'task_emb'
     elif task_embedding_format == "clip":
         tz = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
         model = AutoModel.from_pretrained("openai/clip-vit-base-patch32")
@@ -266,6 +265,7 @@ def get_task_embs(task_embedding_format, descriptions):
             return_tensors="pt",  # ask the function to return PyTorch tensors
         )
         task_embs = model.get_text_features(**tokens).detach()
+        key = 'task_emb'
     elif task_embedding_format == "roberta":
         tz = AutoTokenizer.from_pretrained("roberta-base")
         tz.pad_token = tz.eos_token
@@ -279,4 +279,10 @@ def get_task_embs(task_embedding_format, descriptions):
             return_tensors="pt",  # ask the function to return PyTorch tensors
         )
         task_embs = model(**tokens)["pooler_output"].detach()
-    return task_embs
+        key = 'task_emb'
+    elif task_embedding_format == "lang":
+        task_embs = descriptions
+        key = 'lang_inst'
+    else:
+        raise ValueError(f"Unknown task embedding format: {task_embedding_format}")
+    return [{key: task_emb for task_emb in task_embs}]
