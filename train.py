@@ -143,6 +143,7 @@ def main(cfg):
             profiler.start()
             
         for idx, data in enumerate(tqdm(train_dataloader, disable=not train_cfg.use_tqdm)):
+            breakpoint()
             data = utils.map_tensor_to_device(data, device)
             
             for optimizer in optimizers:

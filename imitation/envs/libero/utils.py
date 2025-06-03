@@ -15,7 +15,7 @@ from libero.libero.benchmark import get_benchmark
 import imitation.utils.file_utils as FileUtils
 import imitation.utils.obs_utils as ObsUtils
 from imitation.utils.dataset import SequenceDataset
-
+from imitation.utils.sequence_vl_dataset import SequenceVLDataset
 
 BOUNDARIES_TIGHT = {
     'KITCHEN': (
@@ -148,7 +148,11 @@ def build_dataset(data_prefix,
         task_description = benchmark.get_task(i).language
         descriptions.append(task_description)
         manip_datasets.append(task_i_dataset)
-    task_embs = get_task_embs(task_embedding_format, descriptions)
+        break
+    if task_embedding_format == "lang":
+        task_embs = descriptions
+    else:
+        task_embs = get_task_embs(task_embedding_format, descriptions)
     benchmark.set_task_embs(task_embs)
     datasets = [
         SequenceVLDataset(ds, emb, i) for i,(ds, emb) in enumerate(zip(manip_datasets, task_embs))
@@ -214,22 +218,6 @@ def get_dataset(
     )
     return dataset
 
-class SequenceVLDataset(Dataset):
-    def __init__(self, sequence_dataset, task_emb, task_id):
-        self.sequence_dataset = sequence_dataset
-        self.task_emb = task_emb
-        self.task_id = task_id
-        self.n_demos = self.sequence_dataset.n_demos
-        self.total_num_sequences = self.sequence_dataset.total_num_sequences
-
-    def __len__(self):
-        return len(self.sequence_dataset)
-
-    def __getitem__(self, idx):
-        return_dict = self.sequence_dataset.__getitem__(idx)
-        return_dict["task_emb"] = self.task_emb
-        return_dict["task_id"] = self.task_id
-        return return_dict
 
 def get_task_embs(task_embedding_format, descriptions):
     logging.set_verbosity_error()
