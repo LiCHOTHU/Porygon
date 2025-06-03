@@ -64,7 +64,7 @@ class CustomBenchmark(Benchmark):
 
     def get_task_init_states(self, i):
         init_states_path = self.get_task_init_states_path(i)
-        init_states = torch.load(init_states_path)
+        init_states = torch.load(init_states_path, weights_only=False)
         return init_states
 
 

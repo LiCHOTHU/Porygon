@@ -23,6 +23,7 @@ for task_name in ${task_names[@]}; do
             algo=diffusion_policy \
             algo/encoder=rgb \
             algo.chunk_size=16 \
+            algo.policy.temporal_agg=false \
             training.save_interval=10 \
             train_dataloader.num_workers=4 \
             rollout.interval=25 \
@@ -40,6 +41,7 @@ for task_name in ${task_names[@]}; do
             algo=diffusion_policy \
             algo/encoder=rgbd \
             algo.chunk_size=16 \
+            algo.policy.temporal_agg=false \
             training.save_interval=10 \
             train_dataloader.num_workers=4 \
             rollout.interval=25 \
@@ -57,6 +59,7 @@ for task_name in ${task_names[@]}; do
             algo=diffusion_policy \
             algo/encoder=dp3 \
             algo.chunk_size=16 \
+            algo.policy.temporal_agg=false \
             training.save_interval=10 \
             train_dataloader.num_workers=4 \
             rollout.interval=25 \
@@ -74,6 +77,7 @@ for task_name in ${task_names[@]}; do
             algo=diffusion_policy \
             algo/encoder=adapt3r  \
             algo.chunk_size=16 \
+            algo.policy.temporal_agg=false \
             algo.encoder.finetune=true \
             training.save_interval=10 \
             train_dataloader.num_workers=4 \

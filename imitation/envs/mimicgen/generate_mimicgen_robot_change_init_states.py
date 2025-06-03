@@ -55,7 +55,7 @@ def main(cfg):
     
     env = env_factory()
     env_changed = env_factory_changed()
-    old_init_states = torch.load(fpath)
+    old_init_states = torch.load(fpath, weights_only=False)
     new_init_states = []
 
     old_init_state = old_init_states[0]

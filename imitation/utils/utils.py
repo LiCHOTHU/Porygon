@@ -187,7 +187,7 @@ def save_state(state_dict, path):
     torch.save(save_dict, path)
 
 def load_state(path):
-    return torch.load(path)
+    return torch.load(path, weights_only=False)
 
 def torch_save_model(model, optimizer, scheduler, model_path, cfg=None):
     torch.save(

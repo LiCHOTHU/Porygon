@@ -66,7 +66,7 @@ class MimicGenRunner():
                 # return [None] * self.rollouts_per_env
                 fpath = os.path.join(fpath, 'init_states', f'{env_name}_{self.robot}.init')
             try:
-                return torch.load(fpath)
+                return torch.load(fpath, weights_only=False)
             except:
                 print(f"No init states found for {env_name}")
                 return [None] * self.rollouts_per_env
