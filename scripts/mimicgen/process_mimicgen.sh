@@ -9,9 +9,14 @@ SCRIPT_PATH="${BASE_DIR}/scripts/process_mimicgen.py"
 mkdir -p ${OUTPUT_DIR}
 
 file_names=(
-    "coffee_d1.hdf5" 
-    "square_d1.hdf5" 
-    "threading_d1.hdf5"
+    # "coffee_d1.hdf5" 
+    # "square_d1.hdf5" 
+    # "threading_d1.hdf5"
+    "stack_d1.hdf5"
+    "stack_three_d0.hdf5"
+    # "stack_three_d1.hdf5"
+    # "three_piece_assembly_d0.hdf5"
+    # "three_piece_assembly_d1.hdf5"
 )
 
 # Process each HDF5 file

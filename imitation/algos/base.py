@@ -31,6 +31,7 @@ class Policy(nn.Module, ABC):
         shape_meta,
         abs_action,
         device,
+        eecf=False,
         normalizer: Normalizer = None,
     ):
         super().__init__()
@@ -57,6 +58,7 @@ class Policy(nn.Module, ABC):
             normalizer = Normalizer(mode="identity")
         self.normalizer = normalizer
         self.abs_action = abs_action
+        self.eecf = eecf
         # self.action_key = 'actions'
         self.device = device
 
@@ -144,6 +146,17 @@ class Policy(nn.Module, ABC):
         data = self.normalizer.normalize(data, keys=norm_keys)
 
         return data
+    
+    def extract_actions(self, data):
+        actions = data["abs_actions"] if self.abs_action else data["actions"]
+        if self.eecf:
+            assert 'hand_mat_inv' in data['obs'], "EECF requires hand_mat_inv in obs"
+            # breakpoint()
+            rot_mat_inv = data["obs"]["hand_mat_inv"][..., :3, :3]
+            actions_pos, actions_rest = torch.split(actions, [3, actions.shape[-1] - 3], dim=-1)
+            actions_pos = torch.einsum("...ij,...j->...i", rot_mat_inv, actions_pos)
+            actions = torch.cat((actions_pos, actions_rest), dim=-1)
+        return actions
 
     def obs_encode(self, data, obs_key="obs"):
         return self.encoder(data, obs_key)
@@ -186,6 +199,19 @@ class Policy(nn.Module, ABC):
     @abstractmethod
     def sample_actions(self, obs):
         raise NotImplementedError("Implement in subclass")
+
+    # def compute_norm_stats(self, cfg):
+    #     if cfg.pace_copy:
+    #         pace_tmp_dir = os.getenv('TMPDIR')
+    #         copy_data_pace(cfg, pace_tmp_dir)
+    #         dataset = instantiate(cfg.task.dataset,
+    #                             data_prefix=os.path.join(pace_tmp_dir, 'data'))
+    #         dataset_stats = instantiate(cfg.task.dataset, 
+    #                                     data_prefix=os.path.join(pace_tmp_dir, 'data'),
+    #                                     stats_mode=True)
+    #     else:
+    #         dataset = instantiate(cfg.task.dataset)
+    #         dataset_stats = instantiate(cfg.task.dataset, stats_mode=True)
 
     # def normalize(self, data):
     #     if self.normalizer is None:

@@ -23,13 +23,6 @@ import torch
 # import pytorch3d.ops as ops3d
 
 
-def depth_im_to_meters(env, depth_im):
-    extent = env.base_env.sim.model.stat.extent
-    near = env.base_env.sim.model.vis.map.znear * extent
-    far = env.base_env.sim.model.vis.map.zfar * extent
-    depth_im_m = near / (1 - np.array(depth_im) * (1 - near / far)) 
-    return depth_im_m
-
 def extract_trajectory(
     env, 
     initial_state, 

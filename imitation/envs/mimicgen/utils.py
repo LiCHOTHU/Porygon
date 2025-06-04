@@ -25,27 +25,33 @@ from imitation.utils.dataset import SequenceDataset
 def task_name_to_task_files(task_name):
     return [f"{task_name}.hdf5"]
 
-def build_single_task_dataset(data_prefix,
-                              data_subfolder,
-                              task_name, 
-                              seq_len, 
-                              frame_stack,
-                              shape_meta,
-                              obs_seq_len=1, 
-                              extra_obs_modality=None,
-                              load_obs=True,
-                              load_image=True,
-                              load_depth=True,
-                              n_demos=None,
-                              dataset_keys=('actions',)
-                              ):
-    dataset_path = os.path.join(data_prefix, 'mimicgen', data_subfolder)
+def build_single_task_dataset(
+        data_prefix,
+        dataset_name,
+        data_subfolder,
+        task_name, 
+        seq_len, 
+        frame_stack,
+        shape_meta,
+        obs_seq_len=1, 
+        extra_obs_modality=None,
+        load_obs=True,
+        load_image=True,
+        load_depth=True,
+        n_demos=None,
+        dataset_keys=('actions',),
+        stats_mode=False,
+    ):
+    dataset_path = os.path.join(data_prefix, dataset_name, data_subfolder)
 
-    obs_modality = {
-        'rgb': list(shape_meta['observation']['rgb'].keys()) if load_image else [],
-        'depth': list(shape_meta['observation']['depth'].keys()) if load_depth else [],
-        'low_dim': list(shape_meta['observation']['lowdim'].keys())
-    }
+    if stats_mode:
+        obs_modality = {'rgb': [], 'depth': [], 'low_dim': list(shape_meta['observation']['lowdim'].keys())}
+    else:
+        obs_modality = {
+            'rgb': list(shape_meta['observation']['rgb'].keys()) if load_image else [],
+            'depth': list(shape_meta['observation']['depth'].keys()) if load_depth else [],
+            'low_dim': list(shape_meta['observation']['lowdim'].keys())
+        }
 
     if extra_obs_modality is not None:
         for key in extra_obs_modality:

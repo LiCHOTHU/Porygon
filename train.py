@@ -31,13 +31,12 @@ def main(cfg):
     model.train()
 
     # TODO: remove this for release. This is specific to PACE
-    if cfg.pace_copy:
-        pace_tmp_dir = os.getenv('TMPDIR')
-        copy_data_pace(cfg, pace_tmp_dir)
-        dataset = instantiate(cfg.task.dataset,
-                              data_prefix=os.path.join(pace_tmp_dir, 'data'))
-    else:
-        dataset = instantiate(cfg.task.dataset)
+    dataset = utils.make_dataset(cfg)
+    # actions = []
+    # for data in tqdm(dataset_stats):
+    #     actions.append(data['actions'])
+    # breakpoint()
+    # exit()
     model.preprocess_dataset(dataset, use_tqdm=train_cfg.use_tqdm)
     train_dataloader = instantiate(
         cfg.train_dataloader, 
@@ -100,10 +99,11 @@ def main(cfg):
     
     if norm_stats is None:
         logger.info("Computing normalization statistics")
-        norm_stats = utils.compute_norm_stats(dataset, 
-                                              normalize_action=cfg.normalize_action, 
-                                              normalize_obs=cfg.normalize_obs,
-                                              do_tqdm=train_cfg.use_tqdm)
+        # norm_stats = utils.compute_norm_stats(dataset, 
+        #                                       normalize_action=cfg.normalize_action, 
+        #                                       normalize_obs=cfg.normalize_obs,
+        #                                       do_tqdm=train_cfg.use_tqdm)
+        norm_stats = utils.compute_norm_stats(cfg)
     model.normalizer.fit(norm_stats)
 
     if cfg.rollout.enabled:

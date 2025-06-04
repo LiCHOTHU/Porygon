@@ -79,17 +79,23 @@ conda create -n imitation-dmg python=3.10 -y
 conda activate imitation-dmg
 pip install -e .
 ```
-and install the updated robosuite and dexmimicgen
+I've found it works best if you install robosuite, robosuite_models and dexmimicgen from source.
 ```bash
-pip instal robosuite==1.5.1
-pip install ../dexmimicgen
+cd ..
+git clone -b v1.5.1 https://github.com/ARISE-Initiative/robosuite.git
+pip instal robosuite
+git clone https://github.com/ARISE-Initiative/robosuite_models.git
+pip install robosuite_models
+pip install -e ../dexmimicgen
 ```
 Install robosuite_models
 ```bash
 cd ..
-git clone https://github.com/ARISE-Initiative/robosuite_models.git
-pip install robosuite_models
 cd imitation
+```
+Make sure you have the right version of mink
+```bash
+pip install mink==0.0.10
 ```
 
 ## Training

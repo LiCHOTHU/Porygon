@@ -54,7 +54,7 @@ class DiffusionPolicy(ChunkPolicy):
         data = self.preprocess_input(data, train_mode=True)
         cond = self.get_cond(data)
 
-        actions = data["abs_actions"] if self.abs_action else data["actions"]
+        actions = self.extract_actions(data)
 
         loss = self.networks.diffusion_model(cond, actions)
         

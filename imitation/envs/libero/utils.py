@@ -111,6 +111,7 @@ def build_dataset(data_prefix,
                   task_embedding_format="clip",
                   load_next_obs=False,
                   dataset_keys=('actions',),
+                  stats_mode=False,
                   ):
     benchmark = get_benchmark(benchmark_name)()
     n_tasks = benchmark.n_tasks
@@ -119,11 +120,14 @@ def build_dataset(data_prefix,
     
     manip_datasets = []
     descriptions = []
-    obs_modality = {
-        'rgb': list(shape_meta['observation']['rgb'].keys()) if load_image else [],
-        'depth': list(shape_meta['observation']['depth'].keys()) if load_depth else [],
-        'low_dim': list(shape_meta['observation']['lowdim'].keys())
-    }
+    if stats_mode:
+        obs_modality = {'rgb': [], 'depth': [], 'low_dim': list(shape_meta['observation']['lowdim'].keys())}
+    else:
+        obs_modality = {
+            'rgb': list(shape_meta['observation']['rgb'].keys()) if load_image else [],
+            'depth': list(shape_meta['observation']['depth'].keys()) if load_depth else [],
+            'low_dim': list(shape_meta['observation']['lowdim'].keys())
+        }
     if extra_obs_modality is not None:
         for key in extra_obs_modality:
             obs_modality[key] = obs_modality[key] + extra_obs_modality[key]

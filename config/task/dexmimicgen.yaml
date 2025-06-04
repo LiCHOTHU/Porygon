@@ -1,5 +1,5 @@
 suite_name: mimicgen
-task_name: square_d1
+task_name: two_arm_coffee
 benchmark_name: ${task.task_name}
 mode: all
 robot: Panda
@@ -11,7 +11,7 @@ demos_per_env: 1000
 img_height: 128
 img_width: 128
 horizon: 300
-data_subfolder: core_depth_abs
+data_subfolder: test
 
 shape_meta:
   action_dim: 7
@@ -21,7 +21,11 @@ shape_meta:
         - 3
         - ${task.img_height}
         - ${task.img_width}
-      robot0_eye_in_hand_image:
+      robot0_eye_in_left_hand_image:
+        - 3
+        - ${task.img_height}
+        - ${task.img_width}
+      robot0_eye_in_right_hand_image:
         - 3
         - ${task.img_height}
         - ${task.img_width}
@@ -30,14 +34,21 @@ shape_meta:
         - 1
         - ${task.img_height}
         - ${task.img_width}
-      robot0_eye_in_hand_depth:
+      robot0_eye_in_left_hand_depth:
+        - 1
+        - ${task.img_height}
+        - ${task.img_width}
+      robot0_eye_in_right_hand_depth:
         - 1
         - ${task.img_height}
         - ${task.img_width}
     lowdim: 
-      robot0_eef_pos: 3
-      robot0_eef_quat: 4
-      robot0_gripper_qpos: 2
+      robot0_right_eef_pos: 3
+      robot0_right_eef_quat: 4
+      robot0_right_gripper_qpos: 11
+      robot0_left_eef_pos: 3
+      robot0_left_eef_quat: 4
+      robot0_left_gripper_qpos: 11
   task:
     type: onehot
     n_tasks: ${task.n_tasks}
@@ -47,7 +58,7 @@ shape_meta:
 dataset:
   _target_: imitation.envs.mimicgen.utils.build_single_task_dataset
   data_prefix: ${data_prefix}
-  dataset_name: mimicgen
+  dataset_name: dexmimicgen
   data_subfolder: ${task.data_subfolder}
   task_name: ${task.task_name}
   seq_len: ${algo.dataset.seq_len}
@@ -61,12 +72,12 @@ dataset:
   dataset_keys: ${algo.dataset.dataset_keys}
   extra_obs_modality:
     low_dim: 
-      - hand_mat
-      - hand_mat_inv
       - agentview_extrinsic
-      - robot0_eye_in_hand_extrinsic
+      - robot0_eye_in_left_hand_extrinsic
+      - robot0_eye_in_right_hand_extrinsic
       - agentview_intrinsic
-      - robot0_eye_in_hand_intrinsic
+      - robot0_eye_in_left_hand_intrinsic
+      - robot0_eye_in_right_hand_intrinsic
 
 env_factory:
   _target_: imitation.envs.mimicgen.wrappers.MimicGenWrapper

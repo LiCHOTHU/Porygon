@@ -16,7 +16,6 @@ encoders=(
 )
 task_names=(
     square_d1 
-    coffee_d1 
     stack_d1
 )
 seeds=(0 1 2)
@@ -26,18 +25,19 @@ for encoder in ${encoders[@]}; do
         for seed in ${seeds[@]}; do
             echo uv run train.py \
                 --config-name=train.yaml \
-                exp_name=rand_sweep \
+                exp_name=sweep_no_wrist \
                 variant_name=${algo_name}_${task_name}_${encoder} \
-                task=mimicgen_rand \
+                task=mimicgen \
                 task.task_name=${task_name} \
+                ~task.shape_meta.observation.rgb.robot0_eye_in_hand_image \
+                ~task.shape_meta.observation.depth.robot0_eye_in_hand_depth \
                 algo=${algo_name} \
                 algo/encoder=${encoder} \
                 algo.chunk_size=16 \
                 algo.abs_action=false \
                 algo.policy.temporal_agg=false \
-                algo.encoder.finetune=true \
                 rollout.interval=25 \
-                training.n_epochs=501 \
+                training.n_epochs=251 \
                 pace_copy=true \
                 seed=${seed} \
                 $@
