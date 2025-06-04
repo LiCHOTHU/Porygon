@@ -12,6 +12,7 @@ import imitation.envs.utils as eu
 import imitation.utils.point_cloud_utils as pcu
 from imitation.algos.utils.position_encodings import NeRFSinusoidalPosEmb
 
+import clip
 from .clip import load_clip
 
 class OTTER3DEncoder(PointCloudBaseEncoder):
@@ -24,6 +25,7 @@ class OTTER3DEncoder(PointCloudBaseEncoder):
     Args:
         pointcloud_extractor_factory: Factory function to create point cloud extractor
         hidden_dim (int): Dimension of hidden features
+        clip_model (str): Name of CLIP model to use (default: 'ViT-B/16')
         do_pos (bool): Whether to include position encoding
         do_lang (bool): Whether to include language embeddings
         do_rgb (bool): Whether to include raw RGB values
@@ -37,6 +39,7 @@ class OTTER3DEncoder(PointCloudBaseEncoder):
         self,
         pointcloud_extractor_factory,
         hidden_dim: int,
+        clip_model: str = "ViT-B/16",
         do_pos: bool = True,
         do_lang: bool = True,
         do_rgb: bool = False,
@@ -48,6 +51,9 @@ class OTTER3DEncoder(PointCloudBaseEncoder):
     ) -> None:
         # Initialize parent class
         super().__init__(**kwargs)
+
+        # Store CLIP model name
+        self.clip_model_name = clip_model
 
         # Calculate point cloud input dimension
         pc_in = (
@@ -84,11 +90,15 @@ class OTTER3DEncoder(PointCloudBaseEncoder):
 
     def _init_clip(self) -> None:
         """Initialize CLIP model and hooks for feature extraction."""
-        self.clip_model, self.normalize = load_clip()
+        # Load CLIP model and preprocessing
+        self.clip_model, processor = clip.load(self.clip_model_name)
+        self.normalize = processor.transforms[-1]
         
-        # Freeze CLIP parameters
-        for p in self.clip_model.parameters():
-            p.requires_grad = False
+        # Freeze CLIP parameters and convert to float
+        self.clip_model.eval()
+        for param in self.clip_model.parameters():
+            param.requires_grad = False
+            param.data = param.data.float()  # default uses half
             
         # Setup activation hooks
         self.activation = {}
@@ -174,7 +184,7 @@ class OTTER3DEncoder(PointCloudBaseEncoder):
         pcd = einops.rearrange(pcd, "ncam b fs h w c -> (b fs ncam) c h w")
         
         # Extract CLIP features
-        patch_features, text_features = self._extract_clip_features(rgb, data["task_emb"])
+        patch_features, text_features = self._extract_clip_features(rgb, data["lang_inst"])
         
         # Get text-aware visual features
         text_aware_features = self.text_aware_extraction(patch_features, text_features)
@@ -250,3 +260,10 @@ class TextAwareVisualExtraction(nn.Module):
         attention = F.softmax(similarity / self.temperature.clamp(0, 100), dim=-1)
         
         return attention
+        
+        # add position embedding to image patch features 
+        pe_image_patch_features = image_patch_features + self.pos_emb
+        # Get text-aware visual features by combining patch features according to attention (with position embedding)
+        text_aware_features = torch.einsum('bik,bkj->bij', attention, pe_image_patch_features)
+        
+        return text_aware_features

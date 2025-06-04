@@ -169,22 +169,42 @@ class Policy(nn.Module, ABC):
 
     def get_action(self, obs, task_id, task_emb=None):
         self.eval()
-        for key, value in obs.items():
-            if key in self.shape_meta["rgb"]:
-                value = ObsUtils.process_frame(value, channel_dim=3)
-            obs[key] = torch.tensor(value)
-        batch = {}
-        batch["obs"] = obs
-        if task_emb is not None:
-            batch["task_emb"] = task_emb
-        else:
-            # TODO: repeat for parallel envs, can be done inside env runner
-            batch["task_id"] = torch.tensor([task_id], dtype=torch.long)
-        batch = map_tensor_to_device(batch, self.device)
+        # for key, value in obs.items():
+        #     if key in self.shape_meta["rgb"]:
+        #         value = ObsUtils.process_frame(value, channel_dim=3)
+        #     obs[key] = torch.tensor(value)
+        # batch = {}
+        # batch["obs"] = obs
+        # if task_emb is not None:
+        #     batch["task_emb"] = task_emb
+        # else:
+        #     # TODO: repeat for parallel envs, can be done inside env runner
+        #     batch["task_id"] = torch.tensor([task_id], dtype=torch.long)
+        # batch = map_tensor_to_device(batch, self.device)
+        batch = self._make_batch(obs, task_id, task_emb)
         with torch.no_grad():
             action = self.sample_actions(batch)
         action = self.normalizer.unnormalize({self.action_key: action})[self.action_key]
         return action
+    
+    def _make_batch(self, obs, task_id, task_emb):
+        for key, value in obs.items():
+            if key in self.shape_meta["observation"]["rgb"]:
+                value = ObsUtils.process_frame(value, channel_dim=3)
+            elif key in self.shape_meta["observation"]["lowdim"]:
+                value = TensorUtils.to_float(value)  # from double to float
+            elif "depth" in key:
+                value = ObsUtils.process_frame(value, channel_dim=1)
+            obs[key] = torch.tensor(value)
+        batch = {}
+        batch["obs"] = obs
+        if task_emb is not None:
+            batch.update(task_emb)
+        # else:
+        # TODO: repeat for parallel envs, can be done inside env runner
+        batch["task_id"] = torch.tensor([task_id], dtype=torch.long)
+        batch = map_tensor_to_device(batch, self.device)
+        return batch
 
     def postprocess_action(self, action):
         if self.abs_action:
@@ -319,25 +339,6 @@ class ChunkPolicy(Policy):
                 self.action_queue.extend(actions[: self.action_horizon])
         action = self.action_queue.popleft()
         return torch.tensor(action)
-
-    def _make_batch(self, obs, task_id, task_emb):
-        for key, value in obs.items():
-            if key in self.shape_meta["observation"]["rgb"]:
-                value = ObsUtils.process_frame(value, channel_dim=3)
-            elif key in self.shape_meta["observation"]["lowdim"]:
-                value = TensorUtils.to_float(value)  # from double to float
-            elif "depth" in key:
-                value = ObsUtils.process_frame(value, channel_dim=1)
-            obs[key] = torch.tensor(value)
-        batch = {}
-        batch["obs"] = obs
-        if task_emb is not None:
-            batch["task_emb"] = task_emb
-        # else:
-        # TODO: repeat for parallel envs, can be done inside env runner
-        batch["task_id"] = torch.tensor([task_id], dtype=torch.long)
-        batch = map_tensor_to_device(batch, self.device)
-        return batch
 
     @abstractmethod
     def sample_actions(self, obs):

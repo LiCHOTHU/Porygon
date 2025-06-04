@@ -146,6 +146,7 @@ def map_tensor(x, func):
         {
             torch.Tensor: func,
             type(None): lambda x: x,
+            str: lambda x: x,
         }
     )
 

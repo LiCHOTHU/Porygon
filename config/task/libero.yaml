@@ -17,7 +17,7 @@ distractor_objects: false
 robot: Panda
 cam_shift: false
 
-task_embedding_format: clip
+task_embedding_format: ${algo.encoder.task_embedding_format}
 img_height: 128
 img_width: 128
 horizon: 300
