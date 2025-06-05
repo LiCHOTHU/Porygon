@@ -65,11 +65,11 @@ def get_experiment_dir(cfg, evaluate=False, allow_overlap=False):
     return experiment_dir, experiment_name
 
 def make_dataset(cfg, stats_mode=False):
-    import imitation.utils.data_utils as data_utils
+    import imitation.dataset.utils as data_utils
     if cfg.pace_copy:
         pace_tmp_dir = os.getenv('TMPDIR')
         data_prefix = os.path.join(pace_tmp_dir, 'data')
-        data_utils.copy_data_pace(cfg, data_prefix)
+        data_utils.copy_data_pace(cfg, pace_tmp_dir)
         dataset = instantiate(cfg.task.dataset,
                               data_prefix=data_prefix,
                               stats_mode=stats_mode)
@@ -77,11 +77,11 @@ def make_dataset(cfg, stats_mode=False):
         dataset = instantiate(cfg.task.dataset, stats_mode=stats_mode)
     return dataset
 
-def compute_norm_stats(cfg):
+def compute_norm_stats(cfg, policy):
     hash_input = {
         'dataset': OmegaConf.to_container(cfg.task.dataset, resolve=True),
-        'eecf': cfg.algo.policy.eecf,
-        'abs_action': cfg.algo.policy.abs_action,
+        'eecf': cfg.algo.eecf,
+        'abs_action': cfg.algo.abs_action,
     }
     hash = hash_dict(hash_input)
     cache_dir = get_cache_dir()
@@ -90,11 +90,16 @@ def compute_norm_stats(cfg):
         return pickle.load(open(cache_file, 'rb'))
     
     dataset = make_dataset(cfg, stats_mode=True)
+    dataloader = torch.utils.data.DataLoader(
+        dataset, 
+        batch_size=256, 
+        shuffle=False, 
+        num_workers=0)
     data = []
-    for entry in tqdm(dataset):
-        entry_data = {}
-        
-        data.append(entry['actions'])
+    for entry in tqdm(dataloader):
+        entry = map_tensor_to_device(entry, 'cuda')
+        entry = policy.preprocess_actions(entry)
+        data.append(entry)
     breakpoint()
     exit()
     return data

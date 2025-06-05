@@ -11,8 +11,14 @@ import torch.nn as nn
 import imitation.utils.utils as utils
 from pyinstrument import Profiler
 from imitation.utils.logger import Logger
-from imitation.utils.data_utils import copy_data_pace
+from imitation.dataset.utils import copy_data_pace
 from pathlib import Path
+
+# Disable scientific notation for numpy and torch
+import numpy as np
+np.set_printoptions(suppress=True)
+torch.set_printoptions(sci_mode=False)
+
 
 OmegaConf.register_new_resolver("eval", eval, replace=True)
 os.environ["WANDB_INIT_TIMEOUT"] = "300"
@@ -103,7 +109,7 @@ def main(cfg):
         #                                       normalize_action=cfg.normalize_action, 
         #                                       normalize_obs=cfg.normalize_obs,
         #                                       do_tqdm=train_cfg.use_tqdm)
-        norm_stats = utils.compute_norm_stats(cfg)
+        norm_stats = utils.compute_norm_stats(cfg, model)
     model.normalizer.fit(norm_stats)
 
     if cfg.rollout.enabled:

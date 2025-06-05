@@ -14,8 +14,8 @@ from libero.libero.benchmark import get_benchmark
 
 import imitation.utils.file_utils as FileUtils
 import imitation.utils.obs_utils as ObsUtils
-from imitation.utils.dataset import SequenceDataset
-from imitation.utils.sequence_vl_dataset import SequenceVLDataset
+from imitation.dataset.sequence_dataset import SequenceDataset
+from imitation.dataset.sequence_vl_dataset import SequenceVLDataset
 
 BOUNDARIES_TIGHT = {
     'KITCHEN': (

@@ -4,6 +4,7 @@ benchmark_name: ${task.task_name}
 mode: all
 robot: Panda
 cam_shift: null
+bimanual: false
 
 # todo: not sure exactly how to handle this for train / eval split. will deal with later
 n_tasks: 1
@@ -58,7 +59,7 @@ dataset:
   load_image: ${algo.encoder.load_image}
   load_depth: ${algo.encoder.load_depth}
   n_demos: ${task.demos_per_env}
-  dataset_keys: ${algo.dataset.dataset_keys}
+  action_keys: ${eval:"['abs_actions'] if ${algo.abs_action} else ['actions']"}
   extra_obs_modality:
     low_dim: 
       - hand_mat

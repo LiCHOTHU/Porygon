@@ -23,6 +23,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         self,
         hdf5_path,
         obs_keys,
+        action_keys,
         dataset_keys,
         traj_transform=None,
         frame_stack=1,
@@ -51,6 +52,9 @@ class SequenceDataset(torch.utils.data.Dataset):
             obs_keys (tuple, list): keys to observation items (image, object, etc) to be fetched from the dataset
 
             dataset_keys (tuple, list): keys to dataset items (actions, rewards, etc) to be fetched from the dataset
+
+            action_keys (tuple, list): keys to action items to be fetched and concatenated. Can include nested keys like 'action_dict/pos'
+                which will be accessed as x['action_dict']['pos']. These will be concatenated along the last dimension.
 
             frame_stack (int): numbers of stacked frames to fetch. Defaults to 1 (single frame).
 
@@ -108,7 +112,8 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         # get all keys that needs to be fetched
         self.obs_keys = tuple(obs_keys)
-        self.dataset_keys = tuple(dataset_keys)
+        self.action_keys = tuple(action_keys)
+        self.dataset_keys = tuple(dataset_keys) + self.action_keys
 
         self.n_frame_stack = frame_stack
         assert self.n_frame_stack >= 1
@@ -154,7 +159,6 @@ class SequenceDataset(torch.utils.data.Dataset):
                 hdf5_file=self.hdf5_file,
                 obs_keys=self.obs_keys_in_memory,
                 dataset_keys=self.dataset_keys,
-                load_next_obs=self.load_next_obs
             )
 
             if self.hdf5_cache_mode == "all":
@@ -283,7 +287,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         """
         return self.total_num_sequences
 
-    def load_dataset_in_memory(self, demo_list, hdf5_file, obs_keys, dataset_keys, load_next_obs):
+    def load_dataset_in_memory(self, demo_list, hdf5_file, obs_keys, dataset_keys):
         """
         Loads the hdf5 dataset into memory, preserving the structure of the file. Note that this
         differs from `self.getitem_cache`, which, if active, actually caches the outputs of the
@@ -459,16 +463,19 @@ class SequenceDataset(torch.utils.data.Dataset):
             # if key is an observation, it may not be in memory
             if '/' in key:
                 key1, key2 = key.split('/')
-                assert(key1 in ['obs', 'next_obs'])
-                if key2 not in self.obs_keys_in_memory:
+                # assert(key1 in ['obs', 'next_obs'])
+                if key1 in ['obs', 'next_obs'] and key2 not in self.obs_keys_in_memory:
                     key_should_be_in_memory = False
 
         if key_should_be_in_memory:
             # read cache
             if '/' in key:
                 key1, key2 = key.split('/')
-                assert(key1 in ['obs', 'next_obs'])
-                ret = self.hdf5_cache[ep][key1][key2]
+                # assert(key1 in ['obs', 'next_obs'])
+                if key1 in ['obs', 'next_obs']:
+                    ret = self.hdf5_cache[ep][key1][key2]
+                else:
+                    ret = self.hdf5_cache[ep][key]
             else:
                 ret = self.hdf5_cache[ep][key]
         else:
@@ -694,6 +701,17 @@ class SequenceDataset(torch.utils.data.Dataset):
             num_frames_to_stack=0,  # don't frame stack for meta keys
             seq_length=seq_length,
         )
+
+        # Handle action keys if specified
+        if self.action_keys is not None:
+            action_components = []
+            for key in self.action_keys:
+                action_components.append(data.pop(key))
+            
+            if action_components:
+                # Concatenate all action components along the last dimension
+                data['actions'] = np.concatenate(action_components, axis=-1)
+
         if self.get_pad_mask:
             data["pad_mask"] = pad_mask
         return data

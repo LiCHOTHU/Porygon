@@ -4,10 +4,11 @@ benchmark_name: ${task.task_name}
 mode: all
 robot: Panda
 cam_shift: null
+bimanual: true
 
 # todo: not sure exactly how to handle this for train / eval split. will deal with later
 n_tasks: 1
-demos_per_env: 1000
+demos_per_env: 3
 img_height: 128
 img_width: 128
 horizon: 300
@@ -69,7 +70,13 @@ dataset:
   load_image: ${algo.encoder.load_image}
   load_depth: ${algo.encoder.load_depth}
   n_demos: ${task.demos_per_env}
-  dataset_keys: ${algo.dataset.dataset_keys}
+  action_keys: 
+    - action_dict/right_abs_pos
+    - action_dict/right_abs_rot_6d
+    - action_dict/right_gripper
+    - action_dict/left_abs_pos
+    - action_dict/left_abs_rot_6d
+    - action_dict/left_gripper
   extra_obs_modality:
     low_dim: 
       - agentview_extrinsic
