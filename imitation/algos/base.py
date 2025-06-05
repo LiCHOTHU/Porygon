@@ -148,9 +148,8 @@ class Policy(nn.Module, ABC):
                     action_mat = pcu.pos_rot_mat_to_mat(actions_pos, action_rot_mat)
                     hand_mat_inv = data['obs']['hand_mat_inv'][:, -1] # Take last hand mat along frame stack dimension
                     action_mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat_inv, action_mat)
-                    breakpoint()
-                    action_pos, action_rot_6d = pcu.matrix_to_pos_6d(action_mat_eecf)
-                    actions = torch.cat((actions_pos, actions_rot, actions_rest), dim=-1)
+                    actions_pos, actions_rot_6d = pcu.matrix_to_pos_6d(action_mat_eecf)
+                    actions = torch.cat((actions_pos, actions_rot_6d, actions_rest), dim=-1)
                 else:
                     actions_pos, actions_rest = torch.split(actions, [3, actions.shape[-1] - 3], dim=-1)
                     actions_pos = torch.einsum("...ij,...j->...i", data["obs"]["hand_mat_inv"][..., :3, :3], actions_pos)

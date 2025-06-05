@@ -95,13 +95,32 @@ def compute_norm_stats(cfg, policy):
         batch_size=256, 
         shuffle=False, 
         num_workers=0)
-    data = []
+    lowdim_keys = cfg.task.shape_meta.observation.lowdim.keys()
+    data = {
+        'actions': []
+    }
+    data.update({key: [] for key in lowdim_keys})
     for entry in tqdm(dataloader):
         entry = map_tensor_to_device(entry, 'cuda')
         entry = policy.preprocess_actions(entry)
-        data.append(entry)
+        data['actions'].append(entry['actions'])
+        for key in lowdim_keys:
+            data[key].append(entry['obs'][key])
+        
+    for key in data:
+        data[key] = torch.cat(data[key], dim=0)
+    
+    stats = {}
+    for key in data:
+        stats[key] = {
+            'mean': data[key].mean(dim=0).cpu().numpy(),
+            'std': data[key].std(dim=0).cpu().numpy(),
+            'max': data[key].max(dim=0)[0].cpu().numpy(),
+            'min': data[key].min(dim=0)[0].cpu().numpy(),
+            'p1': torch.quantile(data[key], 0.01, dim=0).cpu().numpy(),
+            'p99': torch.quantile(data[key], 0.99, dim=0).cpu().numpy()
+        }
     breakpoint()
-    exit()
     return data
 
 # def compute_norm_stats_old(

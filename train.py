@@ -105,7 +105,7 @@ def main(cfg):
     
     if norm_stats is None:
         logger.info("Computing normalization statistics")
-        # norm_stats = utils.compute_norm_stats(dataset, 
+        # norm_stats = utils.compute_norm_stats_old(dataset, 
         #                                       normalize_action=cfg.normalize_action, 
         #                                       normalize_obs=cfg.normalize_obs,
         #                                       do_tqdm=train_cfg.use_tqdm)

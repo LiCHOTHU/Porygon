@@ -70,7 +70,7 @@ def build_single_task_dataset(
             dataset_keys=(),
             action_keys=action_keys,
         )
-        dataset = SequenceVLDataset(task_dataset, 0)  # TODO: task_id is always set to 0
+        dataset = SequenceVLDataset(task_dataset, task_id=0)  # TODO: task_id is always set to 0
         task_datasets.append(dataset)
         total_demos += dataset.n_demos
         total_sequences += dataset.total_num_sequences

@@ -344,7 +344,6 @@ class MimicGenWrapper(gymnasium.Env):
         hand_pos = eef_data.xpos
         hand_quat = eef_data.xquat
         hand_rot_mat = quat2mat(hand_quat)
-        hand_rot_mat = hand_rot_mat @ np.array(((0, 0, 1), (0, 1, 0), (1, 0, 0)))
         hand_mat = posRotMat2Mat(hand_pos, hand_rot_mat)
         hand_mat_inv = np.linalg.inv(hand_mat)
 

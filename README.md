@@ -31,6 +31,16 @@ uv pip install -e .
 uv pip install -e ".[dev]"
 ```
 
+If you want to run point cloud stuff you need to also install DGL
+```bash
+uv pip install  dgl -f https://data.dgl.ai/wheels/torch-2.4/cu124/repo.html
+```
+
+You'll probably need CLIP for something
+```bash
+uv pip install git+https://github.com/openai/CLIP.git
+```
+
 ### 5. (optional) Install LIBERO
 First download it
 ```bash
@@ -40,7 +50,7 @@ cd imitation
 ```
 Next, since LIBERO is old we need to manually add the pyproject.toml
 ```bash
-cp imitation/env/libero/pyproject.toml ../LIBERO/
+cp imitation/envs/libero/pyproject.toml ../LIBERO/
 ```
 Finally, install it
 ```bash
@@ -56,7 +66,7 @@ cd imitation
 ```
 Next, since MimicGen is old we need to manually add the pyproject.toml
 ```bash
-cp imitation/env/mimicgen/pyproject.toml ../mimicgen/
+cp imitation/envs/mimicgen/pyproject.toml ../mimicgen/
 ```
 Finally, install it
 ```bash
