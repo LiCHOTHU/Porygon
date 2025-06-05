@@ -115,13 +115,13 @@ class Policy(nn.Module, ABC):
                     hand_pos = data[f"obs"][f"robot0_{hand}_eef_pos"]
                     hand_quat = data[f"obs"][f"robot0_{hand}_eef_quat"]
                     hand_rot_mat = p3d.quaternion_to_matrix(hand_quat) 
-                    correction_mat = torch.tensor(
-                        ((0, 0, 1), (0, 1, 0), (1, 0, 0)), 
-                        device=hand_rot_mat.device, 
-                        dtype=hand_rot_mat.dtype)
+                    # correction_mat = torch.tensor(
+                    #     ((0, 0, 1), (0, 1, 0), (1, 0, 0)), 
+                    #     device=hand_rot_mat.device, 
+                    #     dtype=hand_rot_mat.dtype)
                     # correction_mat = torch.tensor(((0, 0, 1), (0, 1, 0), (1, 0, 0)), device=hand_rot_mat.device, dtype=hand_rot_mat.dtype)
-                    breakpoint()
-                    hand_rot_mat = hand_rot_mat @ correction_mat
+                    # breakpoint()
+                    # hand_rot_mat = hand_rot_mat @ correction_mat
                     hand_mat = pcu.pos_rot_mat_to_mat(hand_pos, hand_rot_mat)[:, -1] # Take last hand mat along frame stack dimension
                     hand_mat_inv = torch.linalg.inv(hand_mat)
                     actions_hand = actions_per_hand[i]

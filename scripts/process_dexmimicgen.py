@@ -6,18 +6,23 @@ import argparse
 import numpy as np
 from copy import deepcopy
 from tqdm import tqdm
+import torch
 
 import robomimic.utils.tensor_utils as TensorUtils
 import robosuite
 import robosuite.utils.camera_utils as CameraUtils
 from termcolor import colored
 from scipy.spatial.transform import Rotation
+import robosuite.utils.transform_utils as T
 
 import sys
 from imitation.utils.geometry import posRotMat2Mat, quat2mat
 
 # IMPORTANT: you need to import the package to register the environments
 import dexmimicgen
+
+np.set_printoptions(suppress=True)
+torch.set_printoptions(sci_mode=False)
 
 
 def get_env_metadata_from_dataset(dataset_path, ds_format="robomimic"):
@@ -99,6 +104,34 @@ def reset_to(env, state):
     return None
 
 
+# def get_camera_extrinsic_matrix(sim, camera_name):
+#     """
+#     Returns a 4x4 homogenous matrix corresponding to the camera pose in the
+#     world frame. MuJoCo has a weird convention for how it sets up the
+#     camera body axis, so we also apply a correction so that the x and y
+#     axis are along the camera view and the z axis points along the
+#     viewpoint.
+#     Normal camera convention: https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
+
+#     Args:
+#         sim (MjSim): simulator instance
+#         camera_name (str): name of camera
+#     Return:
+#         R (np.array): 4x4 camera extrinsic matrix
+#     """
+#     cam_id = sim.model.camera_name2id(camera_name)
+#     camera_pos = sim.data.cam_xpos[cam_id]
+#     camera_rot = sim.data.cam_xmat[cam_id].reshape(3, 3)
+#     R = T.make_pose(camera_pos, camera_rot)
+
+#     # IMPORTANT! This is a correction so that the camera axis is set up along the viewpoint correctly.
+#     camera_axis_correction = np.array(
+#         [[1.0, 0.0, 0.0, 0.0], [0.0, -1.0, 0.0, 0.0], [0.0, 0.0, -1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
+#     )
+#     R = R @ camera_axis_correction
+#     return R
+
+
 def extract_trajectory(
     env, 
     initial_state, 
@@ -174,7 +207,7 @@ def extract_trajectory(
 
     for t in range(1, traj_len + 1):
         # get next observation
-        if t == traj_len:
+        if t == traj_len or True:
             # play final action to get next observation for last timestep
             next_obs, _, _, _ = env.step(actions[t - 1])
         else:
@@ -186,31 +219,32 @@ def extract_trajectory(
 
         # Process camera observations if requested
         for cam_name in camera_names:
-            if cam_name + "_depth" in obs:
-                depth_f32 = obs[cam_name + "_depth"]
-                depth_uint16 = (depth_f32 * 1000).astype(np.uint16)
-                obs[cam_name + "_depth"] = depth_uint16
+            obs[cam_name + "_image"] = obs[cam_name + "_image"][::-1]
+
+            depth_f32 = obs[cam_name + "_depth"]
+            depth_f32 = CameraUtils.get_real_depth_map(env.sim, depth_f32)
+            depth_uint16 = (depth_f32 * 1000).astype(np.uint16)[::-1]
+            obs[cam_name + "_depth"] = depth_uint16
 
             # Try to get camera matrices if available
-            try:
-                R = CameraUtils.get_camera_extrinsic_matrix(
-                    env.sim,
-                    camera_name=cam_name
-                )
-                obs[cam_name + "_extrinsic"] = R.astype(np.float32)
-                
-                K = CameraUtils.get_camera_intrinsic_matrix(
-                    env.sim, 
-                    camera_name=cam_name, 
-                    camera_height=camera_height, 
-                    camera_width=camera_width
-                )
-                obs[cam_name + "_intrinsic"] = K.astype(np.float32)
-            except:
-                # If camera matrix extraction fails, continue without them
-                pass
+            R = CameraUtils.get_camera_extrinsic_matrix(
+                env.sim,
+                camera_name=cam_name
+            )
+            obs[cam_name + "_extrinsic"] = R.astype(np.float32)
+            
+            K = CameraUtils.get_camera_intrinsic_matrix(
+                env.sim, 
+                camera_name=cam_name, 
+                camera_height=camera_height, 
+                camera_width=camera_width
+            )
+            obs[cam_name + "_intrinsic"] = K.astype(np.float32)
 
+        # breakpoint()
         # Try to extract hand pose information
+        # bodies = [env.sim.model.body_id2name(i) for i in range(env.sim.model.nbody)]
+        # breakpoint()
         # try:
         #     if hasattr(env.sim.data, 'body') and 'gripper0_eef' in [env.sim.model.body_id2name(i) for i in range(env.sim.model.nbody)]:
         #         eef_data = env.sim.data.body('gripper0_eef')
@@ -295,6 +329,7 @@ def dataset_states_to_obs(args):
     env_kwargs["camera_names"] = args.camera_names
     env_kwargs["camera_heights"] = args.camera_height
     env_kwargs["camera_widths"] = args.camera_width
+    env_kwargs["camera_depths"] = args.depth
 
     if args.verbose:
         print(
