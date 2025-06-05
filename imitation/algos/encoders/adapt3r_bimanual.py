@@ -10,6 +10,7 @@ from torchvision.ops import FeaturePyramidNetwork
 from imitation.algos.utils.misc import weight_init
 from imitation.algos.encoders.rgb_modules import ResnetEncoder
 from imitation.algos.encoders.point_cloud_base import PointCloudBaseEncoder
+from imitation.algos.encoders.adapt3r import Adapt3REncoder
 import imitation.envs.utils as eu
 import imitation.utils.point_cloud_utils as pcu
 
@@ -18,126 +19,14 @@ from imitation.algos.utils.position_encodings import NeRFSinusoidalPosEmb
 from .resnet import load_resnet18, load_resnet50
 
 
-class Adapt3REncoder(PointCloudBaseEncoder):
+class BimanualAdapt3REncoder(Adapt3REncoder):
     """Adapt3R Encoder for processing point clouds with RGB images and language embeddings.
     
     This encoder combines point cloud data with RGB images and optional language embeddings
     to create a rich representation of the scene. It supports multiple camera views
-    
-    Args:
-        backbone_type (str): Type of backbone to use ('resnet50', 'resnet18', 'fusion', or 'clip')
-        pointcloud_extractor_factory: Factory function to create point cloud extractor
-        hidden_dim (int): Dimension of hidden features
-        do_image (bool): Whether to process RGB images
-        do_pos (bool): Whether to include position encoding
-        do_lang (bool): Whether to include language embeddings
-        do_rgb (bool): Whether to include raw RGB values
-        hand_frame (bool): Whether to transform points to hand frame
-        do_rot_aug (bool): Whether to apply rotation augmentation
-        finetune (bool): Whether to fine-tune the backbone
-        xyz_proj_type (str): Type of position encoding ('nerf' or 'none')
     """
     
-    def __init__(
-        self,
-        backbone_type: str,
-        pointcloud_extractor_factory,
-        hidden_dim: int,
-        do_image: bool = True,
-        do_pos: bool = True,
-        do_lang: bool = True,
-        do_rgb: bool = False,
-        hand_frame: bool = True,
-        do_rot_aug: bool = False,
-        finetune: bool = False,
-        xyz_proj_type: str = "nerf",
-        **kwargs,
-    ) -> None:
-        # Initialize parent class
-        super().__init__(**kwargs)
 
-        # Calculate point cloud input dimension
-        pc_in = (
-            (do_image + do_lang) * hidden_dim
-            + do_pos * (3 if xyz_proj_type == "none" else hidden_dim)
-            + (3 if do_rgb else 0)
-        )
-        
-        # Initialize pointcloud extractor
-        self._init_pointcloud_extractor(pointcloud_extractor_factory, pc_in)
-        
-        # Set additional flags not in parent class
-        self.hand_frame = hand_frame
-        self.do_rot_aug = do_rot_aug
-        self.do_image = do_image
-        self.do_pos = do_pos
-        self.do_lang = do_lang
-        self.do_rgb = do_rgb
-        self.n_out_perception = 1
-        self.d_out_perception = self.pointcloud_extractor.out_channels
-
-        # Setup backbone based on type
-        self._init_backbone(backbone_type, finetune)
-
-        # Initialize feature pyramid network
-        self._init_feature_pyramid(hidden_dim)
-
-        # Setup position encoding
-        self._init_position_encoding(xyz_proj_type, hidden_dim)
-
-        # Setup language projection
-        self._init_language_projection(hidden_dim)
-
-    def _init_pointcloud_extractor(self, factory, in_shape: int) -> None:
-        """Initialize the point cloud extractor."""
-        self.pointcloud_extractor = factory(in_shape=in_shape)
-        self.pointcloud_extractor.apply(weight_init)
-
-    def _init_backbone(self, backbone_type: str, finetune: bool) -> None:
-        """Initialize the backbone network."""
-        self.backbone_type = backbone_type
-        if backbone_type == "resnet50":
-            self.backbone, self.normalize = load_resnet50()
-        elif backbone_type == "resnet18":
-            self.backbone, self.normalize = load_resnet18()
-        elif backbone_type == "fusion":
-            self.backbone = ResnetEncoder(
-                input_shape=tuple(self.shape_meta["observation"]["rgb"][next(iter(self.shape_meta["observation"]["rgb"]))]),
-                language_fusion="film",
-                language_dim=self.lang_embed_dim,
-                do_projection=False,
-                return_all_feats=True,
-            )
-            self.normalize = nn.Identity()
-        elif backbone_type == "clip":
-            self.backbone, self.normalize = load_clip()
-        else:
-            raise NotImplementedError(f"backbone type {backbone_type} not supported")
-
-        self.finetune = finetune
-        if not finetune:
-            for p in self.backbone.parameters():
-                p.requires_grad = False
-
-    def _init_feature_pyramid(self, hidden_dim: int) -> None:
-        """Initialize the feature pyramid network."""
-        self.feature_pyramid = FeaturePyramidNetwork([256], hidden_dim)
-
-    def _init_position_encoding(self, xyz_proj_type: str, hidden_dim: int) -> None:
-        """Initialize position encoding."""
-        if xyz_proj_type == "nerf":
-            self.xyz_proj = NeRFSinusoidalPosEmb(hidden_dim)
-        elif xyz_proj_type == "none":
-            self.xyz_proj = nn.Identity()
-        else:
-            raise ValueError(f"Unsupported xyz_proj_type: {xyz_proj_type}")
-
-    def _init_language_projection(self, hidden_dim: int) -> None:
-        """Initialize language projection layer."""
-        if self.lang_embed_dim != hidden_dim:
-            self.lang_proj = nn.Linear(self.lang_embed_dim, hidden_dim)
-        else:
-            self.lang_proj = nn.Identity()
 
     def forward(self, data, obs_key):
         obs_data = data[obs_key]
@@ -150,7 +39,6 @@ class Adapt3REncoder(PointCloudBaseEncoder):
             rgb.append(obs_data[eu.camera_name_to_image_key(camera_name)])
             pcd.append(pcds[camera_name])
 
-
         assert len(rgb) == len(pcd)
 
         rgb = torch.stack(rgb).to(dtype=torch.float32) / 255
@@ -160,10 +48,41 @@ class Adapt3REncoder(PointCloudBaseEncoder):
 
         n_cam, B, fs, _, _, _ = rgb.shape
 
+        # Create RGB tinted versions of each camera view
+        # rgb_tinted = []
+        # for i in range(n_cam):
+        #     # Create a copy of the RGB data for this camera
+        #     rgb_cam = rgb[i].clone()
+            
+        #     # Apply color tint based on camera index
+        #     if i == 0:  # First camera - red tint
+        #         rgb_cam[:, :, 1:] *= 0.5  # Reduce green and blue channels
+        #     elif i == 1:  # Second camera - green tint
+        #         rgb_cam[:, :, 0] *= 0.5  # Reduce red channel
+        #         rgb_cam[:, :, 2] *= 0.5  # Reduce blue channel
+        #     else:  # Third camera - blue tint
+        #         rgb_cam[:, :, :2] *= 0.5  # Reduce red and green channels
+                
+        #     rgb_tinted.append(rgb_cam)
+            
+        # # Stack the tinted views back together
+        # rgb = torch.stack(rgb_tinted)
         pcd_vis = einops.rearrange(pcd, "ncam b fs h w c -> (b fs) (ncam h w) c")
         rgb_vis = einops.rearrange(rgb, "ncam b fs c h w -> (b fs) (ncam h w) c")
+        pos_right, rot_right, extra_right, pos_left, rot_left, extra_left = torch.split(
+            data["actions"], 
+            [3, 6, 6, 3, 6, 6], dim=-1)
+        extra_points = torch.cat([pos_right, pos_left], dim=1)
         for i in range(pcd_vis.shape[0]):
-            pcu.show_point_cloud(pcd_vis[i], rgb_vis[i])
+            print('left\n', pos_left[i])
+            print('right\n', pos_right[i])
+            pcu.show_point_cloud(pcd_vis[i], rgb_vis[i], extra_points=extra_points[i])
+
+        pcd_vis = einops.rearrange(pcd, "ncam b fs h w c -> (b fs) ncam (h w) c")
+        rgb_vis = einops.rearrange(rgb, "ncam b fs c h w -> (b fs) ncam (h w) c")
+        for i in range(pcd_vis.shape[0]):
+            for j in range(pcd_vis.shape[1]):
+                pcu.show_point_cloud(pcd_vis[i, j], rgb_vis[i, j])
 
         rgb = einops.rearrange(rgb, "ncam b fs c h w -> (b fs ncam) c h w")
         pcd = einops.rearrange(pcd, "ncam b fs h w c -> (b fs ncam) c h w")

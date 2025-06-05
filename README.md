@@ -93,7 +93,7 @@ I've found it works best if you install robosuite, robosuite_models and dexmimic
 ```bash
 cd ..
 git clone -b v1.5.1 https://github.com/ARISE-Initiative/robosuite.git
-pip instal robosuite
+pip install robosuite
 git clone https://github.com/ARISE-Initiative/robosuite_models.git
 pip install robosuite_models
 pip install -e ../dexmimicgen
