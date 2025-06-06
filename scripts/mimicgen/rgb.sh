@@ -6,5 +6,7 @@ uv run train.py \
     algo=diffusion_policy \
     algo/encoder=rgb  \
     algo.chunk_size=8 \
+    algo.temporal_agg=false \
+    algo.action_horizon=4 \
     $@
 

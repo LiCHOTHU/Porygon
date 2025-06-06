@@ -36,6 +36,9 @@ def main(cfg):
     model.to(device)
     model.train()
 
+    # logger.info("Computing normalization statistics")
+    norm_stats = utils.compute_norm_stats(cfg, model)
+
     # TODO: remove this for release. This is specific to PACE
     dataset = utils.make_dataset(cfg)
     # actions = []
@@ -102,15 +105,8 @@ def main(cfg):
         logger.info("Training already completed. Exiting.")
         exit(0)
 
-    
-    if norm_stats is None:
-        logger.info("Computing normalization statistics")
-        # norm_stats = utils.compute_norm_stats_old(dataset, 
-        #                                       normalize_action=cfg.normalize_action, 
-        #                                       normalize_obs=cfg.normalize_obs,
-        #                                       do_tqdm=train_cfg.use_tqdm)
-        norm_stats = utils.compute_norm_stats(cfg, model)
     model.normalizer.fit(norm_stats)
+    
 
     if cfg.rollout.enabled:
         env_runner = instantiate(cfg.task.env_runner)

@@ -99,7 +99,10 @@ class Policy(nn.Module, ABC):
         if train_mode and self.use_augmentation:
             data = self.aug(data)
 
-        action_norm_keys = ("abs_actions" if self.abs_action else "actions",)
+        if train_mode:
+            self.preprocess_actions(data)
+
+        action_norm_keys = ("actions",)
         norm_keys = action_norm_keys + tuple(self.shape_meta["observation"]["lowdim"])
         data = self.normalizer.normalize(data, keys=norm_keys)
 
@@ -157,6 +160,30 @@ class Policy(nn.Module, ABC):
             data["actions"] = actions
         return data
 
+    def postprocess_actions(self, data):
+        actions = data['actions']
+        if self.eecf:
+            if self.bimanual:
+                actions_per_hand = torch.split(actions, actions.shape[-1] // 2, dim=-1)
+                for i, hand in enumerate(["right", "left"]):
+                    actions_hand = actions_per_hand[i]
+                    actions_pos, actions_rest = torch.split(actions_hand, [3, actions_hand.shape[-1] - 3], dim=-1)
+            else:
+                if self.abs_action:
+                    actions_pos, actions_rot, actions_rest = torch.split(actions, [3, 6, actions.shape[-1] - 9], dim=-1)
+                    action_rot_mat = p3d.rotation_6d_to_matrix(actions_rot)
+                    action_mat_eecf = pcu.pos_rot_mat_to_mat(actions_pos, action_rot_mat)
+                    hand_mat = data['obs']['hand_mat'][:, -1] # Take last hand mat along frame stack dimension
+                    action_mat = torch.einsum('bij,bnjk->bnik', hand_mat, action_mat_eecf)
+                    actions_pos, actions_rot_6d = pcu.matrix_to_pos_6d(action_mat)
+                    actions = torch.cat((actions_pos, actions_rot_6d, actions_rest), dim=-1)
+                else:
+                    actions_pos, actions_rest = torch.split(actions, [3, actions.shape[-1] - 3], dim=-1)
+                    actions_pos = torch.einsum("...ij,...j->...i", data['obs']['hand_mat'][..., :3, :3], actions_pos)
+                    actions = torch.cat((actions_pos, actions_rest), dim=-1)
+            data["actions"] = actions
+        return data
+
     def obs_encode(self, data, obs_key="obs"):
         return self.encoder(data, obs_key)
 
@@ -205,7 +232,7 @@ class Policy(nn.Module, ABC):
         batch = map_tensor_to_device(batch, self.device)
         return batch
 
-    def postprocess_action(self, action):
+    def final_postprocess_actions(self, action):
         if self.abs_action:
             pos, rot_raw, gripper = torch.split(action, [3, action.shape[-1] - 4, 1], dim=-1)
             rot = self.rotation_transformer.inverse(rot_raw)
@@ -283,7 +310,7 @@ class ChunkPolicy(Policy):
         else:
             actions = self._get_action_no_agg(obs, task_id, task_emb)
         
-        actions = self.postprocess_action(actions)
+        actions = self.final_postprocess_actions(actions)
         return actions.to(torch.float32).cpu().numpy()
 
     def _get_action_agg(self, obs, task_id, task_emb):  # obs, task_id, task_emb=None):
@@ -295,8 +322,9 @@ class ChunkPolicy(Policy):
         batch = self._make_batch(obs, task_id, task_emb)
         with torch.no_grad():
             actions = self.sample_actions(batch)
-            action_key = "abs_actions" if self.abs_action else "actions"
-            actions = self.normalizer.unnormalize({action_key: actions})[action_key]
+            actions = self.normalizer.unnormalize({"actions": actions})["actions"]
+            batch['actions'] = actions
+            actions = self.postprocess_actions(batch)['actions']
 
         # Chop off the actions corresponding to the last timestep
         # and the oldest action in the history
@@ -331,9 +359,10 @@ class ChunkPolicy(Policy):
             batch = self._make_batch(obs, task_id, task_emb)
             with torch.no_grad():
                 actions = self.sample_actions(batch)
-                action_key = "abs_actions" if self.abs_action else "actions"
-                actions = self.normalizer.unnormalize({action_key: actions})[action_key]
-                # actions = actions.cpu().numpy()
+                actions = self.normalizer.unnormalize({"actions": actions})["actions"]
+                batch['actions'] = torch.tensor(actions, device=self.device)
+                actions = self.postprocess_actions(batch)['actions']
+                actions = actions.cpu().numpy()
                 actions = np.transpose(actions, (1, 0, 2))
                 self.action_queue.extend(actions[: self.action_horizon])
         action = self.action_queue.popleft()

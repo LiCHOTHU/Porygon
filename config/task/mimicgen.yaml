@@ -59,7 +59,7 @@ dataset:
   load_image: ${algo.encoder.load_image}
   load_depth: ${algo.encoder.load_depth}
   n_demos: ${task.demos_per_env}
-  action_keys: ${eval:"['abs_actions'] if ${algo.abs_action} else ['actions']"}
+  action_keys: ${eval:"'abs_actions' if ${algo.abs_action} else 'actions'"}
   extra_obs_modality:
     low_dim: 
       - hand_mat

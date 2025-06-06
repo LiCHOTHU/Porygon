@@ -120,8 +120,8 @@ def compute_norm_stats(cfg, policy):
             'p1': torch.quantile(data[key], 0.01, dim=0).cpu().numpy(),
             'p99': torch.quantile(data[key], 0.99, dim=0).cpu().numpy()
         }
-    breakpoint()
-    return data
+    pickle.dump(stats, open(cache_file, 'wb'))
+    return stats
 
 # def compute_norm_stats_old(
 #         dataset, 

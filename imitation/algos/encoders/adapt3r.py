@@ -160,10 +160,10 @@ class Adapt3REncoder(PointCloudBaseEncoder):
 
         n_cam, B, fs, _, _, _ = rgb.shape
 
-        pcd_vis = einops.rearrange(pcd, "ncam b fs h w c -> (b fs) (ncam h w) c")
-        rgb_vis = einops.rearrange(rgb, "ncam b fs c h w -> (b fs) (ncam h w) c")
-        for i in range(pcd_vis.shape[0]):
-            pcu.show_point_cloud(pcd_vis[i], rgb_vis[i])
+        # pcd_vis = einops.rearrange(pcd, "ncam b fs h w c -> (b fs) (ncam h w) c")
+        # rgb_vis = einops.rearrange(rgb, "ncam b fs c h w -> (b fs) (ncam h w) c")
+        # for i in range(pcd_vis.shape[0]):
+        #     pcu.show_point_cloud(pcd_vis[i], rgb_vis[i])
 
         rgb = einops.rearrange(rgb, "ncam b fs c h w -> (b fs ncam) c h w")
         pcd = einops.rearrange(pcd, "ncam b fs h w c -> (b fs ncam) c h w")
@@ -225,8 +225,8 @@ class Adapt3REncoder(PointCloudBaseEncoder):
         if self.hand_frame:
             pcd = pcu.batch_transform_point_cloud(pcd, data["obs"]["hand_mat_inv"])
 
-        for i in range(pcd.shape[0]):
-            pcu.show_point_cloud(pcd[i, 0], rgb[i, 0])
+        # for i in range(pcd.shape[0]):
+        #     pcu.show_point_cloud(pcd[i, 0], rgb[i, 0])
         
         pcd, rgb_features, rgb, mask = self._downsample_point_cloud(pcd=pcd, rgb_features=rgb_features, rgb=rgb, mask=mask)
 

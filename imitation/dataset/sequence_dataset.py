@@ -112,6 +112,8 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         # get all keys that needs to be fetched
         self.obs_keys = tuple(obs_keys)
+        if type(action_keys) == str:
+            action_keys = (action_keys,)
         self.action_keys = tuple(action_keys)
         self.dataset_keys = tuple(dataset_keys) + self.action_keys
 
