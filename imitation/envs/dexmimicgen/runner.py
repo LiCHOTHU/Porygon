@@ -63,7 +63,7 @@ class DexMimicGenRunner():
             else:
                 # return [None] * self.rollouts_per_env
                 fpath = os.path.join(os.path.dirname(fpath), 'utils', 'mg_init', f'{env_name}_{self.robot}.init')
-            return torch.load(fpath)
+            return torch.load(fpath, weights_only=False)
         else:
             return [None] * self.rollouts_per_env
 

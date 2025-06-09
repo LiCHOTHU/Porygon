@@ -101,6 +101,7 @@ def main(cfg):
                                      save_dir=save_dir,
                                      save_video_fn=save_video_fn,
                                      save_hdf5=cfg.save_hdf5,
+                                     save_progress=True,
                                      fault_tolerant=False)
     
     if train_cfg.do_profile:

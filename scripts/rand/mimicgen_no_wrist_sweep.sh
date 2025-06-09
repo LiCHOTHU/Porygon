@@ -36,6 +36,7 @@ for encoder in ${encoders[@]}; do
                 algo.chunk_size=16 \
                 algo.abs_action=false \
                 algo.policy.temporal_agg=false \
+                algo.encoder.finetune=true \
                 rollout.interval=25 \
                 training.n_epochs=501 \
                 pace_copy=true \

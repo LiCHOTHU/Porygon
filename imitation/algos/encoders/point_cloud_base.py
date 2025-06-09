@@ -167,7 +167,7 @@ class PointCloudBaseEncoder(BaseEncoder):
 
         if self.do_hand_crop:
             assert hand_mat_inv is not None
-            hand_mat_inv = einops.rearrange(hand_mat_inv, "b fs i j -> (b fs) i j")
+            hand_mat_inv = hand_mat_inv[:, -1] # Take last hand mat along frame stack dimension
             pcd_hand = pcu.batch_transform_point_cloud(pcd, hand_mat_inv)
 
             boundaries = einops.repeat(self.hand_frame_boundaries, 'n d -> (b fs) n d', b=B, fs=fs)

@@ -23,13 +23,6 @@ import torch
 # import pytorch3d.ops as ops3d
 
 
-def depth_im_to_meters(env, depth_im):
-    extent = env.base_env.sim.model.stat.extent
-    near = env.base_env.sim.model.vis.map.znear * extent
-    far = env.base_env.sim.model.vis.map.zfar * extent
-    depth_im_m = near / (1 - np.array(depth_im) * (1 - near / far)) 
-    return depth_im_m
-
 def extract_trajectory(
     env, 
     initial_state, 
@@ -129,7 +122,6 @@ def extract_trajectory(
         hand_pos = eef_data.xpos
         hand_quat = eef_data.xquat
         hand_rot_mat = quat2mat(hand_quat)
-        hand_rot_mat = hand_rot_mat @ np.array(((0, 0, 1), (0, 1, 0), (1, 0, 0)))
         hand_mat = posRotMat2Mat(hand_pos, hand_rot_mat)
         hand_mat_inv = np.linalg.inv(hand_mat)
         obs["hand_mat"] = hand_mat.astype(np.float32)
@@ -336,6 +328,11 @@ if __name__ == "__main__":
         action='store_true',
         help="(optional) randomize camera poses",
     )
+    parser.add_argument(
+        "--allow_overwrite",
+        action='store_true',
+        help="(optional) allow overwriting existing output file",
+    )
   
     args = parser.parse_args()
 
@@ -349,7 +346,7 @@ if __name__ == "__main__":
     args.dataset = input_path
     args.output_name = output_dir
 
-    if os.path.isfile(args.output_name):
+    if os.path.isfile(args.output_name) and not args.allow_overwrite:
         print(f"Output file {args.output_name} already exists. Skipping processing.")
         exit(0)
     

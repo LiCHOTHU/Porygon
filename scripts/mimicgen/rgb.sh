@@ -5,5 +5,7 @@ uv run train.py \
     task=mimicgen \
     algo=diffusion_policy \
     algo.chunk_size=8 \
+    algo.temporal_agg=false \
+    algo.action_horizon=4 \
     $@
 

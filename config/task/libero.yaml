@@ -16,6 +16,7 @@ demos_per_env: 50
 distractor_objects: false
 robot: Panda
 cam_shift: false
+bimanual: false
 
 task_embedding_format: ${algo.encoder.task_embedding_format}
 img_height: 128

@@ -12,6 +12,11 @@ file_names=(
     "coffee_d1.hdf5" 
     "square_d1.hdf5" 
     "threading_d1.hdf5"
+    "stack_d1.hdf5"
+    "stack_three_d0.hdf5"
+    "stack_three_d1.hdf5"
+    "three_piece_assembly_d0.hdf5"
+    "three_piece_assembly_d1.hdf5"
 )
 
 # Process each HDF5 file
@@ -23,5 +28,8 @@ done
 echo "All jobs submitted!" 
 
 
-#  python scripts/process_mimicgen.py --hdf5_path /storage/home/hcoda1/7/mghanem8/p-agarg35-0/codes/quest_v0/data/mimicgen/core_depth/coffee_d1.hdf5 --output_dir /storage/home/hcoda1/7/mghanem8/p-agarg35-0/codes/quest_v0/data/mimicgen/core_depth_abs/coffee_d1.hdf5 --depth
+#  python scripts/process_mimicgen.py \
+#     --hdf5_path /home/awilcox31/imitation/data/mimicgen/core/square_d1.hdf5 \
+#     --output_dir /home/awilcox31/imitation/data/mimicgen/test/square_d1.hdf5 \
+#     --depth --n 3 --allow_overwrite
 

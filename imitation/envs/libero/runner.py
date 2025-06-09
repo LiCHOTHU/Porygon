@@ -54,13 +54,14 @@ class LiberoRunner():
             do_tqdm=False, 
             save_video_fn=None, 
             save_dir=None, 
+            save_progress=False,
             env_names=None,
             fault_tolerant=False,
             save_hdf5=False,
         ):
         if env_names is None:
             env_names = self.env_names
-        if save_dir is not None and os.path.exists(os.path.join(save_dir, 'progress.json')):
+        if save_progress and os.path.exists(os.path.join(save_dir, 'progress.json')):
             progress_file = os.path.join(save_dir, 'progress.json')
             with open(progress_file, 'r') as f:
                 progress = json.load(f)
@@ -109,7 +110,7 @@ class LiberoRunner():
                 video_chw = video_hwc.transpose((0, 3, 1, 2))
                 videos[env_name] = wandb.Video(video_chw, fps=self.fps)
                 
-            if save_dir is not None:
+            if save_progress:
                 progress_file = os.path.join(save_dir, 'progress.json')
                 with open(progress_file, 'w') as f:
                     json.dump(progress, f)

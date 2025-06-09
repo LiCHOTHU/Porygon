@@ -15,6 +15,9 @@ from imitation.algos.encoders.base import BaseEncoder
 from imitation.algos.utils.normalizer import Normalizer
 from imitation.algos.utils.rotation_transformer import RotationTransformer
 from imitation.utils.utils import map_tensor_to_device
+from imitation.utils.geometry import posRotMat2Mat, quat2mat
+import imitation.utils.point_cloud_utils as pcu
+import imitation.utils.pytorch3d_transforms as p3d
 
 
 class Policy(nn.Module, ABC):
@@ -31,6 +34,8 @@ class Policy(nn.Module, ABC):
         shape_meta,
         abs_action,
         device,
+        eecf=False,
+        bimanual=False,
         normalizer: Normalizer = None,
     ):
         super().__init__()
@@ -57,6 +62,8 @@ class Policy(nn.Module, ABC):
             normalizer = Normalizer(mode="identity")
         self.normalizer = normalizer
         self.abs_action = abs_action
+        self.eecf = eecf
+        self.bimanual = bimanual
         # self.action_key = 'actions'
         self.device = device
 
@@ -89,60 +96,92 @@ class Policy(nn.Module, ABC):
         ]
 
     def preprocess_input(self, data, train_mode=True):
-        obs_data = data['obs']
-
-        # TODO: move division by 1000 and normalization to proper encoders
-        # for key in self.shape_meta["observation"]["depth"]:
-
-        # if self.build_pointcloud:
-        #     for depth_key in self.shape_meta["observation"]["depth"]:
-        #         camera_name = self._depth_key_to_camera_name(depth_key)
-        #         rgb_key = f"{camera_name}_rgb"
-        #         intrinsic_key = f"{camera_name}_intrinsic"
-        #         extrinsic_key = f"{camera_name}_extrinsic"
-                
-        #         if all(k in obs_data for k in [depth_key, intrinsic_key, extrinsic_key]):
-        #             depths = obs_data[depth_key].squeeze(2)
-        #             intrinsics = obs_data[intrinsic_key]
-        #             extrinsics = obs_data[extrinsic_key]
-                    
-        #             B, T, H, W = depths.shape
-        #             depths = depths.reshape(B, 1, H, W)
-        #             intrinsics = intrinsics.reshape(B, 1, 3, 3)
-        #             extrinsics = extrinsics.reshape(B, 1, 4, 4)
-                    
-        #             from imitation.utils.point_cloud_utils import lift_point_cloud_batch
-        #             pcd = lift_point_cloud_batch(
-        #                 depths,        # [B, 1, H, W]
-        #                 intrinsics,    # [B, 1, 3, 3]
-        #                 extrinsics,    # [B, 1, 4, 4]
-        #                 keepdims=True
-        #             )
-        #             pcd_key = self._image_key_to_pointcloud_key(rgb_key)
-        #             obs_data[pcd_key] = pcd
-
-        # for depth_key in self.shape_meta["observation"]["depth"]:
-            # obs_data[key] = obs_data[key].to(torch.float32) / 1000.0
-            # obs_data[depth_key] = torch.clamp(obs_data[depth_key], 0.1, 5.0)
-            # obs_data[depth_key] = (obs_data[depth_key] - 2.55) / 2.0 
-
         if train_mode and self.use_augmentation:
             data = self.aug(data)
 
-        # TODO: move to encoder
-        # for key in self.shape_meta["observation"]["rgb"]:
-        #     for obs_key in ("obs", "next_obs"):
-        #         if obs_key in data:
-        #             x = TensorUtils.to_float(data[obs_key][key])
-        #             x = x / 255.0
-        #             x = torch.clip(x, 0, 1)
-        #             data[obs_key][key] = x
-        
-        action_norm_keys = ("abs_actions" if self.abs_action else "actions",)
-        # norm_keys = tuple(self.shape_meta["observation"]["lowdim"])
+        if train_mode:
+            self.preprocess_actions(data)
+
+        action_norm_keys = ("actions",)
         norm_keys = action_norm_keys + tuple(self.shape_meta["observation"]["lowdim"])
         data = self.normalizer.normalize(data, keys=norm_keys)
 
+        return data
+    
+    def preprocess_actions(self, data):
+        actions = data["actions"]
+        if self.eecf:
+            if self.bimanual:
+                action_half_dim = data["actions"].shape[-1] // 2
+                actions_per_hand = torch.split(actions, action_half_dim, dim=-1)
+                for i, hand in enumerate(["right", "left"]):
+                    hand_pos = data[f"obs"][f"robot0_{hand}_eef_pos"]
+                    hand_quat = data[f"obs"][f"robot0_{hand}_eef_quat"]
+                    hand_rot_mat = p3d.quaternion_to_matrix(hand_quat) 
+                    # correction_mat = torch.tensor(
+                    #     ((0, 0, 1), (0, 1, 0), (1, 0, 0)), 
+                    #     device=hand_rot_mat.device, 
+                    #     dtype=hand_rot_mat.dtype)
+                    # correction_mat = torch.tensor(((0, 0, 1), (0, 1, 0), (1, 0, 0)), device=hand_rot_mat.device, dtype=hand_rot_mat.dtype)
+                    # breakpoint()
+                    # hand_rot_mat = hand_rot_mat @ correction_mat
+                    hand_mat = pcu.pos_rot_mat_to_mat(hand_pos, hand_rot_mat)[:, -1] # Take last hand mat along frame stack dimension
+                    hand_mat_inv = torch.linalg.inv(hand_mat)
+                    actions_hand = actions_per_hand[i]
+
+                    if self.abs_action:
+                        actions_pos, actions_rot, actions_rest = torch.split(actions_hand, [3, 6, actions_hand.shape[-1] - 9], dim=-1)
+                        action_rot_mat = p3d.rotation_6d_to_matrix(actions_rot)
+                        action_mat = pcu.pos_rot_mat_to_mat(actions_pos, action_rot_mat)
+                        action_mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat_inv, action_mat)
+                        breakpoint()
+                        action_pos, action_rot_6d = pcu.matrix_to_pos_6d(action_mat_eecf)
+                        actions_hand = torch.cat((action_pos, action_rot_6d, actions_rest), dim=-1)
+                    else:
+                        actions_pos, actions_rest = torch.split(actions_hand, [3, actions_hand.shape[-1] - 3], dim=-1)
+                        actions_pos = torch.einsum("...ij,...j->...i", hand_mat_inv, actions_pos)
+                        actions_hand = torch.cat((actions_pos, actions_rest), dim=-1)
+
+                actions = torch.cat(actions_per_hand, dim=-1)
+            else:
+                assert 'hand_mat_inv' in data['obs'], "EECF requires hand_mat_inv in obs"
+                if self.abs_action:
+                    actions_pos, actions_rot, actions_rest = torch.split(actions, [3, 6, actions.shape[-1] - 9], dim=-1)
+                    action_rot_mat = p3d.rotation_6d_to_matrix(actions_rot)
+                    action_mat = pcu.pos_rot_mat_to_mat(actions_pos, action_rot_mat)
+                    hand_mat_inv = data['obs']['hand_mat_inv'][:, -1] # Take last hand mat along frame stack dimension
+                    action_mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat_inv, action_mat)
+                    actions_pos, actions_rot_6d = pcu.matrix_to_pos_6d(action_mat_eecf)
+                    actions = torch.cat((actions_pos, actions_rot_6d, actions_rest), dim=-1)
+                else:
+                    actions_pos, actions_rest = torch.split(actions, [3, actions.shape[-1] - 3], dim=-1)
+                    actions_pos = torch.einsum("...ij,...j->...i", data["obs"]["hand_mat_inv"][..., :3, :3], actions_pos)
+                    actions = torch.cat((actions_pos, actions_rest), dim=-1)
+            data["actions"] = actions
+        return data
+
+    def postprocess_actions(self, data):
+        actions = data['actions']
+        if self.eecf:
+            if self.bimanual:
+                actions_per_hand = torch.split(actions, actions.shape[-1] // 2, dim=-1)
+                for i, hand in enumerate(["right", "left"]):
+                    actions_hand = actions_per_hand[i]
+                    actions_pos, actions_rest = torch.split(actions_hand, [3, actions_hand.shape[-1] - 3], dim=-1)
+            else:
+                if self.abs_action:
+                    actions_pos, actions_rot, actions_rest = torch.split(actions, [3, 6, actions.shape[-1] - 9], dim=-1)
+                    action_rot_mat = p3d.rotation_6d_to_matrix(actions_rot)
+                    action_mat_eecf = pcu.pos_rot_mat_to_mat(actions_pos, action_rot_mat)
+                    hand_mat = data['obs']['hand_mat'][:, -1] # Take last hand mat along frame stack dimension
+                    action_mat = torch.einsum('bij,bnjk->bnik', hand_mat, action_mat_eecf)
+                    actions_pos, actions_rot_6d = pcu.matrix_to_pos_6d(action_mat)
+                    actions = torch.cat((actions_pos, actions_rot_6d, actions_rest), dim=-1)
+                else:
+                    actions_pos, actions_rest = torch.split(actions, [3, actions.shape[-1] - 3], dim=-1)
+                    actions_pos = torch.einsum("...ij,...j->...i", data['obs']['hand_mat'][..., :3, :3], actions_pos)
+                    actions = torch.cat((actions_pos, actions_rest), dim=-1)
+            data["actions"] = actions
         return data
 
     def obs_encode(self, data, obs_key="obs"):
@@ -193,7 +232,7 @@ class Policy(nn.Module, ABC):
         batch = map_tensor_to_device(batch, self.device)
         return batch
 
-    def postprocess_action(self, action):
+    def final_postprocess_actions(self, action):
         if self.abs_action:
             pos, rot_raw, gripper = torch.split(action, [3, action.shape[-1] - 4, 1], dim=-1)
             rot = self.rotation_transformer.inverse(rot_raw)
@@ -206,6 +245,19 @@ class Policy(nn.Module, ABC):
     @abstractmethod
     def sample_actions(self, obs):
         raise NotImplementedError("Implement in subclass")
+
+    # def compute_norm_stats(self, cfg):
+    #     if cfg.pace_copy:
+    #         pace_tmp_dir = os.getenv('TMPDIR')
+    #         copy_data_pace(cfg, pace_tmp_dir)
+    #         dataset = instantiate(cfg.task.dataset,
+    #                             data_prefix=os.path.join(pace_tmp_dir, 'data'))
+    #         dataset_stats = instantiate(cfg.task.dataset, 
+    #                                     data_prefix=os.path.join(pace_tmp_dir, 'data'),
+    #                                     stats_mode=True)
+    #     else:
+    #         dataset = instantiate(cfg.task.dataset)
+    #         dataset_stats = instantiate(cfg.task.dataset, stats_mode=True)
 
     # def normalize(self, data):
     #     if self.normalizer is None:
@@ -258,7 +310,7 @@ class ChunkPolicy(Policy):
         else:
             actions = self._get_action_no_agg(obs, task_id, task_emb)
         
-        actions = self.postprocess_action(actions)
+        actions = self.final_postprocess_actions(actions)
         return actions.to(torch.float32).cpu().numpy()
 
     def _get_action_agg(self, obs, task_id, task_emb):  # obs, task_id, task_emb=None):
@@ -270,8 +322,9 @@ class ChunkPolicy(Policy):
         batch = self._make_batch(obs, task_id, task_emb)
         with torch.no_grad():
             actions = self.sample_actions(batch)
-            action_key = "abs_actions" if self.abs_action else "actions"
-            actions = self.normalizer.unnormalize({action_key: actions})[action_key]
+            actions = self.normalizer.unnormalize({"actions": actions})["actions"]
+            batch['actions'] = actions
+            actions = self.postprocess_actions(batch)['actions']
 
         # Chop off the actions corresponding to the last timestep
         # and the oldest action in the history
@@ -306,9 +359,10 @@ class ChunkPolicy(Policy):
             batch = self._make_batch(obs, task_id, task_emb)
             with torch.no_grad():
                 actions = self.sample_actions(batch)
-                action_key = "abs_actions" if self.abs_action else "actions"
-                actions = self.normalizer.unnormalize({action_key: actions})[action_key]
-                # actions = actions.cpu().numpy()
+                actions = self.normalizer.unnormalize({"actions": actions})["actions"]
+                batch['actions'] = torch.tensor(actions, device=self.device)
+                actions = self.postprocess_actions(batch)['actions']
+                actions = actions.cpu().numpy()
                 actions = np.transpose(actions, (1, 0, 2))
                 self.action_queue.extend(actions[: self.action_horizon])
         action = self.action_queue.popleft()

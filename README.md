@@ -31,6 +31,16 @@ uv pip install -e .
 uv pip install -e ".[dev]"
 ```
 
+If you want to run point cloud stuff you need to also install DGL
+```bash
+uv pip install  dgl -f https://data.dgl.ai/wheels/torch-2.4/cu124/repo.html
+```
+
+You'll probably need CLIP for something
+```bash
+uv pip install git+https://github.com/openai/CLIP.git
+```
+
 ### 5. (optional) Install LIBERO
 First download it
 ```bash
@@ -40,7 +50,7 @@ cd imitation
 ```
 Next, since LIBERO is old we need to manually add the pyproject.toml
 ```bash
-cp imitation/env/libero/pyproject.toml ../LIBERO/
+cp imitation/envs/libero/pyproject.toml ../LIBERO/
 ```
 Finally, install it
 ```bash
@@ -56,7 +66,7 @@ cd imitation
 ```
 Next, since MimicGen is old we need to manually add the pyproject.toml
 ```bash
-cp imitation/env/mimicgen/pyproject.toml ../mimicgen/
+cp imitation/envs/mimicgen/pyproject.toml ../mimicgen/
 ```
 Finally, install it
 ```bash
@@ -79,17 +89,23 @@ conda create -n imitation-dmg python=3.10 -y
 conda activate imitation-dmg
 pip install -e .
 ```
-and install the updated robosuite and dexmimicgen
+I've found it works best if you install robosuite, robosuite_models and dexmimicgen from source.
 ```bash
-pip instal robosuite==1.5.1
-pip install ../dexmimicgen
+cd ..
+git clone -b v1.5.1 https://github.com/ARISE-Initiative/robosuite.git
+pip install robosuite
+git clone https://github.com/ARISE-Initiative/robosuite_models.git
+pip install robosuite_models
+pip install -e ../dexmimicgen
 ```
 Install robosuite_models
 ```bash
 cd ..
-git clone https://github.com/ARISE-Initiative/robosuite_models.git
-pip install robosuite_models
 cd imitation
+```
+Make sure you have the right version of mink
+```bash
+pip install mink==0.0.10
 ```
 
 ## Training
