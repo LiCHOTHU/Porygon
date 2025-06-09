@@ -1,11 +1,12 @@
 export HYDRA_FULL_ERROR=1
 
-uv run train.py \
+python train.py \
     --config-name=train_debug.yaml \
-    task=mimicgen \
+    task=dexmimicgen \
     algo=diffusion_policy \
+    algo/encoder=rgb  \
     algo.chunk_size=8 \
+    algo.abs_action=true \
     algo.temporal_agg=false \
-    algo.action_horizon=4 \
     $@
 

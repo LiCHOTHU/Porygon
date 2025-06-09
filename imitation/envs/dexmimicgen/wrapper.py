@@ -4,19 +4,21 @@ import gymnasium
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
-from scipy.spatial.transform import Rotation as R
+from scipy.spatial.transform import Rotation
 
 from torch.utils.data import Dataset
 
 import sys
-from imitation.utils.frame_stack import FrameStackObservationFixed
+from imitation.envs.utils.frame_stack import FrameStackObservationFixed
 from copy import deepcopy
 from gymnasium.vector.utils import concatenate
-
+import imitation.envs.utils as eu
+from imitation.utils.geometry import posRotMat2Mat
 
 
 import robosuite
 from robosuite import load_composite_controller_config
+import robosuite.utils.camera_utils as cu
 
 # IMPORTANT: you need to import the package to register the environments
 import dexmimicgen
@@ -83,6 +85,7 @@ class DexMimicGenWrapper(gymnasium.Env):
 
         obs_meta = shape_meta['observation']
         self.rgb_outputs = list(obs_meta['rgb'])
+        self.depth_outputs = list(obs_meta['depth'])
         self.lowdim_outputs = list(obs_meta['lowdim'])
 
         self.num_points = num_points
@@ -114,6 +117,7 @@ class DexMimicGenWrapper(gymnasium.Env):
             "camera_names": ('agentview', 'robot0_eye_in_left_hand', 'robot0_eye_in_right_hand'),
             'camera_heights': self.img_height,
             'camera_widths': self.img_width,
+            "camera_depths": True,
         }
         self.env = robosuite.make(
             **env_kwargs,
@@ -137,11 +141,45 @@ class DexMimicGenWrapper(gymnasium.Env):
                 shape=(img_height, img_width, 3),
                 dtype=np.uint8
             )
+        for key in self.depth_outputs:
+            obs_space_dict[key] = gymnasium.spaces.Box(
+                low=0,
+                high=1,
+                shape=(img_height, img_width, 1),
+                dtype=np.float32
+            )
         for key in self.lowdim_outputs:
             obs_space_dict[key] = gymnasium.spaces.Box(
                 low=-np.inf,
                 high=np.inf,
                 shape=(obs_meta['lowdim'][key],),
+                dtype=np.float32
+            )
+        for cam in self.cameras:
+            obs_space_dict[eu.camera_name_to_intrinsic_key(cam)] = gymnasium.spaces.Box(
+                low=-np.inf,
+                high=np.inf,
+                shape=(3, 3),
+                dtype=np.float32
+            )
+            obs_space_dict[eu.camera_name_to_extrinsic_key(cam)] = gymnasium.spaces.Box(
+                low=-np.inf,
+                high=np.inf,
+                shape=(4, 4),
+                dtype=np.float32
+            )
+        
+        for hand in ['left', 'right']:
+            obs_space_dict[f"robot0_{hand}_eef_mat_inv"] = gymnasium.spaces.Box(
+                low=-np.inf,
+                high=np.inf,
+                shape=(4, 4),
+                dtype=np.float32
+            )
+            obs_space_dict[f"robot0_{hand}_eef_mat"] = gymnasium.spaces.Box(
+                low=-np.inf,
+                high=np.inf,
+                shape=(4, 4),
                 dtype=np.float32
             )
 
@@ -200,10 +238,10 @@ class DexMimicGenWrapper(gymnasium.Env):
                 z = old_position[2]
                 self.new_position = np.array([x, y, z])
 
-                Rz = R.from_euler('z', theta).as_matrix()
-                R_ref = R.from_quat(old_rotation, scalar_first=True).as_matrix()
+                Rz = Rotation.from_euler('z', theta).as_matrix()
+                R_ref = Rotation.from_quat(old_rotation, scalar_first=True).as_matrix()
                 R_total = Rz @ R_ref
-                new_quat = R.from_matrix(R_total).as_quat(scalar_first=True)
+                new_quat = Rotation.from_matrix(R_total).as_quat(scalar_first=True)
 
                 self.new_rotation = new_quat
 
@@ -215,7 +253,7 @@ class DexMimicGenWrapper(gymnasium.Env):
             # breakpoint()
 
     def reset(self, init_state=None, **kwargs):
-        self.env.reset()
+        raw_obs = self.env.reset()
         # breakpoint()
         # print('pre', self.get_sim_state().shape)
         # print('init', init_state.shape)
@@ -225,33 +263,20 @@ class DexMimicGenWrapper(gymnasium.Env):
         if init_state is not None:
             self.set_init_state(init_state=init_state)
         # print('post', self.get_sim_state().shape)
-        if self.abs_action:
-            # eef_data = self.env.sim.data.body('gripper0_grip_site')
-            # hand_pos = eef_data.xpos
-            # hand_quat = eef_data.xquat
-            goal_pos = self.env.sim.data.get_site_xpos('gripper0_grip_site')
-            goal_ori = R.from_matrix(
-                self.env.sim.data.get_site_xmat('gripper0_grip_site')
-            ).as_rotvec()
-            dummy = np.concatenate((goal_pos, goal_ori, [-1]))
-        else:
-            dummy = np.zeros(self.action_space.shape)
-        # print(dummy)
-        # print('post', self.get_sim_state().shape)
-        if self.abs_action:
-            # eef_data = self.env.sim.data.body('gripper0_grip_site')
-            # hand_pos = eef_data.xpos
-            # hand_quat = eef_data.xquat
-            goal_pos = self.env.sim.data.get_site_xpos('gripper0_grip_site')
-            goal_ori = R.from_matrix(
-                self.env.sim.data.get_site_xmat('gripper0_grip_site')
-            ).as_rotvec()
-            dummy = np.concatenate((goal_pos, goal_ori, [-1]))
-        else:
-            dummy = np.zeros(self.action_space.shape)
-        # print(dummy)
-        for _ in range(5):
-            raw_obs, _, _, _ = self.env.step(dummy)
+        # if self.abs_action:
+        #     # eef_data = self.env.sim.data.body('gripper0_grip_site')
+        #     # hand_pos = eef_data.xpos
+        #     # hand_quat = eef_data.xquat
+        #     goal_pos = self.env.sim.data.get_site_xpos('gripper0_grip_site')
+        #     goal_ori = R.from_matrix(
+        #         self.env.sim.data.get_site_xmat('gripper0_grip_site')
+        #     ).as_rotvec()
+        #     dummy = np.concatenate((goal_pos, goal_ori, [-1]))
+        # else:
+        #     dummy = np.zeros(self.action_space.shape)
+        # # print(dummy)
+        # for _ in range(5):
+        #     raw_obs, _, _, _ = self.env.step(dummy)
             # plt.imshow(raw_obs['agentview_image'][::-1])
             # plt.show()
             # plt.imshow(raw_obs['agentview_image'][::-1])
@@ -355,66 +380,36 @@ class DexMimicGenWrapper(gymnasium.Env):
         for key in self.lowdim_outputs:
             obs[key] = raw_obs[key]
 
+        for cam_name in self.cameras:
+            K = cu.get_camera_intrinsic_matrix(self.env.sim, cam_name, self.img_height, self.img_width)
+            R = cu.get_camera_extrinsic_matrix(self.env.sim, cam_name)
+
+            image = np.ascontiguousarray(raw_obs[eu.camera_name_to_image_key(cam_name)][::-1])
+            depth = raw_obs[eu.camera_name_to_depth_key(cam_name)].squeeze()[::-1]
+            depth = np.ascontiguousarray((cu.get_real_depth_map(self.env.sim, depth) * 1000).astype(np.uint16))
+
+            obs[eu.camera_name_to_image_key(cam_name)] = image
+            obs[eu.camera_name_to_depth_key(cam_name)] = depth[..., np.newaxis]
+
+            obs[eu.camera_name_to_intrinsic_key(cam_name)] = K
+            obs[eu.camera_name_to_extrinsic_key(cam_name)] = R
+
+        for hand in ['left', 'right']:
+            hand_pos = raw_obs[f"robot0_{hand}_eef_pos"]
+            hand_quat = raw_obs[f"robot0_{hand}_eef_quat"]
+            hand_rot_mat = Rotation.from_quat(hand_quat, scalar_first=True).as_matrix()
+            correction_mat = np.array(((0, 0, 1), (1, 0, 0), (0, 1, 0)), dtype=np.float32)
+            hand_rot_mat = hand_rot_mat @ correction_mat
+            hand_mat = posRotMat2Mat(hand_pos, hand_rot_mat)
+            hand_mat_inv = np.linalg.inv(hand_mat)
+            obs[f"robot0_{hand}_eef_mat"] = hand_mat
+            obs[f"robot0_{hand}_eef_mat_inv"] = hand_mat_inv
 
         return obs
     
     def render(self, mode='human'):
         return self.render_out
     
-    def get_real_depth_map(self, depth_map):
-        """
-        Reproduced from https://github.com/ARISE-Initiative/robosuite/blob/c57e282553a4f42378f2635b9a3cbc4afba270fd/robosuite/utils/camera_utils.py#L106
-        since older versions of robosuite do not have this conversion from normalized depth values returned by MuJoCo
-        to real depth values.
-        """
-        # Make sure that depth values are normalized
-        assert np.all(depth_map >= 0.0) and np.all(depth_map <= 1.0)
-        extent = self.env.sim.model.stat.extent
-        far = self.env.sim.model.vis.map.zfar * extent
-        near = self.env.sim.model.vis.map.znear * extent
-        return near / (1.0 - depth_map * (1.0 - near / far))
-    
-    def get_camera_intrinsic_matrix(self, camera_name):
-        """
-        Obtains camera intrinsic matrix.
-        Args:
-            camera_name (str): name of camera
-            camera_height (int): height of camera images in pixels
-            camera_width (int): width of camera images in pixels
-        Return:
-            K (np.array): 3x3 camera matrix
-        """
-        cam_id = self.env.sim.model.camera_name2id(camera_name)
-        fovy = self.env.sim.model.cam_fovy[cam_id]
-        f = 0.5 * self.img_height / np.tan(fovy * np.pi / 360)
-        K = np.array([[f, 0, self.img_width / 2], [0, f, self.img_height / 2], [0, 0, 1]])
-        return K
-
-    def get_camera_extrinsic_matrix(self, camera_name):
-        """
-        Returns a 4x4 homogenous matrix corresponding to the camera pose in the
-        world frame. MuJoCo has a weird convention for how it sets up the
-        camera body axis, so we also apply a correction so that the x and y
-        axis are along the camera view and the z axis points along the
-        viewpoint.
-        Normal camera convention: https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html
-        Args:
-            camera_name (str): name of camera
-        Return:
-            R (np.array): 4x4 camera extrinsic matrix
-        """
-        cam_id = self.env.sim.model.camera_name2id(camera_name)
-        camera_pos = self.env.sim.data.cam_xpos[cam_id]
-        camera_rot = self.env.sim.data.cam_xmat[cam_id].reshape(3, 3)
-        R = T.make_pose(camera_pos, camera_rot)
-
-        # IMPORTANT! This is a correction so that the camera axis is set up along the viewpoint correctly.
-        camera_axis_correction = np.array(
-            [[1.0, 0.0, 0.0, 0.0], [0.0, -1.0, 0.0, 0.0], [0.0, 0.0, -1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]
-        )
-        R = R @ camera_axis_correction
-        return R
-
     def visualize_camera_position(self, position, rotation):
         camera_name = 'agentview'
         cam_id = self.env.sim.model.camera_name2id(camera_name)

@@ -23,7 +23,6 @@ class PointCloudBaseEncoder(BaseEncoder):
         tight_crop=True,
         task_suite_name=None,  # I don't like having this here but for now it's necessary to get boundary info
         task_benchmark_name=None,
-        use_old_hand_frame_crop=True,
         downsample_mode="pos",
         **kwargs,
     ):
@@ -31,7 +30,6 @@ class PointCloudBaseEncoder(BaseEncoder):
 
         self.num_points = num_points
         self.shape_meta = self.shape_meta
-        self.hand_frame_crop = OLD_HAND_FRAME_CROP if use_old_hand_frame_crop else NEW_HAND_FRAME_CROP
         self.do_crop = do_crop
         self.do_hand_crop = do_hand_crop
         self.downsample_mode = downsample_mode
@@ -63,13 +61,11 @@ class PointCloudBaseEncoder(BaseEncoder):
             boundaries = torch.tensor(((-1, -1, -1), (1, 1, 1)))
             boundaries = einops.repeat(boundaries, "i j -> 1 i j")
         self.register_buffer("boundaries", torch.tensor(boundaries, dtype=torch.float32))
+        self.boundaries: torch.Tensor = boundaries # To help with type checking
         
-        if use_old_hand_frame_crop:
-            hand_frame_boundaries = torch.tensor(((0, -1, -1), (1, 1, 1)), dtype=torch.float32)
-        else:
-            hand_frame_boundaries = torch.tensor(((-0.05, -1, -1), (1, 1, 1)), dtype=torch.float32)
+        hand_frame_boundaries = torch.tensor(((0, -1, -1), (1, 1, 1)), dtype=torch.float32)
         self.register_buffer('hand_frame_boundaries', hand_frame_boundaries)
-        
+        self.hand_frame_boundaries: torch.Tensor = hand_frame_boundaries # To help with type checking
         
 
     def forward(self, *args, **kwargs):
@@ -167,12 +163,16 @@ class PointCloudBaseEncoder(BaseEncoder):
 
         if self.do_hand_crop:
             assert hand_mat_inv is not None
-            hand_mat_inv = hand_mat_inv[:, -1] # Take last hand mat along frame stack dimension
-            pcd_hand = pcu.batch_transform_point_cloud(pcd, hand_mat_inv)
 
-            boundaries = einops.repeat(self.hand_frame_boundaries, 'n d -> (b fs) n d', b=B, fs=fs)
-            hand_mask = pcu.crop_point_cloud(pcd_hand, boundaries)
-            mask = torch.logical_and(mask, hand_mask)
+            hand_mat_invs = hand_mat_inv if type(hand_mat_inv) == list else [hand_mat_inv]
+            
+            for hand_mat_inv in hand_mat_invs:
+                hand_mat_inv = hand_mat_inv[:, -1] # Take last hand mat along frame stack dimension
+                pcd_hand = pcu.batch_transform_point_cloud(pcd, hand_mat_inv)
+
+                boundaries = einops.repeat(self.hand_frame_boundaries, 'n d -> (b fs) n d', b=B, fs=fs)
+                hand_mask = pcu.crop_point_cloud(pcd_hand, boundaries)
+                mask = torch.logical_and(mask, hand_mask)
 
         mask = einops.rearrange(mask, "(b fs) n -> b fs n", b=B)
         

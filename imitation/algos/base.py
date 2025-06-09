@@ -68,7 +68,12 @@ class Policy(nn.Module, ABC):
         self.device = device
 
         # Use 6D actions if we are predicting abs actions, else axis angle
-        self.network_action_dim = 10 if abs_action else 7
+        # TODO: I don't like this, we should update the shape meta to handle this
+        if self.bimanual:
+            assert abs_action, "Relative actions are not supported for bimanual policies"
+            self.network_action_dim = 30
+        else:
+            self.network_action_dim = 10 if abs_action else 7
         rot_rep = "rotation_6d" if abs_action else "axis_angle"
         self.rotation_transformer = RotationTransformer(from_rep="axis_angle", to_rep=rot_rep)
 
@@ -113,20 +118,9 @@ class Policy(nn.Module, ABC):
         if self.eecf:
             if self.bimanual:
                 action_half_dim = data["actions"].shape[-1] // 2
-                actions_per_hand = torch.split(actions, action_half_dim, dim=-1)
+                actions_per_hand = list(torch.split(actions, action_half_dim, dim=-1))
                 for i, hand in enumerate(["right", "left"]):
-                    hand_pos = data[f"obs"][f"robot0_{hand}_eef_pos"]
-                    hand_quat = data[f"obs"][f"robot0_{hand}_eef_quat"]
-                    hand_rot_mat = p3d.quaternion_to_matrix(hand_quat) 
-                    # correction_mat = torch.tensor(
-                    #     ((0, 0, 1), (0, 1, 0), (1, 0, 0)), 
-                    #     device=hand_rot_mat.device, 
-                    #     dtype=hand_rot_mat.dtype)
-                    # correction_mat = torch.tensor(((0, 0, 1), (0, 1, 0), (1, 0, 0)), device=hand_rot_mat.device, dtype=hand_rot_mat.dtype)
-                    # breakpoint()
-                    # hand_rot_mat = hand_rot_mat @ correction_mat
-                    hand_mat = pcu.pos_rot_mat_to_mat(hand_pos, hand_rot_mat)[:, -1] # Take last hand mat along frame stack dimension
-                    hand_mat_inv = torch.linalg.inv(hand_mat)
+                    hand_mat_inv = data[f"obs"][f"robot0_{hand}_eef_mat_inv"]
                     actions_hand = actions_per_hand[i]
                     actions_pos, actions_rot, actions_rest = torch.split(actions_hand, [3, 6, actions_hand.shape[-1] - 9], dim=-1)
                     breakpoint()
@@ -135,14 +129,13 @@ class Policy(nn.Module, ABC):
                         actions_pos, actions_rot, actions_rest = torch.split(actions_hand, [3, 6, actions_hand.shape[-1] - 9], dim=-1)
                         action_rot_mat = p3d.rotation_6d_to_matrix(actions_rot)
                         action_mat = pcu.pos_rot_mat_to_mat(actions_pos, action_rot_mat)
-                        action_mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat_inv, action_mat)
-                        breakpoint()
+                        action_mat_eecf = torch.einsum('bnij,bnjk->bnik', hand_mat_inv, action_mat)
                         action_pos, action_rot_6d = pcu.matrix_to_pos_6d(action_mat_eecf)
                         actions_hand = torch.cat((action_pos, action_rot_6d, actions_rest), dim=-1)
                     else:
-                        actions_pos, actions_rest = torch.split(actions_hand, [3, actions_hand.shape[-1] - 3], dim=-1)
-                        actions_pos = torch.einsum("...ij,...j->...i", hand_mat_inv, actions_pos)
-                        actions_hand = torch.cat((actions_pos, actions_rest), dim=-1)
+                        assert False, "Not implemented"
+                    
+                    actions_per_hand[i] = actions_hand
 
                 actions = torch.cat(actions_per_hand, dim=-1)
             else:
@@ -166,10 +159,24 @@ class Policy(nn.Module, ABC):
         actions = data['actions']
         if self.eecf:
             if self.bimanual:
-                actions_per_hand = torch.split(actions, actions.shape[-1] // 2, dim=-1)
+                actions_per_hand = list(torch.split(actions, actions.shape[-1] // 2, dim=-1))
                 for i, hand in enumerate(["right", "left"]):
                     actions_hand = actions_per_hand[i]
-                    actions_pos, actions_rest = torch.split(actions_hand, [3, actions_hand.shape[-1] - 3], dim=-1)
+                    hand_mat = data['obs'][f"robot0_{hand}_eef_mat"]
+
+                    if self.abs_action:
+                        actions_pos, actions_rot, actions_rest = torch.split(actions_hand, [3, 6, actions_hand.shape[-1] - 9], dim=-1)
+                        action_rot_mat = p3d.rotation_6d_to_matrix(actions_rot)
+                        action_mat_eecf = pcu.pos_rot_mat_to_mat(actions_pos, action_rot_mat)
+                        action_mat = torch.einsum('bnij,bnjk->bnik', hand_mat, action_mat_eecf)
+                        action_pos, action_rot_6d = pcu.matrix_to_pos_6d(action_mat)
+                        actions_hand = torch.cat((action_pos, action_rot_6d, actions_rest), dim=-1)
+                    else:
+                        assert False, "Not implemented"
+
+                    actions_per_hand[i] = actions_hand
+
+                actions = torch.cat(actions_per_hand, dim=-1)
             else:
                 if self.abs_action:
                     actions_pos, actions_rot, actions_rest = torch.split(actions, [3, 6, actions.shape[-1] - 9], dim=-1)
@@ -236,9 +243,15 @@ class Policy(nn.Module, ABC):
 
     def final_postprocess_actions(self, action):
         if self.abs_action:
-            pos, rot_raw, gripper = torch.split(action, [3, action.shape[-1] - 4, 1], dim=-1)
-            rot = self.rotation_transformer.inverse(rot_raw)
-            action = torch.cat([pos, rot, gripper], dim=-1)
+            if self.bimanual:
+                right_pos, right_rot, right_gripper, left_pos, left_rot, left_gripper = torch.split(action, [3, 6, 6, 3, 6, 6], dim=-1)
+                right_rot = self.rotation_transformer.inverse(right_rot)
+                left_rot = self.rotation_transformer.inverse(left_rot)
+                action = torch.cat([right_pos, right_rot, right_gripper, left_pos, left_rot, left_gripper], dim=-1)
+            else:
+                pos, rot_raw, gripper = torch.split(action, [3, action.shape[-1] - 4, 1], dim=-1)
+                rot = self.rotation_transformer.inverse(rot_raw)
+                action = torch.cat([pos, rot, gripper], dim=-1)
         return action
 
     def preprocess_dataset(self, dataset, use_tqdm=True):
@@ -369,6 +382,7 @@ class ChunkPolicy(Policy):
                 self.action_queue.extend(actions[: self.action_horizon])
         action = self.action_queue.popleft()
         return torch.tensor(action)
+        
 
     @abstractmethod
     def sample_actions(self, obs):

@@ -89,23 +89,24 @@ conda create -n imitation-dmg python=3.10 -y
 conda activate imitation-dmg
 pip install -e .
 ```
-I've found it works best if you install robosuite, robosuite_models and dexmimicgen from source.
+I've found it works best if you install robosuite, robosuite_models, dexmimicgen and robomimic from source.
 ```bash
 cd ..
 git clone -b v1.5.1 https://github.com/ARISE-Initiative/robosuite.git
-pip install robosuite
+pip install -e robosuite/
 git clone https://github.com/ARISE-Initiative/robosuite_models.git
-pip install robosuite_models
-pip install -e ../dexmimicgen
-```
-Install robosuite_models
-```bash
-cd ..
-cd imitation
+pip install -e robosuite_models/
+pip install -e dexmimicgen/
+TODO: robomimic install instruction
 ```
 Make sure you have the right version of mink
 ```bash
 pip install mink==0.0.10
+```
+
+Sometimes you need to do this
+```bash
+pip install qpsolvers[quadprog]
 ```
 
 ## Training
