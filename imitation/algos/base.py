@@ -128,6 +128,8 @@ class Policy(nn.Module, ABC):
                     hand_mat = pcu.pos_rot_mat_to_mat(hand_pos, hand_rot_mat)[:, -1] # Take last hand mat along frame stack dimension
                     hand_mat_inv = torch.linalg.inv(hand_mat)
                     actions_hand = actions_per_hand[i]
+                    actions_pos, actions_rot, actions_rest = torch.split(actions_hand, [3, 6, actions_hand.shape[-1] - 9], dim=-1)
+                    breakpoint()
 
                     if self.abs_action:
                         actions_pos, actions_rot, actions_rest = torch.split(actions_hand, [3, 6, actions_hand.shape[-1] - 9], dim=-1)

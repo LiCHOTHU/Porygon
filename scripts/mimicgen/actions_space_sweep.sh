@@ -12,7 +12,7 @@ export HYDRA_FULL_ERROR=1
 algo_name=diffusion_policy
 encoders=(
     adapt3r
-    rgb
+    # rgb
 )
 task_names=(
     square_d1 
@@ -27,7 +27,7 @@ for seed in ${seeds[@]}; do
             echo uv run train.py \
                 --config-name=train.yaml \
                 exp_name=sweep_actions_space \
-                variant_name=${encoder} \
+                variant_name=${encoder}_ft \
                 task=mimicgen \
                 task.task_name=${task_name} \
                 algo=${algo_name} \
@@ -36,6 +36,7 @@ for seed in ${seeds[@]}; do
                 algo.abs_action=false \
                 algo.eecf=false \
                 algo.policy.temporal_agg=false \
+                algo.encoder.finetune=true \
                 rollout.interval=25 \
                 training.n_epochs=251 \
                 pace_copy=true \
@@ -45,7 +46,7 @@ for seed in ${seeds[@]}; do
             echo uv run train.py \
                 --config-name=train.yaml \
                 exp_name=sweep_actions_space \
-                variant_name=${encoder}_eecf \
+                variant_name=${encoder}_ft_eecf \
                 task=mimicgen \
                 task.task_name=${task_name} \
                 algo=${algo_name} \
@@ -54,6 +55,7 @@ for seed in ${seeds[@]}; do
                 algo.abs_action=false \
                 algo.eecf=true \
                 algo.policy.temporal_agg=false \
+                algo.encoder.finetune=true \
                 rollout.interval=25 \
                 training.n_epochs=251 \
                 pace_copy=true \
@@ -63,7 +65,7 @@ for seed in ${seeds[@]}; do
             echo uv run train.py \
                 --config-name=train.yaml \
                 exp_name=sweep_actions_space \
-                variant_name=${encoder}_abs \
+                variant_name=${encoder}_ft_abs \
                 task=mimicgen \
                 task.task_name=${task_name} \
                 algo=${algo_name} \
@@ -72,6 +74,7 @@ for seed in ${seeds[@]}; do
                 algo.abs_action=true \
                 algo.eecf=false \
                 algo.policy.temporal_agg=false \
+                algo.encoder.finetune=true \
                 rollout.interval=25 \
                 training.n_epochs=251 \
                 pace_copy=true \
@@ -81,7 +84,7 @@ for seed in ${seeds[@]}; do
             echo uv run train.py \
                 --config-name=train.yaml \
                 exp_name=sweep_actions_space \
-                variant_name=${encoder}_abs_eecf \
+                variant_name=${encoder}_ft_abs_eecf \
                 task=mimicgen \
                 task.task_name=${task_name} \
                 algo=${algo_name} \
@@ -90,6 +93,49 @@ for seed in ${seeds[@]}; do
                 algo.abs_action=true \
                 algo.eecf=true \
                 algo.policy.temporal_agg=false \
+                algo.encoder.finetune=true \
+                rollout.interval=25 \
+                training.n_epochs=251 \
+                pace_copy=true \
+                seed=${seed} \
+                $@
+
+            # NO hand frame
+
+            echo uv run train.py \
+                --config-name=train.yaml \
+                exp_name=sweep_actions_space \
+                variant_name=${encoder}_ft_no_hf \
+                task=mimicgen \
+                task.task_name=${task_name} \
+                algo=${algo_name} \
+                algo/encoder=${encoder} \
+                algo.encoder.hand_frame=false \
+                algo.chunk_size=16 \
+                algo.abs_action=false \
+                algo.eecf=false \
+                algo.policy.temporal_agg=false \
+                algo.encoder.finetune=true \
+                rollout.interval=25 \
+                training.n_epochs=251 \
+                pace_copy=true \
+                seed=${seed} \
+                $@
+
+            echo uv run train.py \
+                --config-name=train.yaml \
+                exp_name=sweep_actions_space \
+                variant_name=${encoder}_ft_no_hf_abs \
+                task=mimicgen \
+                task.task_name=${task_name} \
+                algo=${algo_name} \
+                algo/encoder=${encoder} \
+                algo.encoder.hand_frame=false \
+                algo.chunk_size=16 \
+                algo.abs_action=true \
+                algo.eecf=false \
+                algo.policy.temporal_agg=false \
+                algo.encoder.finetune=true \
                 rollout.interval=25 \
                 training.n_epochs=251 \
                 pace_copy=true \
@@ -108,6 +154,7 @@ done
 #     algo.chunk_size=15 \
 #     algo.abs_action=false \
 #     algo.policy.temporal_agg=false \
+#     algo.encoder.finetune=true \
 #     rollout.interval=25 \
 #     training.n_epochs=501 \
 #     pace_copy=true \

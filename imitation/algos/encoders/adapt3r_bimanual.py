@@ -67,22 +67,22 @@ class BimanualAdapt3REncoder(Adapt3REncoder):
             
         # # Stack the tinted views back together
         # rgb = torch.stack(rgb_tinted)
-        pcd_vis = einops.rearrange(pcd, "ncam b fs h w c -> (b fs) (ncam h w) c")
-        rgb_vis = einops.rearrange(rgb, "ncam b fs c h w -> (b fs) (ncam h w) c")
-        pos_right, rot_right, extra_right, pos_left, rot_left, extra_left = torch.split(
-            data["actions"], 
-            [3, 6, 6, 3, 6, 6], dim=-1)
-        extra_points = torch.cat([pos_right, pos_left], dim=1)
-        for i in range(pcd_vis.shape[0]):
-            print('left\n', pos_left[i])
-            print('right\n', pos_right[i])
-            pcu.show_point_cloud(pcd_vis[i], rgb_vis[i], extra_points=extra_points[i])
+        # pcd_vis = einops.rearrange(pcd, "ncam b fs h w c -> (b fs) (ncam h w) c")
+        # rgb_vis = einops.rearrange(rgb, "ncam b fs c h w -> (b fs) (ncam h w) c")
+        # pos_right, rot_right, extra_right, pos_left, rot_left, extra_left = torch.split(
+        #     data["actions"], 
+        #     [3, 6, 6, 3, 6, 6], dim=-1)
+        # extra_points = torch.cat([pos_right, pos_left], dim=1)
+        # for i in range(pcd_vis.shape[0]):
+        #     print('left\n', pos_left[i])
+        #     print('right\n', pos_right[i])
+        #     pcu.show_point_cloud(pcd_vis[i], rgb_vis[i], extra_points=extra_points[i])
 
-        pcd_vis = einops.rearrange(pcd, "ncam b fs h w c -> (b fs) ncam (h w) c")
-        rgb_vis = einops.rearrange(rgb, "ncam b fs c h w -> (b fs) ncam (h w) c")
-        for i in range(pcd_vis.shape[0]):
-            for j in range(pcd_vis.shape[1]):
-                pcu.show_point_cloud(pcd_vis[i, j], rgb_vis[i, j])
+        # pcd_vis = einops.rearrange(pcd, "ncam b fs h w c -> (b fs) ncam (h w) c")
+        # rgb_vis = einops.rearrange(rgb, "ncam b fs c h w -> (b fs) ncam (h w) c")
+        # for i in range(pcd_vis.shape[0]):
+        #     for j in range(pcd_vis.shape[1]):
+        #         pcu.show_point_cloud(pcd_vis[i, j], rgb_vis[i, j])
 
         rgb = einops.rearrange(rgb, "ncam b fs c h w -> (b fs ncam) c h w")
         pcd = einops.rearrange(pcd, "ncam b fs h w c -> (b fs ncam) c h w")

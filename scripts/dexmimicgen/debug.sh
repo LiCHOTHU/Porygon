@@ -6,5 +6,6 @@ uv run train.py \
     algo=diffusion_policy \
     algo/encoder=adapt3r_bimanual  \
     algo.chunk_size=8 \
+    algo.abs_action=true \
     $@
 

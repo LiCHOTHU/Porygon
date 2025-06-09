@@ -87,8 +87,10 @@ def compute_norm_stats(cfg, policy):
     cache_dir = get_cache_dir()
     cache_file = cache_dir / f'{hash}.pkl'
     if os.path.exists(cache_file):
+        print(f'Loading cached norm stats from {cache_file}')
         return pickle.load(open(cache_file, 'rb'))
     
+    print(f'Computing norm stats and caching to {cache_file}')
     dataset = make_dataset(cfg, stats_mode=True)
     dataloader = torch.utils.data.DataLoader(
         dataset, 
