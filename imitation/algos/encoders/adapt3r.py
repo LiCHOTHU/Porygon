@@ -224,6 +224,9 @@ class Adapt3REncoder(PointCloudBaseEncoder):
 
         if self.hand_frame:
             pcd = pcu.batch_transform_point_cloud(pcd, data["obs"]["hand_mat_inv"])
+
+        for i in range(pcd.shape[0]):
+            pcu.show_point_cloud(pcd[i, 0], rgb[i, 0])
         
         pcd, rgb_features, rgb, mask = self._downsample_point_cloud(pcd=pcd, rgb_features=rgb_features, rgb=rgb, mask=mask)
 
