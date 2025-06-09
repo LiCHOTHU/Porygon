@@ -19,7 +19,8 @@ import sys
 from imitation.utils.geometry import posRotMat2Mat, quat2mat
 
 # IMPORTANT: you need to import the package to register the environments
-import dexmimicgen
+print('HEY')
+import dexmimicgen.utils
 
 np.set_printoptions(suppress=True)
 torch.set_printoptions(sci_mode=False)
@@ -241,8 +242,18 @@ def extract_trajectory(
             )
             obs[cam_name + "_intrinsic"] = K.astype(np.float32)
 
-        # breakpoint()
-        # Try to extract hand pose information
+        # Extract hand pose information
+        for hand in ["right", "left"]:
+            hand_pos = obs[f"robot0_{hand}_eef_pos"]
+            hand_quat = obs[f"robot0_{hand}_eef_quat"]
+            hand_rot_mat = Rotation.from_quat(hand_quat, scalar_first=True).as_matrix()
+            correction_mat = np.array(((0, 0, 1), (1, 0, 0), (0, 1, 0)), dtype=np.float32)
+            hand_rot_mat = hand_rot_mat @ correction_mat
+            hand_mat = posRotMat2Mat(hand_pos, hand_rot_mat)
+            hand_mat_inv = np.linalg.inv(hand_mat)
+            obs[f"robot0_{hand}_eef_mat"] = hand_mat
+            obs[f"robot0_{hand}_eef_mat_inv"] = hand_mat_inv
+
         # bodies = [env.sim.model.body_id2name(i) for i in range(env.sim.model.nbody)]
         # breakpoint()
         # try:
@@ -319,6 +330,8 @@ def dataset_states_to_obs(args):
 
     # get env metadata and create environment using dexmimicgen approach
     env_meta = get_env_metadata_from_dataset(dataset_path=args.dataset)
+
+    breakpoint()
     
     env_kwargs = env_meta["env_kwargs"]
     env_kwargs["env_name"] = env_meta["env_name"]

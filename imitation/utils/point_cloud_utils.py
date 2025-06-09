@@ -204,11 +204,33 @@ def show_point_cloud(
     else:
         cloud = pcd
 
+    geometries = [cloud]
+
+    # Add coordinate frames if specified
+    if extra_frames is not None:
+        if isinstance(extra_frames, torch.Tensor):
+            extra_frames = extra_frames.detach().cpu().numpy()
+        if extra_frames.ndim == 2:
+            extra_frames = extra_frames[None]  # Add batch dimension if single frame
+        
+        for i, frame in enumerate(extra_frames):
+            # Create coordinate frame
+            coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
+                size=0.1,  # Size of the coordinate frame
+                origin=frame[:3, 3]  # Translation from the transformation matrix
+            )
+            
+            # Extract rotation matrix and apply it
+            rotation = frame[:3, :3]
+            coord_frame.rotate(rotation, center=frame[:3, 3])
+            
+            geometries.append(coord_frame)
+
     if show_axes:
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-        o3d.visualization.draw_geometries([cloud, origin])
-    else:
-        o3d.visualization.draw_geometries([cloud])
+        geometries.append(origin)
+
+    o3d.visualization.draw_geometries(geometries)
 
 def show_point_cloud_viser(pcd, pcd_colors=None, vectors=None, extra_points=None, port=8080):
     """

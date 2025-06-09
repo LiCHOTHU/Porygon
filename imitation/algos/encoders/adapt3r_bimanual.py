@@ -17,6 +17,7 @@ import imitation.utils.point_cloud_utils as pcu
 from .clip import load_clip
 from imitation.algos.utils.position_encodings import NeRFSinusoidalPosEmb
 from .resnet import load_resnet18, load_resnet50
+import imitation.utils.pytorch3d_transforms as p3d
 
 
 class BimanualAdapt3REncoder(Adapt3REncoder):
@@ -25,8 +26,12 @@ class BimanualAdapt3REncoder(Adapt3REncoder):
     This encoder combines point cloud data with RGB images and optional language embeddings
     to create a rich representation of the scene. It supports multiple camera views
     """
-    
-
+    def __init__(
+            self, 
+            bimanual_mode="concat",
+            **kwargs):
+        super().__init__(**kwargs)
+        self.bimanual_mode = bimanual_mode
 
     def forward(self, data, obs_key):
         obs_data = data[obs_key]
@@ -67,22 +72,23 @@ class BimanualAdapt3REncoder(Adapt3REncoder):
             
         # # Stack the tinted views back together
         # rgb = torch.stack(rgb_tinted)
-        pcd_vis = einops.rearrange(pcd, "ncam b fs h w c -> (b fs) (ncam h w) c")
-        rgb_vis = einops.rearrange(rgb, "ncam b fs c h w -> (b fs) (ncam h w) c")
-        pos_right, rot_right, extra_right, pos_left, rot_left, extra_left = torch.split(
-            data["actions"], 
-            [3, 6, 6, 3, 6, 6], dim=-1)
-        extra_points = torch.cat([pos_right, pos_left], dim=1)
-        for i in range(pcd_vis.shape[0]):
-            print('left\n', pos_left[i])
-            print('right\n', pos_right[i])
-            pcu.show_point_cloud(pcd_vis[i], rgb_vis[i], extra_points=extra_points[i])
+        # pcd_vis = einops.rearrange(pcd, "ncam b fs h w c -> (b fs) (ncam h w) c")
+        # rgb_vis = einops.rearrange(rgb, "ncam b fs c h w -> (b fs) (ncam h w) c")
+        # pos_right, rot_right, extra_right, pos_left, rot_left, extra_left = torch.split(
+        #     data["actions"], 
+        #     [3, 6, 6, 3, 6, 6], dim=-1)
+        # extra_frames = torch.cat([obs_data['robot0_left_eef_mat'], obs_data['robot0_right_eef_mat']], dim=1)
+        # extra_points = torch.cat([pos_right, pos_left], dim=1)
+        # for i in range(pcd_vis.shape[0]):
+        #     print('left\n', pos_left[i])
+        #     print('right\n', pos_right[i])
+        #     pcu.show_point_cloud(pcd_vis[i], rgb_vis[i], extra_points=extra_points[i], extra_frames=extra_frames[i])
 
-        pcd_vis = einops.rearrange(pcd, "ncam b fs h w c -> (b fs) ncam (h w) c")
-        rgb_vis = einops.rearrange(rgb, "ncam b fs c h w -> (b fs) ncam (h w) c")
-        for i in range(pcd_vis.shape[0]):
-            for j in range(pcd_vis.shape[1]):
-                pcu.show_point_cloud(pcd_vis[i, j], rgb_vis[i, j])
+        # pcd_vis = einops.rearrange(pcd, "ncam b fs h w c -> (b fs) ncam (h w) c")
+        # rgb_vis = einops.rearrange(rgb, "ncam b fs c h w -> (b fs) ncam (h w) c")
+        # for i in range(pcd_vis.shape[0]):
+        #     for j in range(pcd_vis.shape[1]):
+        #         pcu.show_point_cloud(pcd_vis[i, j], rgb_vis[i, j])
 
         rgb = einops.rearrange(rgb, "ncam b fs c h w -> (b fs ncam) c h w")
         pcd = einops.rearrange(pcd, "ncam b fs h w c -> (b fs ncam) c h w")
@@ -133,36 +139,51 @@ class BimanualAdapt3REncoder(Adapt3REncoder):
         )
 
         # Apply cropping
-        mask = self._crop_point_cloud(pcd=pcd, task_id=data["task_id"], hand_mat_inv=data["obs"]["hand_mat_inv"])
+        mask = self._crop_point_cloud(pcd=pcd, task_id=data["task_id"])
 
 
         pcd = pcd * mask.unsqueeze(-1)
         rgb = rgb * mask.unsqueeze(-1)
         rgb_features = rgb_features * mask.unsqueeze(-1)
 
+        pcd, rgb_features, rgb, mask = self._downsample_point_cloud(pcd=pcd, rgb_features=rgb_features, rgb=rgb, mask=mask)
 
-        if self.hand_frame:
-            pcd = pcu.batch_transform_point_cloud(pcd, data["obs"]["hand_mat_inv"])
+        # for i in range(pcd.shape[0]):
+        #     pcu.show_point_cloud(pcd[i, 0], rgb[i, 0])
 
-        for i in range(pcd.shape[0]):
-            pcu.show_point_cloud(pcd[i, 0], rgb[i, 0])
+        if self.bimanual_mode == "concat":
+            out = self._extract_concat(pcd, rgb_features, rgb, mask, obs_data)
+        elif self.bimanual_mode == "separate":
+            out = self._extract_separate(pcd, rgb_features, rgb, mask, obs_data)
+        else:
+            raise ValueError(f"Invalid bimanual mode: {self.bimanual_mode}")
+
+        lowdim_out = self._encode_lowdim(obs_data)
+
+        return out, lowdim_out
+
+    def _extract_concat(self, pcd, rgb_features, rgb, mask, obs_data):
         
         pcd, rgb_features, rgb, mask = self._downsample_point_cloud(pcd=pcd, rgb_features=rgb_features, rgb=rgb, mask=mask)
 
-        pcd_pos_emb = self.xyz_proj(pcd)
-
         cat_cloud = []
+
         if self.do_pos:
-            cat_cloud.append(pcd_pos_emb)
+            if self.hand_frame:
+                for hand in ["right", "left"]:
+                    pcd = pcu.batch_transform_point_cloud(pcd, obs_data[f"robot0_{hand}_eef_mat_inv"])
+                    pcd_pos_emb = self.xyz_proj(pcd)
+                    cat_cloud.append(pcd_pos_emb)
         if self.do_image:
             cat_cloud.append(rgb_features)
-        if self.do_lang:
-            lang_emb = self.get_task_emb(data)
-            lang_emb = self.lang_proj(lang_emb)
-            lang_emb = einops.repeat(lang_emb, "b d -> b fs n d", fs=fs, n=self.num_points)
-            cat_cloud.append(lang_emb)
+        # if self.do_lang:
+        #     lang_emb = self.get_task_emb(data)
+        #     lang_emb = self.lang_proj(lang_emb)
+        #     lang_emb = einops.repeat(lang_emb, "b d -> b fs n d", fs=fs, n=self.num_points)
+        #     cat_cloud.append(lang_emb)
         if self.do_rgb:
             cat_cloud.append(rgb)
+
         cat_cloud = torch.cat(cat_cloud, dim=-1)
 
         out = self.pointcloud_extractor(
@@ -170,10 +191,23 @@ class BimanualAdapt3REncoder(Adapt3REncoder):
             mask=mask,
         )
         out = list(einops.rearrange(out, "b fs d -> fs b d"))
+        return out
 
-        lowdim_out = self._encode_lowdim(obs_data)
+    def _extract_separate(self, pcd, rgb_features, rgb, mask, obs_data):
+        pass
 
-        return out, lowdim_out
-
-
-
+    def _make_hand_mat_inv(self, obs_data, hand="right"):
+        hand_pos = obs_data[f"robot0_{hand}_eef_pos"]
+        hand_quat = obs_data[f"robot0_{hand}_eef_quat"]
+        hand_rot_mat = p3d.quaternion_to_matrix(hand_quat) 
+        correction_mat = torch.tensor(
+            (
+                (0, 0, 1), 
+                (1, 0, 0), 
+                (0, 1, 0)
+            ), 
+            device=hand_rot_mat.device, dtype=hand_rot_mat.dtype)
+        hand_rot_mat = hand_rot_mat @ correction_mat
+        hand_mat = pcu.pos_rot_mat_to_mat(hand_pos, hand_rot_mat)[:, -1] # Take last hand mat along frame stack dimension
+        hand_mat_inv = torch.linalg.inv(hand_mat)
+        return hand_mat_inv

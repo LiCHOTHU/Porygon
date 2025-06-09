@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Directory paths
-# BASE_DIR="/storage/home/hcoda1/1/awilcox31/vast/imitation"
+BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # DATA_DIR="${BASE_DIR}/data/dexmimicgen/generated"
 # OUTPUT_DIR="${BASE_DIR}/data/dexmimicgen/processed"
 # SCRIPT_PATH="${BASE_DIR}/scripts/process_dexmimicgen.py"
@@ -23,7 +23,8 @@
 
 
 python scripts/process_dexmimicgen.py \
-    --hdf5_path /home/awilcox31/imitation/data/dexmimicgen/generated/two_arm_coffee.hdf5 \
-    --output_dir /home/awilcox31/imitation/data/dexmimicgen/test/two_arm_coffee.hdf5 \
+    --hdf5_path ${BASE_DIR}/data/dexmimicgen/generated/two_arm_coffee.hdf5 \
+    --output_dir ${BASE_DIR}/data/dexmimicgen/test/two_arm_coffee_2.hdf5 \
+    --camera_height 224 --camera_width 224 \
     --depth --n 3 --allow_overwrite
 

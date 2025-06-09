@@ -1,5 +1,5 @@
 # import imitation.utils.dexmimicgen_utils as dmgu
-from imitation.utils.dexmimicgen_env_wrapper import DexMimicGenFrameStack
+from imitation.envs.dexmimicgen.wrapper import DexMimicGenFrameStack
 import wandb
 import numpy as np
 from tqdm import tqdm, trange
@@ -76,7 +76,8 @@ class DexMimicGenRunner():
             save_video_fn=None, 
             save_hdf5=False,
             do_tqdm=False,
-            env_names=None
+            env_names=None,
+            fault_tolerant=False
             ):
         if save_progress and os.path.exists(os.path.join(save_dir, 'progress.json')):
             progress_file = os.path.join(save_dir, 'progress.json')
@@ -210,7 +211,7 @@ class DexMimicGenRunner():
             yield success, total_reward, episode
 
     def run_episode(self, env, policy, render=False, init_state=None, do_tqdm=False):
-        obs, info = env.reset(init_state=init_state)
+        obs, info = env.reset()
 
         if hasattr(policy, 'get_action'):
             policy.reset()
