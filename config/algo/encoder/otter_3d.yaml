@@ -3,7 +3,7 @@ defaults:
   - _self_
 
 _target_: imitation.algos.encoders.otter_3d.OTTER3DEncoder
-clip_model: "ViT-B/16"
+clip_model: "ViT-L/14"
 pointcloud_extractor_factory:
   _target_: imitation.algos.utils.pointnet_extractor.PointNetEncoder
   _partial_: true

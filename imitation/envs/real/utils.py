@@ -10,94 +10,55 @@ from torch.utils.data import Dataset
 from torch.utils.data import ConcatDataset
 from transformers import AutoModel, AutoTokenizer, logging
 
-from libero.libero.benchmark import get_benchmark
 
 import imitation.utils.file_utils as FileUtils
 import imitation.utils.obs_utils as ObsUtils
 from imitation.dataset.sequence_dataset import SequenceDataset
 from imitation.dataset.sequence_vl_dataset import SequenceVLDataset
 
-BOUNDARIES_TIGHT = {
-    'KITCHEN': (
-        (-.5, -.6, 0),
-        ( .5,  .6, 2.0)
-    ),
-    'LIVING_ROOM': (
-        (-.3, -0.5, 0),
-        (0.5,  0.5, 2)
-    ),
-    'STUDY': (
-        (-.5, -.5, 0),
-        ( .5,  .5, 2)
-    ),
-}
-BOUNDARIES = {
-    'KITCHEN': (
-        (-1, -1, 0),
-        ( 1,  1, 2.0)
-    ),
-    'LIVING_ROOM': (
-        (-1, -1, 0),
-        (1,  1, 2)
-    ),
-    'STUDY': (
-        (-1, -1, 0),
-        ( 1,  1, 2)
-    ),
-    'KITCHEN_DISTRACTOR': (
-        (-1, -1, 0),
-        ( 1,  1, 2.0)
-    ),
-    'LIVING_ROOM_DISTRACTOR': (
-        (-1, -1, 0),
-        (1,  1, 2)
-    ),
-    'STUDY_DISTRACTOR': (
-        (-1, -1, 0),
-        ( 1,  1, 2)
-    ),
+
+def task_name_to_path(task_name):
+    return f'{task_name}.hdf5'
+
+benchmarks = {
+    "debug_1": [
+        "apple_in_red_bowl",
+        "avocado_in_blue_bowl",
+        "bell_pepper_on_plate",
+        "carrot_on_plate",
+        "grapes_in_bowl",
+        "lemon_in_bowl",
+    ],
 }
 
-
-
-def get_benchmark_instance(benchmark_name, distractor=False, robot='Panda'):
-    if distractor:
-        benchmark_name = f'{benchmark_name}_distractor'
-    if robot != 'Panda':
-        benchmark_name = f'{benchmark_name}_{robot}'
-    benchmark = get_benchmark(benchmark_name)()
-    return benchmark
-    
-
-def get_boundaries(benchmark_name, tight=False):
-    benchmark = get_benchmark(benchmark_name)()
-    task_names = benchmark.get_task_names()
-    boundaries = []
-    for task_name in task_names:
-        setting, _, _ = deconstruct_task_name(task_name)
-        if tight:
-            boundaries.append(BOUNDARIES_TIGHT[setting])
-        else:
-            boundaries.append(BOUNDARIES[setting])
-    boundaries = np.array(boundaries)
-    return boundaries
-
-
-
-def deconstruct_task_name(task_name):
-    scene_idx = task_name.find('SCENE')
-    underscore_idx = task_name[scene_idx:].find('_')
-    scene_name_len = scene_idx + underscore_idx
-    setting = task_name[:scene_idx - 1]
-    number = int(task_name[scene_idx+5:scene_name_len])
-    instruction = task_name[scene_name_len+1:]
-    return setting, number, instruction
-
+instructions = {
+    "apple_in_red_bowl": "pick up the apple and place it in the red bowl",
+    "avocado_in_blue_bowl": "pick up the avocado and place it in the blue bowl",
+    "bell_pepper_on_plate": "pick up the bell pepper and place it on the plate",
+    "carrot_on_plate": "pick up the carrot and place it on the plate",
+    "grapes_in_bowl": "pick up the grapes and place them in the bowl",
+    "lemon_in_bowl": "pick up the lemon and place it in the bowl",
+}
+# instructions = {
+#     "apple_in_red_bowl": "a photo of a red apple",
+#     "avocado_in_blue_bowl": "a photo of an avocado",
+#     "bell_pepper_on_plate": "a photo of a red bell pepper",
+#     "carrot_on_plate": "a photo of an orange carrot",
+#     "grapes_in_bowl": "a photo of green grapes",
+#     "lemon_in_bowl": "a photo of a yellow lemon",
+# }
+# instructions = {
+#     "apple_in_red_bowl": "bowl",
+#     "avocado_in_blue_bowl": "bowl",
+#     "bell_pepper_on_plate": "plate",
+#     "carrot_on_plate": "plate",
+#     "grapes_in_bowl": "bowl",
+#     "lemon_in_bowl": "bowl",
+# }
 
 def build_dataset(data_prefix,
                   suite_name,
                   benchmark_name, 
-                  mode, 
                   seq_len, 
                   frame_stack,
                   shape_meta,
@@ -113,10 +74,8 @@ def build_dataset(data_prefix,
                   stats_mode=False,
                   action_keys=('actions',),
                   ):
-    benchmark = get_benchmark(benchmark_name)()
-    n_tasks = benchmark.n_tasks
-    few_shot_demos = [1, 5, 10, 20, 45] if mode == 'fewshot' else None
-    few_shot_demos_list = [f"demo_{i}" for i in few_shot_demos] if few_shot_demos is not None else None
+    n_tasks = len(benchmarks[benchmark_name])
+    task_names = benchmarks[benchmark_name]
     
     manip_datasets = []
     descriptions = []
@@ -134,27 +93,26 @@ def build_dataset(data_prefix,
     
     ObsUtils.initialize_obs_utils_with_obs_specs({"obs": obs_modality})
     for i in trange(n_tasks):
+        task_name = task_names[i]
         task_i_dataset = get_dataset(
             dataset_path=os.path.join(
-                data_prefix, suite_name, benchmark.get_task_demonstration(i)
+                data_prefix, suite_name, task_name_to_path(task_name)
             ),
             obs_modality=obs_modality,
             seq_len=seq_len,
             obs_seq_len=obs_seq_len,
             frame_stack=frame_stack,
             load_obs=load_obs,
-            few_demos = few_shot_demos_list,
             n_demos=n_demos,
             hdf5_cache_mode=hdf5_cache_mode,
             load_next_obs=load_next_obs,
             dataset_keys=(),
             action_keys=action_keys,
         )
-        task_description = benchmark.get_task(i).language
+        task_description = instructions[task_name]
         descriptions.append(task_description)
         manip_datasets.append(task_i_dataset)
     task_embs = get_task_embs(task_embedding_format, descriptions)
-    benchmark.set_task_embs(task_embs)
     datasets = [
         SequenceVLDataset(ds, task_id=i, **emb) for i, (ds, emb) in enumerate(zip(manip_datasets, task_embs))
     ]
@@ -162,7 +120,7 @@ def build_dataset(data_prefix,
     n_sequences = [data.total_num_sequences for data in datasets]
     concat_dataset = ConcatDataset(datasets)
     print("\n===================  Benchmark Information  ===================")
-    print(f" Name: {benchmark.name}")
+    print(f" Name: {benchmark_name}")
     print(f" # Tasks: {n_tasks}")
     print(" # demonstrations: " + " ".join(f"({x})" for x in n_demos))
     print(" # sequences: " + " ".join(f"({x})" for x in n_sequences))

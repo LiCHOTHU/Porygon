@@ -50,6 +50,7 @@ class PointCloudBaseEncoder(BaseEncoder):
         if task_suite_name == "libero":
             import imitation.envs.libero.utils as lu
             boundaries = lu.get_boundaries(benchmark_name=task_benchmark_name, tight=tight_crop)
+            boundaries = torch.tensor(boundaries, dtype=torch.float32)
         elif task_suite_name == "metaworld":
             # TODO
             boundaries = torch.tensor(((-1, -1, -1), (1, 1, 1)))
@@ -61,11 +62,11 @@ class PointCloudBaseEncoder(BaseEncoder):
             boundaries = torch.tensor(((-1, -1, -1), (1, 1, 1)))
             boundaries = einops.repeat(boundaries, "i j -> 1 i j")
         self.register_buffer("boundaries", torch.tensor(boundaries, dtype=torch.float32))
-        self.boundaries: torch.Tensor = boundaries # To help with type checking
+        self.boundaries: torch.Tensor = self.boundaries # To help with type checking
         
         hand_frame_boundaries = torch.tensor(((0, -1, -1), (1, 1, 1)), dtype=torch.float32)
         self.register_buffer('hand_frame_boundaries', hand_frame_boundaries)
-        self.hand_frame_boundaries: torch.Tensor = hand_frame_boundaries # To help with type checking
+        self.hand_frame_boundaries: torch.Tensor = self.hand_frame_boundaries # To help with type checking
         
 
     def forward(self, *args, **kwargs):

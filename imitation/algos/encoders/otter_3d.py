@@ -2,6 +2,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import einops
 import torch
+import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.ops import FeaturePyramidNetwork
@@ -13,7 +14,34 @@ import imitation.utils.point_cloud_utils as pcu
 from imitation.algos.utils.position_encodings import NeRFSinusoidalPosEmb
 
 import clip
-from .clip import load_clip
+from clip.simple_tokenizer import SimpleTokenizer
+
+def create_text_mask(text: torch.Tensor, sot_token: int, eot_token: int, first_k_tokens: int) -> torch.Tensor:
+    """
+    text: batch of text tokens (B, 77)
+    sot_token: start of text token
+    eot_token: end of text token
+    first_k_tokens: number of tokens to consider
+
+    For a binary mask, a ``False`` value indicates that the corresponding ``key`` value will be ignored for
+    the purpose of attention. For a float mask, it will be directly added to the corresponding ``key`` value.
+
+    mask will be false at start of text, end of text, and padding tokens
+    mask will be true at actual tokens
+    """
+    # make sure text is either dim 1 or 2 
+    text_dim = len(text.shape)
+    assert text_dim in (1, 2), "text must be either 1D or 2D"
+    text_mask = torch.ones_like(text, dtype=torch.bool)
+    text_mask[text == sot_token] = False  # Start token
+    text_mask[text == eot_token] = False  # End token
+    text_mask[text == 0] = False  # Padding token
+    # Only consider first k tokens
+    if text_dim == 1:
+        text_mask = text_mask[:first_k_tokens]    
+    else:
+        text_mask = text_mask[:, :first_k_tokens]  
+    return text_mask
 
 class OTTER3DEncoder(PointCloudBaseEncoder):
     """OTTER3D Encoder for processing point clouds with CLIP features and language embeddings.
@@ -47,6 +75,7 @@ class OTTER3DEncoder(PointCloudBaseEncoder):
         do_rot_aug: bool = False,
         xyz_proj_type: str = "nerf",
         temperature: float = 0.07,
+        first_k_tokens: int = 15,
         **kwargs,
     ) -> None:
         # Initialize parent class
@@ -73,6 +102,7 @@ class OTTER3DEncoder(PointCloudBaseEncoder):
         self.do_rgb = do_rgb
         self.n_out_perception = 1
         self.d_out_perception = self.pointcloud_extractor.out_channels
+        self.first_k_tokens = first_k_tokens
 
         # Initialize CLIP model
         self._init_clip()
@@ -92,7 +122,14 @@ class OTTER3DEncoder(PointCloudBaseEncoder):
         """Initialize CLIP model and hooks for feature extraction."""
         # Load CLIP model and preprocessing
         self.clip_model, processor = clip.load(self.clip_model_name)
-        self.normalize = processor.transforms[-1]
+        self.transform = torchvision.transforms.Compose([
+            torchvision.transforms.Resize(224, interpolation=torchvision.transforms.InterpolationMode.BICUBIC),
+            processor.transforms[-1],
+        ])
+
+        self.tokenizer = SimpleTokenizer()
+        self.sot_token : int = self.tokenizer.encoder["<|startoftext|>"]
+        self.eot_token : int = self.tokenizer.encoder["<|endoftext|>"]
         
         # Freeze CLIP parameters and convert to float
         self.clip_model.eval()
@@ -135,15 +172,17 @@ class OTTER3DEncoder(PointCloudBaseEncoder):
     def _extract_clip_features(self, rgb: torch.Tensor, text: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Extract CLIP features from RGB images and text."""
         # Normalize and process images
-        rgb_normalized = self.normalize(rgb)
-        
+        rgb_normalized = self.transform(rgb)
+
+        text = clip.tokenize(text).to(rgb.device)
+        text_mask = create_text_mask(text, self.sot_token, self.eot_token, self.first_k_tokens)
         # Get CLIP features
         with torch.no_grad():
             _ = self.clip_model.encode_text(text)
             _ = self.clip_model.encode_image(rgb_normalized)
             
         # Process text features
-        text_features = self.activation['text_features'].permute(1, 0, 2)
+        text_features = self.activation['text_features'].permute(1, 0, 2)[:, :self.first_k_tokens]
         text_features = self.clip_model.ln_final(text_features) @ self.clip_model.text_projection
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
         
@@ -158,7 +197,7 @@ class OTTER3DEncoder(PointCloudBaseEncoder):
             
         patch_features = patch_features / patch_features.norm(dim=-1, keepdim=True)
         
-        return patch_features, text_features
+        return patch_features, text_features, text_mask
 
     def forward(self, data, obs_key):
         obs_data = data[obs_key]
@@ -184,10 +223,58 @@ class OTTER3DEncoder(PointCloudBaseEncoder):
         pcd = einops.rearrange(pcd, "ncam b fs h w c -> (b fs ncam) c h w")
         
         # Extract CLIP features
-        patch_features, text_features = self._extract_clip_features(rgb, data["lang_inst"])
+        lang_inst = data["lang_inst"]
+        patch_features, text_features, text_mask = self._extract_clip_features(rgb, lang_inst)
+
+        patch_features = einops.rearrange(
+            patch_features, 
+            "(b fs ncam) n d -> b fs ncam n d", 
+            b=B, fs=fs, ncam=n_cam)
         
         # Get text-aware visual features
         text_aware_features = self.text_aware_extraction(patch_features, text_features)
+
+        text_aware_features_masked = text_aware_features * text_mask.unsqueeze(-1).unsqueeze(1).unsqueeze(1)
+        mask_sum = einops.repeat(text_mask.sum(dim=1), 'b -> b 1 1 1')
+        text_aware_features_mean = text_aware_features_masked.sum(dim=-2) / mask_sum
+
+        rgb_vis = einops.rearrange(rgb, "(b fs ncam) c h w -> b (fs ncam) h w c", b=B, fs=fs, ncam=n_cam)
+
+        for i in range(B):
+            
+            print(data["lang_inst"][i])
+
+            attn_map = text_aware_features_mean[i].squeeze(0)
+            attn_map = einops.rearrange(attn_map, "ncam (h w) -> ncam 1 h w", h=16, w=16)
+            attn_map = F.interpolate(attn_map, rgb.shape[-2:], mode="nearest")
+            attn_map = einops.rearrange(attn_map, "ncam 1 h w -> ncam h w 1").detach().cpu().numpy()
+            # Visualize attention map overlaid on RGB image
+            import matplotlib.pyplot as plt
+            
+            # Convert RGB tensor to numpy array and transpose to HWC format
+            rgb_np = rgb_vis[i].detach().cpu().numpy()
+            
+            # Create figure with subplots for each camera view
+            n_cameras = rgb_np.shape[0]
+            plt.figure(figsize=(5*n_cameras, 10))
+            
+            # Plot original images in top row
+            for cam_idx in range(n_cameras):
+                plt.subplot(2, n_cameras, cam_idx+1)
+                plt.imshow(rgb_np[cam_idx])
+                plt.title(f'Camera {cam_idx+1} Original')
+                plt.axis('off')
+            
+            # Plot attention overlays in bottom row
+            for cam_idx in range(n_cameras):
+                plt.subplot(2, n_cameras, n_cameras+cam_idx+1)
+                plt.imshow(rgb_np[cam_idx])
+                plt.imshow(attn_map[cam_idx], alpha=0.5, cmap='jet', extent=plt.gca().get_xlim() + plt.gca().get_ylim())
+                plt.title(f'Camera {cam_idx+1} Attention')
+                plt.axis('off')
+            
+            plt.tight_layout()
+            plt.show()
         
         # Reshape features to match point cloud dimensions
         feat_h, feat_w = text_aware_features.shape[-2:]
@@ -254,7 +341,7 @@ class TextAwareVisualExtraction(nn.Module):
         # Calculate similarity between text and patch features
         # image_patch_features: (batch_size, num_patches, embedding_dim)
         # text_features: (batch_size, num_tokens, embedding_dim)
-        similarity = torch.einsum('bij,bkj->bik', text_features, image_patch_features)
+        similarity = torch.einsum('bij,b...kj->b...ik', text_features, image_patch_features)
         
         # Apply temperature scaling and softmax
         attention = F.softmax(similarity / self.temperature.clamp(0, 100), dim=-1)
