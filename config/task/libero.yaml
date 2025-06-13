@@ -69,6 +69,7 @@ dataset:
   task_embedding_format: ${task.task_embedding_format}
   n_demos: ${task.demos_per_env}
   hdf5_cache_mode: low_dim
+  action_keys: ${eval:"'abs_actions' if ${algo.abs_action} else 'actions'"}
   extra_obs_modality:
     low_dim: 
       - hand_mat
@@ -78,7 +79,6 @@ dataset:
       - agentview_intrinsic
       - robot0_eye_in_hand_intrinsic
   load_next_obs: ${algo.dataset.load_next_obs}
-  dataset_keys: ${algo.dataset.dataset_keys}
 
 env_factory:
   _target_: imitation.envs.libero.wrappers.LiberoWrapper

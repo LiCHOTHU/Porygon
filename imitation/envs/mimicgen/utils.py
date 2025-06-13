@@ -30,7 +30,6 @@ def build_single_task_dataset(
         load_depth=True,
         n_demos=None,
         stats_mode=False,
-        abs_action=False,
         action_keys=('actions',),
     ):
     dataset_path = os.path.join(data_prefix, dataset_name, data_subfolder)
