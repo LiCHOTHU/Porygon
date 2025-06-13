@@ -47,7 +47,8 @@ class DP3Encoder(PointCloudBaseEncoder):
         pcd = einops.rearrange(pcd, "ncam b fs h w c -> b fs (ncam h w) c")
 
         # Apply cropping
-        mask = self._crop_point_cloud(pcd, data["task_id"], data["obs"]["hand_mat_inv"])
+        hand_mat_inv = obs_data["hand_mat_inv"] if 'hand_mat_inv' in obs_data else None
+        mask = self._crop_point_cloud(pcd, data["task_id"], hand_mat_inv)
 
         pcd = pcd * mask.unsqueeze(-1)
 

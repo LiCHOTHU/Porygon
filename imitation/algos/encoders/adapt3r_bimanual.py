@@ -30,8 +30,25 @@ class BimanualAdapt3REncoder(Adapt3REncoder):
             self, 
             bimanual_mode="concat",
             **kwargs):
-        super().__init__(**kwargs)
         self.bimanual_mode = bimanual_mode
+        super().__init__(**kwargs)
+
+        n_out_multiplier = 2 if self.bimanual_mode == "separate" else 1
+        self.n_out_perception = self.frame_stack * n_out_multiplier
+
+    def _init_pointcloud_extractor(self, factory) -> None:
+        """Initialize the point cloud extractor."""
+
+        pos_multiplier = 2 if self.bimanual_mode == "concat" else 1
+
+        # Calculate point cloud input dimension
+        pc_in = (
+            (self.do_image + self.do_lang) * self.hidden_dim
+            + self.do_pos * pos_multiplier * (3 if self.xyz_proj_type == "none" else self.hidden_dim)
+            + (3 if self.do_rgb else 0)
+        )
+        self.pointcloud_extractor = factory(in_shape=pc_in)
+        self.pointcloud_extractor.apply(weight_init)
 
     def forward(self, data, obs_key):
         obs_data = data[obs_key]
@@ -155,6 +172,8 @@ class BimanualAdapt3REncoder(Adapt3REncoder):
             out = self._extract_concat(pcd, rgb_features, rgb, mask, obs_data)
         elif self.bimanual_mode == "separate":
             out = self._extract_separate(pcd, rgb_features, rgb, mask, obs_data)
+        elif self.bimanual_mode == "one":
+            out = self._extract_one(pcd, rgb_features, rgb, mask, obs_data)
         else:
             raise ValueError(f"Invalid bimanual mode: {self.bimanual_mode}")
 
@@ -171,8 +190,8 @@ class BimanualAdapt3REncoder(Adapt3REncoder):
         if self.do_pos:
             if self.hand_frame:
                 for hand in ["right", "left"]:
-                    pcd = pcu.batch_transform_point_cloud(pcd, obs_data[f"robot0_{hand}_eef_mat_inv"])
-                    pcd_pos_emb = self.xyz_proj(pcd)
+                    pcd_hand = pcu.batch_transform_point_cloud(pcd, obs_data[f"robot0_{hand}_eef_mat_inv"])
+                    pcd_pos_emb = self.xyz_proj(pcd_hand)
                     cat_cloud.append(pcd_pos_emb)
         if self.do_image:
             cat_cloud.append(rgb_features)
@@ -194,7 +213,64 @@ class BimanualAdapt3REncoder(Adapt3REncoder):
         return out
 
     def _extract_separate(self, pcd, rgb_features, rgb, mask, obs_data):
-        pass
+        pcd, rgb_features, rgb, mask = self._downsample_point_cloud(pcd=pcd, rgb_features=rgb_features, rgb=rgb, mask=mask)
+
+        out = []
+        for hand in ["right", "left"]:
+            cat_cloud = []
+
+            if self.do_pos:
+                if self.hand_frame:
+                    pcd_hand = pcu.batch_transform_point_cloud(pcd, obs_data[f"robot0_{hand}_eef_mat_inv"])
+                    pcd_pos_emb = self.xyz_proj(pcd_hand)
+                    cat_cloud.append(pcd_pos_emb)
+            if self.do_image:
+                cat_cloud.append(rgb_features)
+            # if self.do_lang:
+            #     lang_emb = self.get_task_emb(data)
+            #     lang_emb = self.lang_proj(lang_emb)
+            #     lang_emb = einops.repeat(lang_emb, "b d -> b fs n d", fs=fs, n=self.num_points)
+            #     cat_cloud.append(lang_emb)
+            if self.do_rgb:
+                cat_cloud.append(rgb)
+
+            cat_cloud = torch.cat(cat_cloud, dim=-1)
+
+            embed = self.pointcloud_extractor(
+                cat_cloud,
+                mask=mask,
+            )
+            out.extend(list(einops.rearrange(embed, "b fs d -> fs b d")))
+        return out
+
+    def _extract_one(self, pcd, rgb_features, rgb, mask, obs_data):
+        assert not self.hand_frame, "hand frame must be false for one hand mode"
+
+        pcd, rgb_features, rgb, mask = self._downsample_point_cloud(pcd=pcd, rgb_features=rgb_features, rgb=rgb, mask=mask)
+
+        cat_cloud = []
+
+        if self.do_pos:
+            pcd_pos_emb = self.xyz_proj(pcd)
+            cat_cloud.append(pcd_pos_emb)
+        if self.do_image:
+            cat_cloud.append(rgb_features)
+        # if self.do_lang:
+        #     lang_emb = self.get_task_emb(data)
+        #     lang_emb = self.lang_proj(lang_emb)
+        #     lang_emb = einops.repeat(lang_emb, "b d -> b fs n d", fs=fs, n=self.num_points)
+        #     cat_cloud.append(lang_emb)
+        if self.do_rgb:
+            cat_cloud.append(rgb)
+
+        cat_cloud = torch.cat(cat_cloud, dim=-1)
+
+        embed = self.pointcloud_extractor(
+            cat_cloud,
+            mask=mask,
+        )
+        out = list(einops.rearrange(embed, "b fs d -> fs b d"))
+        return out
 
     def _make_hand_mat_inv(self, obs_data, hand="right"):
         hand_pos = obs_data[f"robot0_{hand}_eef_pos"]

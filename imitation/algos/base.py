@@ -123,7 +123,6 @@ class Policy(nn.Module, ABC):
                     hand_mat_inv = data[f"obs"][f"robot0_{hand}_eef_mat_inv"]
                     actions_hand = actions_per_hand[i]
                     actions_pos, actions_rot, actions_rest = torch.split(actions_hand, [3, 6, actions_hand.shape[-1] - 9], dim=-1)
-                    breakpoint()
 
                     if self.abs_action:
                         actions_pos, actions_rot, actions_rest = torch.split(actions_hand, [3, 6, actions_hand.shape[-1] - 9], dim=-1)
@@ -247,7 +246,7 @@ class Policy(nn.Module, ABC):
                 right_pos, right_rot, right_gripper, left_pos, left_rot, left_gripper = torch.split(action, [3, 6, 6, 3, 6, 6], dim=-1)
                 right_rot = self.rotation_transformer.inverse(right_rot)
                 left_rot = self.rotation_transformer.inverse(left_rot)
-                action = torch.cat([right_pos, right_rot, right_gripper, left_pos, left_rot, left_gripper], dim=-1)
+                action = torch.cat([right_pos, right_rot, left_pos, left_rot, right_gripper, left_gripper], dim=-1)
             else:
                 pos, rot_raw, gripper = torch.split(action, [3, action.shape[-1] - 4, 1], dim=-1)
                 rot = self.rotation_transformer.inverse(rot_raw)
@@ -296,7 +295,6 @@ class ChunkPolicy(Policy):
         super().__init__(**kwargs)
 
         self.action_horizon = action_horizon
-        self.action_horizon = 4
         self.chunk_size = chunk_size
         self.temporal_agg = temporal_agg
         self.action_queue = None
@@ -324,7 +322,6 @@ class ChunkPolicy(Policy):
             actions = self._get_action_agg(obs, task_id, task_emb)
         else:
             actions = self._get_action_no_agg(obs, task_id, task_emb)
-        
         actions = self.final_postprocess_actions(actions)
         return actions.to(torch.float32).cpu().numpy()
 

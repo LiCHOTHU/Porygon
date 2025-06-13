@@ -19,6 +19,7 @@ from imitation.utils.geometry import posRotMat2Mat
 import robosuite
 from robosuite import load_composite_controller_config
 import robosuite.utils.camera_utils as cu
+from robosuite.utils.observables import Observable
 
 # IMPORTANT: you need to import the package to register the environments
 import dexmimicgen
@@ -107,7 +108,7 @@ class DexMimicGenWrapper(gymnasium.Env):
             "env_name": self.env_name,
             "robots": ENV_ROBOTS[self.env_name],
             "controller_configs": load_composite_controller_config(
-                robot=ENV_ROBOTS[self.env_name][0]
+                robot=ENV_ROBOTS[self.env_name][0],
             ),
             "has_renderer": False,
             "has_offscreen_renderer": True,
@@ -119,6 +120,7 @@ class DexMimicGenWrapper(gymnasium.Env):
             'camera_widths': self.img_width,
             "camera_depths": True,
         }
+        env_kwargs['controller_configs']['composite_controller_specific_configs']['ik_input_ref_frame'] = "world"
         self.env = robosuite.make(
             **env_kwargs,
         )
@@ -191,7 +193,7 @@ class DexMimicGenWrapper(gymnasium.Env):
 
         if self.hd_rendering:
             new_sensors, new_names = self.env._create_camera_sensors(
-                cam_name='agentview',
+                cam_name='frontview',
                 cam_w=512,
                 cam_h=512,
                 cam_d=False,

@@ -56,16 +56,6 @@ class Adapt3REncoder(PointCloudBaseEncoder):
         # Initialize parent class
         super().__init__(**kwargs)
 
-        # Calculate point cloud input dimension
-        pc_in = (
-            (do_image + do_lang) * hidden_dim
-            + do_pos * (3 if xyz_proj_type == "none" else hidden_dim)
-            + (3 if do_rgb else 0)
-        )
-        
-        # Initialize pointcloud extractor
-        self._init_pointcloud_extractor(pointcloud_extractor_factory, pc_in)
-        
         # Set additional flags not in parent class
         self.hand_frame = hand_frame
         self.do_rot_aug = do_rot_aug
@@ -73,24 +63,38 @@ class Adapt3REncoder(PointCloudBaseEncoder):
         self.do_pos = do_pos
         self.do_lang = do_lang
         self.do_rgb = do_rgb
-        self.n_out_perception = 1
+        self.xyz_proj_type = xyz_proj_type
+        self.hidden_dim = hidden_dim
+        
+        
+        # Initialize pointcloud extractor
+        self._init_pointcloud_extractor(pointcloud_extractor_factory)
+        
+        self.n_out_perception = self.frame_stack
         self.d_out_perception = self.pointcloud_extractor.out_channels
 
         # Setup backbone based on type
         self._init_backbone(backbone_type, finetune)
 
         # Initialize feature pyramid network
-        self._init_feature_pyramid(hidden_dim)
+        self._init_feature_pyramid()
 
         # Setup position encoding
-        self._init_position_encoding(xyz_proj_type, hidden_dim)
+        self._init_position_encoding()
 
         # Setup language projection
-        self._init_language_projection(hidden_dim)
+        self._init_language_projection()
 
-    def _init_pointcloud_extractor(self, factory, in_shape: int) -> None:
+    def _init_pointcloud_extractor(self, factory) -> None:
         """Initialize the point cloud extractor."""
-        self.pointcloud_extractor = factory(in_shape=in_shape)
+
+        # Calculate point cloud input dimension
+        pc_in = (
+            (self.do_image + self.do_lang) * self.hidden_dim
+            + self.do_pos * (3 if self.xyz_proj_type == "none" else self.hidden_dim)
+            + (3 if self.do_rgb else 0)
+        )
+        self.pointcloud_extractor = factory(in_shape=pc_in)
         self.pointcloud_extractor.apply(weight_init)
 
     def _init_backbone(self, backbone_type: str, finetune: bool) -> None:
@@ -119,23 +123,23 @@ class Adapt3REncoder(PointCloudBaseEncoder):
             for p in self.backbone.parameters():
                 p.requires_grad = False
 
-    def _init_feature_pyramid(self, hidden_dim: int) -> None:
+    def _init_feature_pyramid(self) -> None:
         """Initialize the feature pyramid network."""
-        self.feature_pyramid = FeaturePyramidNetwork([256], hidden_dim)
+        self.feature_pyramid = FeaturePyramidNetwork([256], self.hidden_dim)
 
-    def _init_position_encoding(self, xyz_proj_type: str, hidden_dim: int) -> None:
+    def _init_position_encoding(self) -> None:
         """Initialize position encoding."""
-        if xyz_proj_type == "nerf":
-            self.xyz_proj = NeRFSinusoidalPosEmb(hidden_dim)
-        elif xyz_proj_type == "none":
+        if self.xyz_proj_type == "nerf":
+            self.xyz_proj = NeRFSinusoidalPosEmb(self.hidden_dim)
+        elif self.xyz_proj_type == "none":
             self.xyz_proj = nn.Identity()
         else:
-            raise ValueError(f"Unsupported xyz_proj_type: {xyz_proj_type}")
+            raise ValueError(f"Unsupported xyz_proj_type: {self.xyz_proj_type}")
 
-    def _init_language_projection(self, hidden_dim: int) -> None:
+    def _init_language_projection(self) -> None:
         """Initialize language projection layer."""
-        if self.lang_embed_dim != hidden_dim:
-            self.lang_proj = nn.Linear(self.lang_embed_dim, hidden_dim)
+        if self.lang_embed_dim != self.hidden_dim:
+            self.lang_proj = nn.Linear(self.lang_embed_dim, self.hidden_dim)
         else:
             self.lang_proj = nn.Identity()
 

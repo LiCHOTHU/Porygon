@@ -254,23 +254,6 @@ def extract_trajectory(
             obs[f"robot0_{hand}_eef_mat"] = hand_mat
             obs[f"robot0_{hand}_eef_mat_inv"] = hand_mat_inv
 
-        # bodies = [env.sim.model.body_id2name(i) for i in range(env.sim.model.nbody)]
-        # breakpoint()
-        # try:
-        #     if hasattr(env.sim.data, 'body') and 'gripper0_eef' in [env.sim.model.body_id2name(i) for i in range(env.sim.model.nbody)]:
-        #         eef_data = env.sim.data.body('gripper0_eef')
-        #         hand_pos = eef_data.xpos
-        #         hand_quat = eef_data.xquat
-        #         hand_rot_mat = quat2mat(hand_quat)
-        #         hand_rot_mat = hand_rot_mat @ np.array(((0, 0, 1), (0, 1, 0), (1, 0, 0)))
-        #         hand_mat = posRotMat2Mat(hand_pos, hand_rot_mat)
-        #         hand_mat_inv = np.linalg.inv(hand_mat)
-        #         obs["hand_mat"] = hand_mat.astype(np.float32)
-        #         obs["hand_mat_inv"] = hand_mat_inv.astype(np.float32)
-        # except:
-        #     # If hand pose extraction fails, continue without it
-        #     pass
-
         # infer reward signal
         r = 0.0
         if hasattr(env, 'get_reward'):
@@ -331,8 +314,6 @@ def dataset_states_to_obs(args):
     # get env metadata and create environment using dexmimicgen approach
     env_meta = get_env_metadata_from_dataset(dataset_path=args.dataset)
 
-    breakpoint()
-    
     env_kwargs = env_meta["env_kwargs"]
     env_kwargs["env_name"] = env_meta["env_name"]
     env_kwargs["has_renderer"] = False
