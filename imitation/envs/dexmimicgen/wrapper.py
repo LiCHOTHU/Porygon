@@ -115,7 +115,7 @@ class DexMimicGenWrapper(gymnasium.Env):
             "ignore_done": True,
             "use_camera_obs": True,
             "control_freq": 20,
-            "camera_names": ('agentview', 'robot0_eye_in_left_hand', 'robot0_eye_in_right_hand'),
+            "camera_names": tuple(cameras),
             'camera_heights': self.img_height,
             'camera_widths': self.img_width,
             "camera_depths": True,
