@@ -84,7 +84,7 @@ def plot_grouped_bar(data, args):
     ax.set_xlabel(args.xlabel, fontsize=args.font_size_label)
     ax.set_title(args.title, fontsize=args.font_size_title)
     ax.set_xticks(np.arange(num_groups))
-    ax.set_xticklabels(args.labels, fontsize=args.font_size_xtick)
+    ax.set_xticklabels(args.labels, fontsize=args.font_size_xtick, rotation=args.xlabel_rotation)
     if args.ylim is not None:
         ax.set_ylim(0, args.ylim)
     ax.tick_params(axis='y', labelsize=args.font_size_ytick)
@@ -151,6 +151,7 @@ def main():
     parser.add_argument('--fname')
     parser.add_argument('--legend-fname')
     parser.add_argument('--show', action='store_true')
+    parser.add_argument('--xlabel-rotation', type=float, default=0, help='Rotation angle for x-axis labels in degrees')
 
     args = parser.parse_args()
 

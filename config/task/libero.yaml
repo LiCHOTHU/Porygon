@@ -16,8 +16,9 @@ demos_per_env: 50
 distractor_objects: false
 robot: Panda
 cam_shift: false
+bimanual: false
 
-task_embedding_format: clip
+task_embedding_format: ${algo.encoder.task_embedding_format}
 img_height: 128
 img_width: 128
 horizon: 300
@@ -68,6 +69,7 @@ dataset:
   task_embedding_format: ${task.task_embedding_format}
   n_demos: ${task.demos_per_env}
   hdf5_cache_mode: low_dim
+  action_keys: ${eval:"'abs_actions' if ${algo.abs_action} else 'actions'"}
   extra_obs_modality:
     low_dim: 
       - hand_mat
@@ -77,7 +79,6 @@ dataset:
       - agentview_intrinsic
       - robot0_eye_in_hand_intrinsic
   load_next_obs: ${algo.dataset.load_next_obs}
-  dataset_keys: ${algo.dataset.dataset_keys}
 
 env_factory:
   _target_: imitation.envs.libero.wrappers.LiberoWrapper

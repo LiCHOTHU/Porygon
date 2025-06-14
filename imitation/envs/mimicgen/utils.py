@@ -7,42 +7,42 @@ from torch.utils.data import Dataset, ConcatDataset
 
 import imitation.utils.file_utils as FileUtils
 import imitation.utils.obs_utils as ObsUtils
-from imitation.utils.dataset import SequenceDataset
+from imitation.dataset.sequence_dataset import SequenceDataset
+from imitation.dataset.sequence_vl_dataset import SequenceVLDataset
 
-# task_name_to_task_files = {
-#     "coffee": ["coffee_d1.hdf5"],
-#     "coffee_preparation": ["coffee_preparation_d1.hdf5"],
-#     "hammer_cleanup": ["hammer_cleanup_d1.hdf5"],
-#     "kitchen": ["kitchen_d1.hdf5"],
-#     "mug_cleanup": ["mug_cleanup_d1.hdf5"],
-#     "square": ["square_d1.hdf5"],
-#     "stack": ["stack_d1.hdf5"],
-#     "stack_three": ["stack_three_d1.hdf5"],
-#     "threading": ["threading_d1.hdf5"],
-#     "three_piece_assembly": ["three_piece_assembly_d1.hdf5"]
-# }
+
 
 def task_name_to_task_files(task_name):
     return [f"{task_name}.hdf5"]
 
-def build_single_task_dataset(data_prefix,
-                              task_name, 
-                              seq_len, 
-                              frame_stack,
-                              shape_meta,
-                              obs_seq_len=1, 
-                              extra_obs_modality=None,
-                              load_obs=True,
-                              n_demos=None,
-                              dataset_keys=('actions',)
-                              ):
-    dataset_path = os.path.join(data_prefix, 'mimicgen', 'core_depth_abs')
+def build_single_task_dataset(
+        data_prefix,
+        dataset_name,
+        data_subfolder,
+        task_name, 
+        seq_len, 
+        frame_stack,
+        shape_meta,
+        obs_seq_len=1, 
+        extra_obs_modality=None,
+        load_obs=True,
+        load_image=True,
+        load_depth=True,
+        n_demos=None,
+        stats_mode=False,
+        action_keys=('actions',),
+    ):
+    dataset_path = os.path.join(data_prefix, dataset_name, data_subfolder)
 
-    obs_modality = {
-        'rgb': list(shape_meta['observation']['rgb'].keys()),
-        'depth': list(shape_meta['observation']['depth'].keys()),
-        'low_dim': list(shape_meta['observation']['lowdim'].keys())
-    }
+    if stats_mode:
+        obs_modality = {'rgb': [], 'depth': [], 'low_dim': list(shape_meta['observation']['lowdim'].keys())}
+    else:
+        obs_modality = {
+            'rgb': list(shape_meta['observation']['rgb'].keys()) if load_image else [],
+            'depth': list(shape_meta['observation']['depth'].keys()) if load_depth else [],
+            'low_dim': list(shape_meta['observation']['lowdim'].keys())
+        }
+
 
     if extra_obs_modality is not None:
         for key in extra_obs_modality:
@@ -66,9 +66,10 @@ def build_single_task_dataset(data_prefix,
             load_obs=load_obs,
             frame_stack=frame_stack,
             n_demos=n_demos,
-            dataset_keys=dataset_keys,
+            dataset_keys=(),
+            action_keys=action_keys,
         )
-        dataset = SequenceVLDataset(task_dataset, 0)  # TODO: task_id is always set to 0
+        dataset = SequenceVLDataset(task_dataset, task_id=0)  # TODO: task_id is always set to 0
         task_datasets.append(dataset)
         total_demos += dataset.n_demos
         total_sequences += dataset.total_num_sequences
@@ -77,7 +78,7 @@ def build_single_task_dataset(data_prefix,
     combined_dataset = ConcatDataset(task_datasets)
     
     print("\n===================  Benchmark Information  ===================")
-    print(f" Name: MimicGen")
+    print(f" Name: {dataset_name}")
     print(f" # Task: {task_name}")
     print(f" # Files: {len(task_files)}")
     print(f" # demonstrations: {total_demos}")
@@ -98,6 +99,7 @@ def get_task_dataset(
     load_obs=True,
     n_demos=None,
     dataset_keys=None,
+    action_keys=None,
 ):
     all_obs_keys = []
     for modality_name, modality_list in obs_modality.items():
@@ -114,6 +116,7 @@ def get_task_dataset(
     dataset = SequenceDataset(
         hdf5_path=dataset_path,
         obs_keys=obs_keys,
+        action_keys=action_keys,
         dataset_keys=dataset_keys,
         load_next_obs=False,
         frame_stack=frame_stack,
@@ -131,19 +134,3 @@ def get_task_dataset(
         n_demos=n_demos,
     )
     return dataset
-
-class SequenceVLDataset(Dataset):
-    # Note: task_id should be a string
-    def __init__(self, sequence_dataset, task_id):
-        self.sequence_dataset = sequence_dataset
-        self.task_id = task_id
-        self.n_demos = self.sequence_dataset.n_demos
-        self.total_num_sequences = self.sequence_dataset.total_num_sequences
-
-    def __len__(self):
-        return len(self.sequence_dataset)
-
-    def __getitem__(self, idx):
-        return_dict = self.sequence_dataset.__getitem__(idx)
-        return_dict["task_id"] = self.task_id
-        return return_dict

@@ -21,8 +21,8 @@ def copy_data_pace(cfg, pace_tmp_dir):
         
         copy_files_parallel(source_data_dir, target_data_dir, num_threads=8)
     elif suite_name in ['mimicgen', 'dexmimicgen']:
-        source_data_file = os.path.join(source_data_prefix, suite_name, 'core_depth_abs', f'{benchmark_name}.hdf5')
-        target_data_file = os.path.join(pace_tmp_dir, 'data', suite_name, 'core_depth_abs', f'{benchmark_name}.hdf5')
+        source_data_file = os.path.join(source_data_prefix, suite_name, cfg.task.data_subfolder, f'{benchmark_name}.hdf5')
+        target_data_file = os.path.join(pace_tmp_dir, 'data', suite_name, cfg.task.data_subfolder, f'{benchmark_name}.hdf5')
         
         if os.path.exists(target_data_file):
             return

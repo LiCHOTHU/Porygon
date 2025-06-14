@@ -76,6 +76,7 @@ def lift_point_cloud_batch(depths, intrinsics, extrinsics, keepdims=False) -> to
     # extrinsics_inv = torch.linalg.inv(extrinsics)
     # print(extrinsics_inv)
     trans_pcd = batch_transform_point_cloud(pcd, extrinsics)
+    # trans_pcd = pcd
 
     if keepdims:
         trans_pcd = einops.rearrange(trans_pcd, 'b ncam (h w) c -> b ncam h w c', ncam=ncam, h=H)
@@ -171,7 +172,14 @@ def crop_point_cloud(pcd, boundaries):
     return mask
 
 
-def show_point_cloud(pcd, pcd_colors=None, vectors=None, extra_points=None):
+def show_point_cloud(
+        pcd, 
+        pcd_colors=None, 
+        vectors=None, 
+        extra_points=None,
+        show_axes=False,
+        extra_frames=None,
+        ):
     if type(pcd) != o3d.geometry.PointCloud:
         if type(pcd) == torch.Tensor:
             pcd = pcd.to(dtype=torch.float32).detach().cpu().numpy()
@@ -196,8 +204,33 @@ def show_point_cloud(pcd, pcd_colors=None, vectors=None, extra_points=None):
     else:
         cloud = pcd
 
-    origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-    o3d.visualization.draw_geometries([cloud, origin])
+    geometries = [cloud]
+
+    # Add coordinate frames if specified
+    if extra_frames is not None:
+        if isinstance(extra_frames, torch.Tensor):
+            extra_frames = extra_frames.detach().cpu().numpy()
+        if extra_frames.ndim == 2:
+            extra_frames = extra_frames[None]  # Add batch dimension if single frame
+        
+        for i, frame in enumerate(extra_frames):
+            # Create coordinate frame
+            coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
+                size=0.1,  # Size of the coordinate frame
+                origin=frame[:3, 3]  # Translation from the transformation matrix
+            )
+            
+            # Extract rotation matrix and apply it
+            rotation = frame[:3, :3]
+            coord_frame.rotate(rotation, center=frame[:3, 3])
+            
+            geometries.append(coord_frame)
+
+    if show_axes:
+        origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+        geometries.append(origin)
+
+    o3d.visualization.draw_geometries(geometries)
 
 def show_point_cloud_viser(pcd, pcd_colors=None, vectors=None, extra_points=None, port=8080):
     """

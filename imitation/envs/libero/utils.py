@@ -14,8 +14,8 @@ from libero.libero.benchmark import get_benchmark
 
 import imitation.utils.file_utils as FileUtils
 import imitation.utils.obs_utils as ObsUtils
-from imitation.utils.dataset import SequenceDataset
-
+from imitation.dataset.sequence_dataset import SequenceDataset
+from imitation.dataset.sequence_vl_dataset import SequenceVLDataset
 
 BOUNDARIES_TIGHT = {
     'KITCHEN': (
@@ -110,7 +110,8 @@ def build_dataset(data_prefix,
                   load_depth=True,
                   task_embedding_format="clip",
                   load_next_obs=False,
-                  dataset_keys=('actions',),
+                  stats_mode=False,
+                  action_keys=('actions',),
                   ):
     benchmark = get_benchmark(benchmark_name)()
     n_tasks = benchmark.n_tasks
@@ -119,11 +120,14 @@ def build_dataset(data_prefix,
     
     manip_datasets = []
     descriptions = []
-    obs_modality = {
-        'rgb': list(shape_meta['observation']['rgb'].keys()) if load_image else [],
-        'depth': list(shape_meta['observation']['depth'].keys()) if load_depth else [],
-        'low_dim': list(shape_meta['observation']['lowdim'].keys())
-    }
+    if stats_mode:
+        obs_modality = {'rgb': [], 'depth': [], 'low_dim': list(shape_meta['observation']['lowdim'].keys())}
+    else:
+        obs_modality = {
+            'rgb': list(shape_meta['observation']['rgb'].keys()) if load_image else [],
+            'depth': list(shape_meta['observation']['depth'].keys()) if load_depth else [],
+            'low_dim': list(shape_meta['observation']['lowdim'].keys())
+        }
     if extra_obs_modality is not None:
         for key in extra_obs_modality:
             obs_modality[key] = obs_modality[key] + extra_obs_modality[key]
@@ -143,7 +147,8 @@ def build_dataset(data_prefix,
             n_demos=n_demos,
             hdf5_cache_mode=hdf5_cache_mode,
             load_next_obs=load_next_obs,
-            dataset_keys=dataset_keys
+            dataset_keys=(),
+            action_keys=action_keys,
         )
         task_description = benchmark.get_task(i).language
         descriptions.append(task_description)
@@ -151,7 +156,7 @@ def build_dataset(data_prefix,
     task_embs = get_task_embs(task_embedding_format, descriptions)
     benchmark.set_task_embs(task_embs)
     datasets = [
-        SequenceVLDataset(ds, emb, i) for i,(ds, emb) in enumerate(zip(manip_datasets, task_embs))
+        SequenceVLDataset(ds, task_id=i, **emb) for i, (ds, emb) in enumerate(zip(manip_datasets, task_embs))
     ]
     n_demos = [data.n_demos for data in datasets]
     n_sequences = [data.total_num_sequences for data in datasets]
@@ -177,6 +182,7 @@ def get_dataset(
     n_demos=None,
     load_next_obs=False,
     dataset_keys=None,
+    action_keys=None,
     ):
     all_obs_keys = []
     for modality_name, modality_list in obs_modality.items():
@@ -191,11 +197,10 @@ def get_dataset(
     else:
         obs_keys = []
     
-    if dataset_keys is None:
-        dataset_keys = ['actions',]
     dataset = SequenceDataset(
         hdf5_path=dataset_path,
         obs_keys=obs_keys,
+        action_keys=action_keys,
         dataset_keys=dataset_keys,
         load_next_obs=load_next_obs,
         frame_stack=frame_stack,
@@ -214,22 +219,6 @@ def get_dataset(
     )
     return dataset
 
-class SequenceVLDataset(Dataset):
-    def __init__(self, sequence_dataset, task_emb, task_id):
-        self.sequence_dataset = sequence_dataset
-        self.task_emb = task_emb
-        self.task_id = task_id
-        self.n_demos = self.sequence_dataset.n_demos
-        self.total_num_sequences = self.sequence_dataset.total_num_sequences
-
-    def __len__(self):
-        return len(self.sequence_dataset)
-
-    def __getitem__(self, idx):
-        return_dict = self.sequence_dataset.__getitem__(idx)
-        return_dict["task_emb"] = self.task_emb
-        return_dict["task_id"] = self.task_id
-        return return_dict
 
 def get_task_embs(task_embedding_format, descriptions):
     logging.set_verbosity_error()
@@ -253,6 +242,7 @@ def get_task_embs(task_embedding_format, descriptions):
         task_embs = model(tokens["input_ids"], tokens["attention_mask"])[
             "pooler_output"
         ].detach()
+        key = 'task_emb'
     elif task_embedding_format == "gpt2":
         tz = AutoTokenizer.from_pretrained("gpt2")
         tz.pad_token = tz.eos_token
@@ -266,6 +256,7 @@ def get_task_embs(task_embedding_format, descriptions):
             return_tensors="pt",  # ask the function to return PyTorch tensors
         )
         task_embs = model(**tokens)["last_hidden_state"].detach()[:, -1]
+        key = 'task_emb'
     elif task_embedding_format == "clip":
         tz = AutoTokenizer.from_pretrained("openai/clip-vit-base-patch32")
         model = AutoModel.from_pretrained("openai/clip-vit-base-patch32")
@@ -278,6 +269,7 @@ def get_task_embs(task_embedding_format, descriptions):
             return_tensors="pt",  # ask the function to return PyTorch tensors
         )
         task_embs = model.get_text_features(**tokens).detach()
+        key = 'task_emb'
     elif task_embedding_format == "roberta":
         tz = AutoTokenizer.from_pretrained("roberta-base")
         tz.pad_token = tz.eos_token
@@ -291,4 +283,10 @@ def get_task_embs(task_embedding_format, descriptions):
             return_tensors="pt",  # ask the function to return PyTorch tensors
         )
         task_embs = model(**tokens)["pooler_output"].detach()
-    return task_embs
+        key = 'task_emb'
+    elif task_embedding_format == "lang":
+        task_embs = descriptions
+        key = 'lang_inst'
+    else:
+        raise ValueError(f"Unknown task embedding format: {task_embedding_format}")
+    return [{key: task_emb} for task_emb in task_embs]
