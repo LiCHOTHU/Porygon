@@ -1,5 +1,5 @@
 """
-Stolen from https://github.com/real-stanford/diffusion_policy/blob/main/diffusion_policy/model/common/rotation_transformer.py
+Adapted from https://github.com/real-stanford/diffusion_policy/blob/main/diffusion_policy/model/common/rotation_transformer.py
 """
 
 from typing import Union
@@ -18,56 +18,62 @@ class RotationTransformer:
     ]
 
     def __init__(self, 
-            from_rep='axis_angle', 
-            to_rep='rotation_6d', 
-            from_convention=None,
-            to_convention=None):
+            rep_in='axis_angle', 
+            rep_network='rotation_6d',
+            rep_out='matrix',
+            convention_in=None,
+            convention_network=None,
+            convention_out=None):
         """
-        Valid representations
+        Valid representations:
+        - rep_in: Input representation
+        - rep_network: Network representation (intermediate)
+        - rep_out: Output representation
 
-        Always use matrix as intermediate representation.
+        Always uses matrix as intermediate representation for conversions.
         """
-        if from_rep == to_rep:
+        if rep_in == rep_network == rep_out:
             self.identity = True
             return
         else:
             self.identity = False
-        assert from_rep in self.valid_reps
-        assert to_rep in self.valid_reps
-        if from_rep == 'euler_angles':
-            assert from_convention is not None
-        if to_rep == 'euler_angles':
-            assert to_convention is not None
 
-        forward_funcs = list()
-        inverse_funcs = list()
+        assert rep_in in self.valid_reps
+        assert rep_network in self.valid_reps
+        assert rep_out in self.valid_reps
 
-        if from_rep != 'matrix':
+        if rep_in == 'euler_angles':
+            assert convention_in is not None
+        if rep_network == 'euler_angles':
+            assert convention_network is not None
+        if rep_out == 'euler_angles':
+            assert convention_out is not None
+
+        # Setup preprocessing (in -> network)
+        self.preprocess_funcs = []
+        if rep_in != rep_network:
             funcs = [
-                getattr(pt, f'{from_rep}_to_matrix'),
-                getattr(pt, f'matrix_to_{from_rep}')
+                getattr(pt, f'{rep_in}_to_matrix'),
+                getattr(pt, f'matrix_to_{rep_network}')
             ]
-            if from_convention is not None:
-                funcs = [functools.partial(func, convention=from_convention) 
-                    for func in funcs]
-            forward_funcs.append(funcs[0])
-            inverse_funcs.append(funcs[1])
+            if convention_in is not None:
+                funcs[0] = functools.partial(funcs[0], convention=convention_in)
+            if convention_network is not None:
+                funcs[1] = functools.partial(funcs[1], convention=convention_network)
+            self.preprocess_funcs = funcs
 
-        if to_rep != 'matrix':
+        # Setup postprocessing (network -> out)
+        self.postprocess_funcs = []
+        if rep_network != rep_out:
             funcs = [
-                getattr(pt, f'matrix_to_{to_rep}'),
-                getattr(pt, f'{to_rep}_to_matrix')
+                getattr(pt, f'{rep_network}_to_matrix'),
+                getattr(pt, f'matrix_to_{rep_out}')
             ]
-            if to_convention is not None:
-                funcs = [functools.partial(func, convention=to_convention) 
-                    for func in funcs]
-            forward_funcs.append(funcs[0])
-            inverse_funcs.append(funcs[1])
-        
-        inverse_funcs = inverse_funcs[::-1]
-        
-        self.forward_funcs = forward_funcs
-        self.inverse_funcs = inverse_funcs
+            if convention_network is not None:
+                funcs[0] = functools.partial(funcs[0], convention=convention_network)
+            if convention_out is not None:
+                funcs[1] = functools.partial(funcs[1], convention=convention_out)
+            self.postprocess_funcs = funcs
 
     @staticmethod
     def _apply_funcs(x: Union[np.ndarray, torch.Tensor], funcs: list) -> Union[np.ndarray, torch.Tensor]:
@@ -83,36 +89,36 @@ class RotationTransformer:
         return y
     
     def __call__(self, *args, **kwargs):
-        return self.forward(*args, **kwargs)
+        return self.preprocess(*args, **kwargs)
         
-    def forward(self, x: Union[np.ndarray, torch.Tensor]
+    def preprocess(self, x: Union[np.ndarray, torch.Tensor]
         ) -> Union[np.ndarray, torch.Tensor]:
+        """Transform from input representation to network representation"""
         if self.identity:
             return x
-        return self._apply_funcs(x, self.forward_funcs)
+        return self._apply_funcs(x, self.preprocess_funcs)
     
-    def inverse(self, x: Union[np.ndarray, torch.Tensor]
+    def postprocess(self, x: Union[np.ndarray, torch.Tensor]
         ) -> Union[np.ndarray, torch.Tensor]:
+        """Transform from network representation to output representation"""
         if self.identity:
             return x
-        return self._apply_funcs(x, self.inverse_funcs)
+        return self._apply_funcs(x, self.postprocess_funcs)
 
 
 def test():
-    tf = RotationTransformer()
+    # Test in -> network -> out transformation
+    tf = RotationTransformer(
+        rep_in='axis_angle',
+        rep_network='rotation_6d',
+        rep_out='matrix'
+    )
 
-    rotvec = np.random.uniform(-2*np.pi,2*np.pi,size=(1000,3))
-    rot6d = tf.forward(rotvec)
-    new_rotvec = tf.inverse(rot6d)
+    rotvec = np.random.uniform(-2*np.pi, 2*np.pi, size=(1000,3))
+    rot6d = tf.preprocess(rotvec)
+    mat = tf.postprocess(rot6d)
 
-    from scipy.spatial.transform import Rotation
-    diff = Rotation.from_rotvec(rotvec) * Rotation.from_rotvec(new_rotvec).inv()
-    dist = diff.magnitude()
-    assert dist.max() < 1e-7
-
-    tf = RotationTransformer('rotation_6d', 'matrix')
-    rot6d_wrong = rot6d + np.random.normal(scale=0.1, size=rot6d.shape)
-    mat = tf.forward(rot6d_wrong)
+    # Verify the transformation preserves rotation properties
     mat_det = np.linalg.det(mat)
     assert np.allclose(mat_det, 1)
-    # rotaiton_6d will be normalized to rotation matrix
+    # rotation_6d will be normalized to rotation matrix

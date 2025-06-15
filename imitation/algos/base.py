@@ -243,12 +243,12 @@ class Policy(nn.Module, ABC):
         if self.abs_action:
             if self.bimanual:
                 right_pos, right_rot, right_gripper, left_pos, left_rot, left_gripper = torch.split(action, [3, 6, 6, 3, 6, 6], dim=-1)
-                right_rot = self.rotation_transformer.inverse(right_rot)
-                left_rot = self.rotation_transformer.inverse(left_rot)
+                right_rot = self.rotation_transformer.postprocess(right_rot)
+                left_rot = self.rotation_transformer.postprocess(left_rot)
                 action = torch.cat([right_pos, right_rot, right_gripper, left_pos, left_rot, left_gripper], dim=-1)
             else:
                 pos, rot_raw, gripper = torch.split(action, [3, action.shape[-1] - 4, 1], dim=-1)
-                rot = self.rotation_transformer.inverse(rot_raw)
+                rot = self.rotation_transformer.postprocess(rot_raw)
                 action = torch.cat([pos, rot, gripper], dim=-1)
         return action
 
