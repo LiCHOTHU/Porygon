@@ -134,7 +134,7 @@ def reset_to(env, state):
 
 
 def extract_trajectory(
-    env, 
+    env: robosuite.environments.base.MujocoEnv, 
     initial_state, 
     states, 
     actions,
@@ -166,8 +166,8 @@ def extract_trajectory(
     # load the initial state
     env.reset()
     reset_to(env, initial_state)
-    env.sim.step()
-    obs = env._get_observations()
+    env._update_observables()
+    obs = env._get_observations(force_update=True)
 
     if randomize_camera_poses and "agentview" in camera_names:
         # Get base position for randomization
@@ -208,7 +208,7 @@ def extract_trajectory(
 
     for t in range(1, traj_len + 1):
         # get next observation
-        if t == traj_len or True:
+        if t == traj_len:
             # play final action to get next observation for last timestep
             next_obs, _, _, _ = env.step(actions[t - 1])
         else:
