@@ -75,7 +75,7 @@ def main(cfg):
     OmegaConf.save(cfg, config_file)
     logger.info(f"Saved configuration to: {config_file}")
 
-    start_epoch, steps, wandb_id, norm_stats = 0, 0, None, None
+    start_epoch, steps, wandb_id = 0, 0, None
     if train_cfg.resume and len([x for x in os.listdir(experiment_dir) if 'pth' in x]) > 0:
         checkpoint_path = experiment_dir
     else: 

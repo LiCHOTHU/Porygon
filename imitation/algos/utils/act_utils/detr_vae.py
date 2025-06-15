@@ -33,7 +33,6 @@ def get_sinusoid_encoding_table(n_position, d_hid):
 class DETRVAE(nn.Module):
     """ This is the DETR module that performs object detection """
     def __init__(self, 
-                #  backbones, 
                  n_perception_input,
                  n_lowdim_input,
                  transformer, 
@@ -41,10 +40,6 @@ class DETRVAE(nn.Module):
                  action_dim, 
                  num_queries, 
                  encoder_input,
-                #  shape_meta,
-                
-
-                #  hybrid=False # this is pretty hacky but it's late and I don't want to deal with this now
                  ):
         """ Initializes the model.
         Parameters:
@@ -117,6 +112,7 @@ class DETRVAE(nn.Module):
                 encoder_input.append(lowdim_encodings)
             if 'perception' in self.encoder_input:
                 encoder_input.append(perception_encodings)
+                
             encoder_input.append(action_embed)
             encoder_input = torch.cat(encoder_input, axis=1) # (bs, seq+1, hidden_dim)
             encoder_input = encoder_input.permute(1, 0, 2) # (seq+1, bs, hidden_dim)
@@ -267,11 +263,11 @@ def mlp(input_dim, hidden_dim, output_dim, hidden_depth):
     return trunk
 
 
-def build_encoder(d_model=256, nheads=8, dim_feedforward=2048, enc_layers=4, pre_norm=False, dropout=0.1):
+def build_encoder(hidden_dim=256, nheads=8, dim_feedforward=2048, enc_layers=4, pre_norm=False, dropout=0.1):
     activation = "relu"
-    encoder_layer = TransformerEncoderLayer(d_model, nheads, dim_feedforward,
+    encoder_layer = TransformerEncoderLayer(hidden_dim, nheads, dim_feedforward,
                                             dropout, activation, pre_norm)
-    encoder_norm = nn.LayerNorm(d_model) if pre_norm else None
+    encoder_norm = nn.LayerNorm(hidden_dim) if pre_norm else None
     encoder = TransformerEncoder(encoder_layer, enc_layers, encoder_norm)
     return encoder
 

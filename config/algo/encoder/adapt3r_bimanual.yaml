@@ -4,6 +4,8 @@ defaults:
 
 _target_: imitation.algos.encoders.adapt3r_bimanual.BimanualAdapt3REncoder
 do_hand_crop: false
+bimanual_mode: concat
+do_lang: false
 # backbone_type: clip
 # pointcloud_extractor_factory:
 #   _target_: imitation.algos.utils.pointnet_extractor.PointNetEncoder

@@ -18,7 +18,7 @@ shape_meta:
   action_dim: 30
   observation:
     rgb:
-      agentview_image:
+      robot0_robotview_image:
         - 3
         - ${task.img_height}
         - ${task.img_width}
@@ -31,7 +31,7 @@ shape_meta:
         - ${task.img_height}
         - ${task.img_width}
     depth:
-      agentview_depth:
+      robot0_robotview_depth:
         - 1
         - ${task.img_height}
         - ${task.img_width}
@@ -77,14 +77,12 @@ dataset:
     - action_dict/left_abs_pos
     - action_dict/left_abs_rot_6d
     - action_dict/left_gripper
-  # action_keys:
-  #   - actions
   extra_obs_modality:
     low_dim: 
-      - agentview_extrinsic
+      - robot0_robotview_extrinsic
       - robot0_eye_in_left_hand_extrinsic
       - robot0_eye_in_right_hand_extrinsic
-      - agentview_intrinsic
+      - robot0_robotview_intrinsic
       - robot0_eye_in_left_hand_intrinsic
       - robot0_eye_in_right_hand_intrinsic
       - robot0_right_eef_mat
@@ -100,7 +98,7 @@ env_factory:
   img_height: ${task.img_height}
   img_width: ${task.img_width}
   cameras:
-    - agentview
+    - robot0_robotview
     - robot0_eye_in_left_hand
     - robot0_eye_in_right_hand
   abs_action: ${algo.abs_action}

@@ -5,13 +5,13 @@ defaults:
 _target_: imitation.algos.encoders.adapt3r.Adapt3REncoder
 backbone_type: clip
 pointcloud_extractor_factory:
-  _target_: imitation.algos.utils.pointnet_extractor.PointNetEncoder
+  _target_: imitation.algos.utils.pointnet_extractor.AttentionExtractor
   _partial_: true
   out_channels: ${algo.embed_dim}
   use_layernorm: false
   final_norm: "none"
-  block_channel: [256, 256, 256, 512]
-  reduction: attention
+  hidden_dim: 256
+  num_heads: 4
 lowdim_encoder_factory:
   _target_: imitation.algos.utils.mlp_proj.MLPProj
   _partial_: true
