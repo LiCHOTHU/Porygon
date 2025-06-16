@@ -120,9 +120,13 @@ def mask_sort_point_cloud(pcd, mask):
     )[:, 1:]
     return masked_pcd
 
-def matrix_to_pos_6d(matrix):
+def matrix_to_pos_rot_matrix(matrix):
     rot_mat = matrix[..., :3, :3]
     pos = matrix[..., :3, 3]
+    return pos, rot_mat
+
+def matrix_to_pos_6d(matrix):
+    pos, rot_mat = matrix_to_pos_rot_matrix(matrix)
     rot_6d = p3d.matrix_to_rotation_6d(rot_mat)
     return pos, rot_6d
 

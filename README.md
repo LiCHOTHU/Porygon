@@ -54,7 +54,7 @@ cp imitation/envs/libero/pyproject.toml ../LIBERO/
 ```
 Finally, install it
 ```bash
-uv pip install ../LIBERO
+uv pip install -e ../LIBERO
 ```
 
 ### 6. (optional) Install MimicGen
@@ -70,7 +70,7 @@ cp imitation/envs/mimicgen/pyproject.toml ../mimicgen/
 ```
 Finally, install it
 ```bash
-uv pip install ../mimicgen
+uv pip install -e ../mimicgen
 ```
 
 ### 7. (optional) Install DexMimicGen
