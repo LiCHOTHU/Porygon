@@ -192,7 +192,6 @@ class Policy(nn.Module, ABC):
                     rot_mat = self.rotation_transformer.network_to_matrix(rot_network)
                     mat = pcu.pos_rot_mat_to_mat(pos, rot_mat)
                     mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat_inv, mat)
-                    breakpoint()
                     pos, rot_network_eecf = pcu.matrix_to_pos_rot_matrix(mat_eecf)
                     rot = self.rotation_transformer.matrix_to_network(rot_network_eecf)
                 else:
