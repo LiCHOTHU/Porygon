@@ -18,6 +18,7 @@ from imitation.utils.utils import map_tensor_to_device
 from imitation.utils.geometry import posRotMat2Mat, quat2mat
 import imitation.utils.point_cloud_utils as pcu
 import imitation.utils.pytorch3d_transforms as p3d
+import imitation.envs.utils as eu
 
 
 class Policy(nn.Module, ABC):
@@ -70,8 +71,9 @@ class Policy(nn.Module, ABC):
         # Use 6D actions if we are predicting abs actions, else axis angle
         # TODO: I don't like this, we should update the shape meta to handle this
         self.rot_rep = "rotation_6d" if abs_action else "axis_angle"
+        rot_rep_in = shape_meta["rotation_rep_in_abs"] if abs_action else shape_meta["rotation_rep_in"]
         self.rotation_transformer = RotationTransformer(
-            rep_in=shape_meta["rotation_rep_in"],
+            rep_in=rot_rep_in,
             rep_network=self.rot_rep,
             rep_out=shape_meta["rotation_rep_out"]
         )
@@ -80,16 +82,21 @@ class Policy(nn.Module, ABC):
         # For bimanual tasks, the order is right_pos, right_rot, left_pos, 
         # left_rot, right_gripper, left_gripper. Therefore the following works
         # Convention note: "network" refers to the representation used in the network
-        self.network_action_dim = sum(self.shape_meta["action"].values())
-        adjustment = self.rotation_transformer.get_network_size() - self.rotation_transformer.get_output_size()
+        action_meta = self.shape_meta["actions"] if not abs_action else self.shape_meta["abs_actions"]
+        self.network_action_dim = sum(action_meta.values())
+        adjustment = self.rotation_transformer.get_network_size() - self.rotation_transformer.get_input_size()
         if self.bimanual:
             adjustment *= 2
         self.network_action_dim += adjustment
-        self.pos_dim = self.shape_meta["action"][0] # TODO debug this
+        self.pos_dim = 3
         self.rot_dim_in = self.rotation_transformer.get_input_size()
         self.rot_dim_network = self.rotation_transformer.get_network_size()
         self.rot_dim_out = self.rotation_transformer.get_output_size()
-        self.gripper_dim = self.shape_meta["action"][-1]
+        if self.bimanual:
+            per_hand_dim = self.network_action_dim // 2
+            self.gripper_dim = per_hand_dim - self.pos_dim - self.rot_dim_network
+        else:
+            self.gripper_dim = self.network_action_dim - self.pos_dim - self.rot_dim_network
 
         if self.use_augmentation:
             self.aug = aug_factory(shape_meta=shape_meta)
@@ -114,15 +121,25 @@ class Policy(nn.Module, ABC):
             for optimizer in optimizers
         ]
 
+    @torch.no_grad()
     def preprocess_input(self, data, train_mode=True):
+        camera_names = eu.list_cameras(self.shape_meta)
+        for camera_name in camera_names:
+            image_name = eu.camera_name_to_image_key(camera_name)
+            if image_name in data["obs"]:
+                data["obs"][image_name] = data["obs"][image_name] / 255.0
+                data["obs"][image_name] = torch.clip(data["obs"][image_name], 0, 1)
+            depth_name = eu.camera_name_to_depth_key(camera_name)
+            if depth_name in data["obs"]:
+                data["obs"][depth_name] = torch.data["obs"][depth_name] / 1000
+
         if train_mode and self.use_augmentation:
             data = self.aug(data)
 
         if train_mode:
             self.preprocess_actions(data)
 
-        action_norm_keys = ("actions",)
-        norm_keys = action_norm_keys + tuple(self.shape_meta["observation"]["lowdim"])
+        norm_keys = ('actions',) + tuple(self.shape_meta["observation"]["lowdim"])
         data = self.normalizer.normalize(data, keys=norm_keys)
 
         return data
@@ -138,59 +155,81 @@ class Policy(nn.Module, ABC):
                   torch.split(actions, [
                       self.pos_dim, 
                       rot_dim, 
-                      self.gripper_dim, 
                       self.pos_dim, 
                       rot_dim, 
+                      self.gripper_dim, 
                       self.gripper_dim], dim=-1)
-            return [right_pos, right_rot, right_gripper], [left_pos, left_rot, left_gripper]
+            return [[right_pos, right_rot, right_gripper], [left_pos, left_rot, left_gripper]]
         else:
             pos, rot, gripper = torch.split(actions, [self.pos_dim, rot_dim, self.gripper_dim], dim=-1)
-            return [pos, rot, gripper]
+            return [[pos, rot, gripper]]
         
     def reassemble_actions(self, actions_decomp):
-        if self.bimanual:
-            right, left = actions_decomp
-            return torch.cat([right[0], right[1], left[0], left[1], right[2], left[2]], dim=-1)
-        else:
-            pos, rot, gripper = actions_decomp
-            return torch.cat([pos, rot, gripper], dim=-1)
-    
+        final_action = []
+        for hand in actions_decomp:
+            final_action.append(torch.cat([hand[0], hand[1]], dim=-1))
+        for hand in actions_decomp:
+            final_action.append(hand[2])
+        
+        return torch.cat(final_action, dim=-1)
 
     def preprocess_actions(self, data):
         actions = data["actions"]
 
         actions_decomp = self.decompose_actions(actions)
+
         if self.bimanual:
-            for i, hand in enumerate(["right", "left"]):
-                pos, rot, gripper = actions_decomp[i]
-                rot_network = self.rotation_transformer.preprocess(rot)
-
-                if self.eecf:
-                    hand_mat_inv = data[f"obs"][f"robot0_{hand}_eef_mat_inv"]
-
-                    if self.abs_action:
-                        rot_mat = self.rotation_transformer.network_to_matrix(rot_network)
-                        mat = pcu.pos_rot_mat_to_mat(pos, rot_mat)  
-                        mat_eecf = torch.einsum('bnij,bnjk->bnik', hand_mat_inv, mat)
-                        pos, rot_network_eecf = pcu.matrix_to_pos_6d(mat_eecf)
-                        rot = self.rotation_transformer.matrix_to_network(rot_network_eecf)
-                    else:
-                        assert False, "Not implemented"
-
-                actions_decomp[i] = [pos, rot, gripper]
+            hand_mat_invs = [data[f"obs"][f"robot0_{hand}_eef_mat_inv"][:, -1] for hand in ["right", "left"]]
         else:
-            pos, rot, gripper = actions_decomp
+            hand_mat_invs = [data[f"obs"][f"hand_mat_inv"][:, -1]]
+        
+        for i in range(len(actions_decomp)):
+            pos, rot, gripper = actions_decomp[i]
+            rot_network = self.rotation_transformer.preprocess(rot)
             if self.eecf:
-                hand_mat_inv = data[f"obs"][f"hand_mat_inv"]
+                hand_mat_inv = hand_mat_invs[i]
                 if self.abs_action:
-                    rot_mat = self.rotation_transformer.network_to_matrix(rot)
+                    rot_mat = self.rotation_transformer.network_to_matrix(rot_network)
                     mat = pcu.pos_rot_mat_to_mat(pos, rot_mat)
                     mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat_inv, mat)
-                    pos, rot_network_eecf = pcu.matrix_to_pos_6d(mat_eecf)
+                    pos, rot_network_eecf = pcu.matrix_to_pos_rot_matrix(mat_eecf)
                     rot = self.rotation_transformer.matrix_to_network(rot_network_eecf)
                 else:
-                    pos = torch.einsum("...ij,...j->...i", hand_mat_inv[..., :3, :3], pos)
-                actions_decomp = [pos, rot, gripper]
+                    pos = torch.einsum("...ij,...nj->...ni", hand_mat_inv[..., :3, :3], pos)
+            actions_decomp[i] = [pos, rot, gripper]
+        
+
+        # if self.bimanual:
+        #     for i, hand in enumerate(["right", "left"]):
+        #         pos, rot, gripper = actions_decomp[i]
+        #         rot_network = self.rotation_transformer.preprocess(rot)
+
+        #         if self.eecf:
+        #             hand_mat_inv = data[f"obs"][f"robot0_{hand}_eef_mat_inv"][:, -1] # take the last timestep
+
+        #             if self.abs_action:
+        #                 rot_mat = self.rotation_transformer.network_to_matrix(rot_network)
+        #                 mat = pcu.pos_rot_mat_to_mat(pos, rot_mat)  
+        #                 mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat_inv, mat)
+        #                 pos, rot_network_eecf = pcu.matrix_to_pos_rot_matrix(mat_eecf)
+        #                 rot = self.rotation_transformer.matrix_to_network(rot_network_eecf)
+        #             else:
+        #                 assert False, "Not implemented"
+
+        #         actions_decomp[i] = [pos, rot, gripper]
+        # else:
+        #     pos, rot, gripper = actions_decomp
+        #     if self.eecf:
+        #         hand_mat_inv = data[f"obs"][f"hand_mat_inv"][:, -1] # take the last timestep
+        #         if self.abs_action:
+        #             rot_mat = self.rotation_transformer.network_to_matrix(rot)
+        #             mat = pcu.pos_rot_mat_to_mat(pos, rot_mat)
+        #             mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat_inv, mat)
+        #             pos, rot_network_eecf = pcu.matrix_to_pos_rot_matrix(mat_eecf)
+        #             rot = self.rotation_transformer.matrix_to_network(rot_network_eecf)
+        #         else:
+        #             pos = torch.einsum("...ij,...j->...i", hand_mat_inv[..., :3, :3], pos)
+        #         actions_decomp = [pos, rot, gripper]
 
         actions = self.reassemble_actions(actions_decomp)
 
@@ -205,13 +244,13 @@ class Policy(nn.Module, ABC):
                 pos, rot, gripper = actions_decomp[i]
                 
                 if self.eecf:
-                    hand_mat = data['obs'][f"robot0_{hand}_eef_mat"]
+                    hand_mat = data['obs'][f"robot0_{hand}_eef_mat"][:, -1] # take the last timestep
                     
                     if self.abs_action:
                         rot_mat = self.rotation_transformer.network_to_matrix(rot)
                         mat_eecf = pcu.pos_rot_mat_to_mat(pos, rot_mat)
-                        mat_eecf = torch.einsum('bnij,bnjk->bnik', hand_mat, mat_eecf)
-                        pos, rot_network_eecf = pcu.matrix_to_pos_6d(mat_eecf)
+                        mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat, mat_eecf)
+                        pos, rot_network_eecf = pcu.matrix_to_pos_rot_matrix(mat_eecf)
                         rot = self.rotation_transformer.matrix_to_network(rot_network_eecf)
                     else:
                         assert False, "Not implemented"
@@ -219,12 +258,12 @@ class Policy(nn.Module, ABC):
         else:
             pos, rot, gripper = actions_decomp
             if self.eecf:
-                hand_mat = data['obs'][f"hand_mat"]
+                hand_mat = data['obs'][f"hand_mat"][:, -1] # take the last timestep
                 if self.abs_action:
                     rot_mat = self.rotation_transformer.network_to_matrix(rot)
                     mat_eecf = pcu.pos_rot_mat_to_mat(pos, rot_mat)
                     mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat, mat_eecf)
-                    pos, rot_network_eecf = pcu.matrix_to_pos_6d(mat_eecf)
+                    pos, rot_network_eecf = pcu.matrix_to_pos_rot_matrix(mat_eecf)
                     rot = self.rotation_transformer.matrix_to_network(rot_network_eecf)
                 else:
                     pos = torch.einsum("...ij,...j->...i", hand_mat[..., :3, :3], pos)

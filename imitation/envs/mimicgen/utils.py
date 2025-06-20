@@ -23,6 +23,7 @@ def build_single_task_dataset(
         seq_len, 
         frame_stack,
         shape_meta,
+        abs_action,
         obs_seq_len=1, 
         extra_obs_modality=None,
         load_obs=True,
@@ -30,7 +31,6 @@ def build_single_task_dataset(
         load_depth=True,
         n_demos=None,
         stats_mode=False,
-        action_keys=('actions',),
     ):
     dataset_path = os.path.join(data_prefix, dataset_name, data_subfolder)
 
@@ -56,6 +56,9 @@ def build_single_task_dataset(
     task_datasets = []
     total_demos = 0
     total_sequences = 0
+
+    action_keys = shape_meta['abs_actions'] if abs_action else shape_meta['actions']
+    action_keys = tuple(action_keys)
     
     for file_path in task_files:
         task_dataset = get_task_dataset(

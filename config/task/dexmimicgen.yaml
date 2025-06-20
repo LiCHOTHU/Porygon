@@ -16,14 +16,16 @@ data_subfolder: processed
 
 shape_meta:
   # Note: for bimanual tasks, order should be right_pos, right_rot, left_pos, left_rot, right_gripper, left_gripper
-  action: 
+  actions: null
+  abs_actions: 
     action_dict/right_abs_pos: 3
     action_dict/right_abs_rot_6d: 6
     action_dict/left_abs_pos: 3
     action_dict/left_abs_rot_6d: 6
     action_dict/right_gripper: 6
     action_dict/left_gripper: 6
-  rotation_rep_in: rotation_6d
+  rotation_rep_in: null
+  rotation_rep_in_abs: rotation_6d
   rotation_rep_out: axis_angle
   observation:
     rgb:
@@ -75,6 +77,7 @@ dataset:
   frame_stack: ${algo.dataset.frame_stack}
   obs_seq_len: ${algo.dataset.obs_seq_len}
   shape_meta: ${task.shape_meta}
+  abs_action: ${algo.abs_action}
   load_obs: ${training.load_obs}
   load_image: ${algo.encoder.load_image}
   load_depth: ${algo.encoder.load_depth}
