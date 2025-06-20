@@ -51,6 +51,7 @@ class Adapt3REncoder(PointCloudBaseEncoder):
         do_rot_aug: bool = False,
         finetune: bool = False,
         xyz_proj_type: str = "nerf",
+        clip_model: str = "RN50",
         **kwargs,
     ) -> None:
         # Initialize parent class
@@ -74,7 +75,7 @@ class Adapt3REncoder(PointCloudBaseEncoder):
         self.d_out_perception = self.pointcloud_extractor.out_channels
 
         # Setup backbone based on type
-        self._init_backbone(backbone_type, finetune)
+        self._init_backbone(backbone_type, finetune, clip_model)
 
         # Initialize feature pyramid network
         self._init_feature_pyramid()
@@ -97,7 +98,7 @@ class Adapt3REncoder(PointCloudBaseEncoder):
         self.pointcloud_extractor = factory(in_shape=pc_in)
         self.pointcloud_extractor.apply(weight_init)
 
-    def _init_backbone(self, backbone_type: str, finetune: bool) -> None:
+    def _init_backbone(self, backbone_type: str, finetune: bool, clip_model: str) -> None:
         """Initialize the backbone network."""
         self.backbone_type = backbone_type
         if backbone_type == "resnet50":
@@ -114,7 +115,7 @@ class Adapt3REncoder(PointCloudBaseEncoder):
             )
             self.normalize = nn.Identity()
         elif backbone_type == "clip":
-            self.backbone, self.normalize = load_clip()
+            self.backbone, self.normalize = load_clip(clip_model)
         else:
             raise NotImplementedError(f"backbone type {backbone_type} not supported")
 

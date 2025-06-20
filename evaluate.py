@@ -34,7 +34,7 @@ def main(cfg):
     log_file = f'{mode}.log'
     
     # create model
-    save_dir, experiment_name = utils.get_experiment_dir(cfg, evaluate=(mode == 'evaluate'), allow_overlap=(mode == 'export'))
+    save_dir, experiment_name = utils.get_experiment_dir(cfg, evaluate=True, allow_overlap=True)
     os.makedirs(save_dir, exist_ok=True)
 
     # Add experiment-specific logging

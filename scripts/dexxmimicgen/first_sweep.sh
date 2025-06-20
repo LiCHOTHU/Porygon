@@ -34,7 +34,7 @@ for seed in ${seeds[@]}; do
         for bimanual_mode in ${bimanual_modes[@]}; do
             echo python train.py \
                 --config-name=train.yaml \
-                exp_name=fixed_sweep_dmg_3 \
+                exp_name=fixed_sweep_dmg_4 \
                 variant_name=adapt3r_bm_${bimanual_mode}_ft_abs${ego} \
                 task=dexmimicge${ego} \
                 task.task_name=${task_name} \
@@ -48,14 +48,14 @@ for seed in ${seeds[@]}; do
                 algo.policy.temporal_agg=false \
                 algo.encoder.finetune=true \
                 rollout.interval=25 \
-                training.n_epochs=251 \
+                training.n_epochs=101 \
                 pace_copy=true \
                 seed=${seed} \
                 $@
 
             echo python train.py \
                 --config-name=train.yaml \
-                exp_name=fixed_sweep_dmg_3 \
+                exp_name=fixed_sweep_dmg_4 \
                 variant_name=adapt3r_bm_${bimanual_mode}_ft_abs_eecf${ego} \
                 task=dexmimicge${ego} \
                 task.task_name=${task_name} \
@@ -69,7 +69,7 @@ for seed in ${seeds[@]}; do
                 algo.policy.temporal_agg=false \
                 algo.encoder.finetune=true \
                 rollout.interval=25 \
-                training.n_epochs=251 \
+                training.n_epochs=101 \
                 pace_copy=true \
                 seed=${seed} \
                 $@
@@ -79,7 +79,7 @@ for seed in ${seeds[@]}; do
 
         echo python train.py \
             --config-name=train.yaml \
-            exp_name=fixed_sweep_dmg_3 \
+            exp_name=fixed_sweep_dmg_4 \
             variant_name=adapt3r_ft_no_hf_abs${ego} \
             task=dexmimicge${ego} \
             task.task_name=${task_name} \
@@ -93,7 +93,7 @@ for seed in ${seeds[@]}; do
             algo.policy.temporal_agg=false \
             algo.encoder.finetune=true \
             rollout.interval=25 \
-            training.n_epochs=251 \
+            training.n_epochs=101 \
             pace_copy=true \
             seed=${seed} \
             $@
@@ -101,7 +101,7 @@ for seed in ${seeds[@]}; do
         # RGB
         echo python train.py \
             --config-name=train.yaml \
-            exp_name=fixed_sweep_dmg_3 \
+            exp_name=fixed_sweep_dmg_4 \
             variant_name=rgb_abs${ego} \
             task=dexmimicge${ego} \
             task.task_name=${task_name} \
@@ -111,7 +111,7 @@ for seed in ${seeds[@]}; do
             algo.abs_action=true \
             algo.policy.temporal_agg=false \
             rollout.interval=25 \
-            training.n_epochs=251 \
+            training.n_epochs=101 \
             pace_copy=true \
             seed=${seed} \
             $@
@@ -119,7 +119,7 @@ for seed in ${seeds[@]}; do
         # DP3
         echo python train.py \
             --config-name=train.yaml \
-            exp_name=fixed_sweep_dmg_3 \
+            exp_name=fixed_sweep_dmg_4 \
             variant_name=dp3_abs${ego} \
             task=dexmimicge${ego} \
             task.task_name=${task_name} \
@@ -129,7 +129,7 @@ for seed in ${seeds[@]}; do
             algo.abs_action=true \
             algo.policy.temporal_agg=false \
             rollout.interval=25 \
-            training.n_epochs=251 \
+            training.n_epochs=101 \
             pace_copy=true \
             seed=${seed} \
             $@
@@ -147,6 +147,6 @@ done
 #     algo.policy.temporal_agg=false \
 #     algo.encoder.finetune=true \
 #     rollout.interval=25 \
-#     training.n_epochs=501 \
+#     training.n_epochs=101 \
 #     pace_copy=true \
 #     seed=0

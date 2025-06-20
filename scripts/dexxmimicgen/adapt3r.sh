@@ -1,4 +1,5 @@
 export HYDRA_FULL_ERROR=1
+# export CUDA_LAUNCH_BLOCKING=1
 
 python train.py \
     --config-name=train_debug.yaml \
@@ -9,5 +10,6 @@ python train.py \
     algo.chunk_size=8 \
     algo.abs_action=true \
     algo.temporal_agg=false \
+    algo.encoder.finetune=true \
     $@
 

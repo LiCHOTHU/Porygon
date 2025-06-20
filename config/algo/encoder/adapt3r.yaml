@@ -31,6 +31,7 @@ xyz_proj_type: nerf
 do_image: true
 do_lang: true
 use_old_hand_frame_crop: false
+clip_model: RN50
 
 
 load_image: true

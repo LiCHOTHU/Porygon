@@ -6,8 +6,8 @@ import clip
 from clip.model import ModifiedResNet
 
 
-def load_clip():
-    clip_model, clip_transforms = clip.load("RN50")
+def load_clip(model="RN50"):
+    clip_model, clip_transforms = clip.load(model)
     state_dict = clip_model.state_dict()
     layers = tuple([len(set(k.split(".")[2] for k in state_dict if k.startswith(f"visual.layer{b}")))
                     for b in [1, 2, 3, 4]])
