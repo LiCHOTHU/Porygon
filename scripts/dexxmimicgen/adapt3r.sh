@@ -3,7 +3,7 @@ export HYDRA_FULL_ERROR=1
 
 python train.py \
     --config-name=train_debug.yaml \
-    task=dexmimicgen_ego \
+    task=dexmimicgen \
     algo=diffusion_policy \
     algo/encoder=adapt3r_bimanual  \
     algo.encoder.do_lang=false \
