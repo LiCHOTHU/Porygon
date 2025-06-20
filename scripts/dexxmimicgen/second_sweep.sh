@@ -101,22 +101,22 @@ for seed in ${seeds[@]}; do
                 $@
             
             # # DP3
-            # echo python train.py \
-            #     --config-name=train.yaml \
-            #     exp_name=fixed_sweep_dmg_4 \
-            #     variant_name=dp3_abs${ego} \
-            #     task=dexmimicge${ego} \
-            #     task.task_name=${task_name} \
-            #     algo=${algo_name} \
-            #     algo/encoder=dp3 \
-            #     algo.chunk_size=16 \
-            #     algo.abs_action=true \
-            #     algo.policy.temporal_agg=false \
-            #     rollout.interval=25 \
-            #     training.n_epochs=251 \
-            #     pace_copy=true \
-            #     seed=${seed} \
-            #     $@
+            echo python train.py \
+                --config-name=train.yaml \
+                exp_name=fixed_sweep_dmg_4 \
+                variant_name=dp3_abs${ego} \
+                task=dexmimicge${ego} \
+                task.task_name=${task_name} \
+                algo=${algo_name} \
+                algo/encoder=dp3 \
+                algo.chunk_size=16 \
+                algo.abs_action=true \
+                algo.policy.temporal_agg=false \
+                rollout.interval=25 \
+                training.n_epochs=251 \
+                pace_copy=true \
+                seed=${seed} \
+                $@
         done
     done
 done
