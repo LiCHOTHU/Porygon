@@ -11,6 +11,7 @@ lang_embed_dim: ${algo.embed_dim}
 abs_action: false
 frame_stack: 1
 eecf: false
+batch_size: 64
 
 lr: 1.0e-4
 weight_decay: 1.0e-6

@@ -198,7 +198,7 @@ class PointCloudBaseEncoder(BaseEncoder):
             extrinsic_key = eu.camera_name_to_extrinsic_key(camera_name)
             depth_key = eu.camera_name_to_depth_key(camera_name)
             
-            depths = obs_data[depth_key].squeeze(2).to(torch.float32) / 1000
+            depths = obs_data[depth_key].squeeze(2).to(torch.float32)
             intrinsics = obs_data[intrinsic_key]
             extrinsics = obs_data[extrinsic_key]
             

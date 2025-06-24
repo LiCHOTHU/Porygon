@@ -158,7 +158,7 @@ class Adapt3REncoder(PointCloudBaseEncoder):
 
         assert len(rgb) == len(pcd)
 
-        rgb = torch.stack(rgb).to(dtype=torch.float32) / 255
+        rgb = torch.stack(rgb).to(dtype=torch.float32)
         pcd = torch.stack(pcd).to(dtype=torch.float32)
 
         device = rgb.device

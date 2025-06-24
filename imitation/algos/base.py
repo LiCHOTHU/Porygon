@@ -131,7 +131,7 @@ class Policy(nn.Module, ABC):
                 data["obs"][image_name] = torch.clip(data["obs"][image_name], 0, 1)
             depth_name = eu.camera_name_to_depth_key(camera_name)
             if depth_name in data["obs"]:
-                data["obs"][depth_name] = torch.data["obs"][depth_name] / 1000
+                data["obs"][depth_name] = data["obs"][depth_name] / 1000
 
         if train_mode and self.use_augmentation:
             data = self.aug(data)

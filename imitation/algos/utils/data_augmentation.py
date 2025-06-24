@@ -87,7 +87,7 @@ class TranslationAug(nn.Module):
                 if rgb_name in obs_data:
                     x.append(obs_data[rgb_name])
                 if depth_name in obs_data and self.use_depth:
-                    x.append(obs_data[depth_name] / 1000)
+                    x.append(obs_data[depth_name])
 
                 x = torch.cat(x, dim=2)
                 
