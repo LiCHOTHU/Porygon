@@ -9,7 +9,6 @@ class ACT(ChunkPolicy):
             act_model: DETRVAE,
             loss_fn,
             kl_weight,
-            lr_backbone,
             encoder_input=('perception', 'lowdim',),
             eecf=False,
             **kwargs
@@ -17,7 +16,6 @@ class ACT(ChunkPolicy):
         super().__init__(**kwargs)
         self.loss_fn = loss_fn
         self.kl_weight = kl_weight
-        self.lr_backbone = lr_backbone
         self.eecf = eecf
         
         self.act_model = act_model(
@@ -80,22 +78,15 @@ class ACT(ChunkPolicy):
 
     def get_embeddings(self, data):
         perception_encodings, lowdim_encodings = self.obs_encode(data)
-        perception_encodings = torch.stack(perception_encodings, dim=2)
+        perception_encodings = torch.stack(perception_encodings, dim=1)
         B = perception_encodings.shape[0]
-        # if B == 1 or True:
-        #     breakpoint()
         D = perception_encodings.shape[-1]
         if len(lowdim_encodings) == 0:
             lowdim_encodings = torch.zeros((B, 0, D), device=perception_encodings.device)
         else:
-            lowdim_encodings = torch.stack(lowdim_encodings, dim=2)
+            lowdim_encodings = torch.stack(lowdim_encodings, dim=1)
         
         lang_emb = self.get_task_emb(data)
-
-        # collapse frame stack dim and number of encoder dim into one dimension
-        # TODO: honestly no idea whether this will work correctly for frame_stack>1
-        perception_encodings = perception_encodings.reshape(B, -1, D)
-        lowdim_encodings = lowdim_encodings.reshape(B, -1, D)
 
         return perception_encodings, lowdim_encodings, lang_emb
 

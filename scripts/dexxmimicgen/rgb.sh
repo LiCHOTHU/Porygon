@@ -1,4 +1,5 @@
 export HYDRA_FULL_ERROR=1
+# export CUDA_LAUNCH_BLOCKING=1
 
 python train.py \
     --config-name=train_debug.yaml \

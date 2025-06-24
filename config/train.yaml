@@ -21,7 +21,7 @@ checkpoint_path: null
 
 train_dataloader:
   _target_: torch.utils.data.DataLoader
-  batch_size: 64
+  batch_size: ${algo.batch_size}
   shuffle: true
   num_workers: 4
   persistent_workers: true

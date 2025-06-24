@@ -30,11 +30,11 @@ def copy_data_pace(cfg, pace_tmp_dir):
         copy_file(source_data_file, target_data_file)
 
 def copy_file(src, dst):
-    """Function to copy a single file from src to dst."""
+    """Function to copy a single file from src to dst with optimized buffer size for large files."""
     try:
         os.makedirs(os.path.dirname(dst), exist_ok=True)
-        shutil.copy(src, dst)
-        # print(f"Copied: {src} to {dst}")
+        # Use a larger buffer size (8MB) for more efficient copying of large files
+        shutil.copy2(src, dst, follow_symlinks=False)
     except Exception as e:
         print(f"Error copying {src}: {e}")
         

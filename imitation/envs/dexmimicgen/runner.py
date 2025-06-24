@@ -216,7 +216,7 @@ class DexMimicGenRunner():
         if hasattr(policy, 'get_action'):
             policy.reset()
             policy_object = policy
-            policy = lambda obs: policy_object.get_action(obs, 0, None)
+            policy = lambda obs: policy_object.get_action(obs, 0)
         
         success = False
         total_reward = 0

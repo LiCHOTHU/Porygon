@@ -5,7 +5,13 @@ defaults:
 data_subfolder: core_depth_abs_rand
 
 shape_meta:
-  action_dim: 7
+  actions: 
+    actions: 7
+  abs_actions: 
+    abs_actions: 10
+  rotation_rep_in: axis_angle
+  rotation_rep_in_abs: rotation_6d
+  rotation_rep_out: axis_angle
   observation:
     rgb:
       agentview_image:

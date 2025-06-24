@@ -56,7 +56,7 @@ class DP3Encoder(PointCloudBaseEncoder):
             rgb = []
             for camera_name in eu.list_cameras(self.shape_meta):
                 rgb.append(obs_data[eu.camera_name_to_image_key(camera_name)])
-            rgb = torch.stack(rgb).to(dtype=torch.float32) / 255
+            rgb = torch.stack(rgb).to(dtype=torch.float32)
             rgb = einops.rearrange(rgb, "ncam b fs c h w -> b fs (ncam h w) c")
             rgb = rgb * mask.unsqueeze(-1)
         else:

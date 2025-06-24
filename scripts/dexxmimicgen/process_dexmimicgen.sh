@@ -9,8 +9,8 @@ SCRIPT_PATH="${BASE_DIR}/scripts/process_dexmimicgen.py"
 mkdir -p ${OUTPUT_DIR}
 
 file_names=(
-    "two_arm_coffee.hdf5"
-    # "two_arm_pouring.hdf5"
+    # "two_arm_coffee.hdf5"
+    "two_arm_pouring.hdf5"
 )
 
 # Process each HDF5 file

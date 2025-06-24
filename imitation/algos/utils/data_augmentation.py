@@ -87,7 +87,7 @@ class TranslationAug(nn.Module):
                 if rgb_name in obs_data:
                     x.append(obs_data[rgb_name])
                 if depth_name in obs_data and self.use_depth:
-                    x.append(obs_data[depth_name] / 1000)
+                    x.append(obs_data[depth_name])
 
                 x = torch.cat(x, dim=2)
                 
@@ -110,11 +110,11 @@ class TranslationAug(nn.Module):
                 out = out.reshape(batch_size, temporal_len, img_c, img_h, img_w)
 
                 if rgb_name in obs_data:
-                    rgb = out[:, :, :3].to(dtype=torch.uint8)
+                    rgb = out[:, :, :3]
                     out = out[:, :, 3:]
                     obs_data[rgb_name] = rgb
                 if depth_name in obs_data and self.use_depth:
-                    depth = (out * 1000).to(dtype=torch.uint16)
+                    depth = (out)
                     obs_data[depth_name] = depth
 
                 if intrinsics is not None:
@@ -148,36 +148,6 @@ class ImgColorJitterAug(torch.nn.Module):
             for name in self.shape_meta['observation']['rgb']:
                 data['obs'][name] = self.color_jitter(data['obs'][name])
         return data
-
-
-class ImgColorJitterGroupAug(torch.nn.Module):
-    """
-    Conduct color jittering augmentation outside of proposal boxes
-    """
-
-    def __init__(
-        self,
-        shape_meta,
-        brightness=0.3,
-        contrast=0.3,
-        saturation=0.3,
-        hue=0.3,
-        epsilon=0.05,
-    ):
-        super().__init__()
-        self.color_jitter = torchvision.transforms.ColorJitter(
-            brightness=brightness, contrast=contrast, saturation=saturation, hue=hue
-        )
-        self.epsilon = epsilon
-        self.shape_meta = shape_meta
-
-    def forward(self, x):
-        raise NotImplementedError
-        if self.training and np.random.rand() > self.epsilon:
-            out = self.color_jitter(x)
-        else:
-            out = x
-        return out
 
 
 class BatchWiseImgColorJitterAug(torch.nn.Module):
@@ -219,6 +189,75 @@ class BatchWiseImgColorJitterAug(torch.nn.Module):
                 out = mask * jittered + torch.logical_not(mask) * x
 
                 obs_data[image_name] = out
+        
+        # self.count += 1
+        return data
+
+
+class EfficientBatchWiseImgColorJitterAug(torch.nn.Module):
+    """
+    This version is slower than the other one with no upsides.
+    """
+
+    def __init__(
+        self,
+        shape_meta,
+        brightness=0.3,
+        contrast=0.3,
+        saturation=0.3,
+        hue=0.3,
+        epsilon=0.1,
+    ):
+        super().__init__()
+        import kornia.augmentation as K
+        self.color_jitter = K.ColorJiggle(
+            brightness=brightness, 
+            contrast=contrast, 
+            saturation=saturation, 
+            hue=hue, 
+            p=epsilon,
+        )
+        self.epsilon = epsilon
+        self.shape_meta = shape_meta
+
+    def forward(self, data):
+        if self.training:
+            obs_data = data['obs']
+            camera_names = eu.list_cameras(self.shape_meta)
+
+            ims = []
+            for camera_name in camera_names:
+                image_name = eu.camera_name_to_image_key(camera_name)
+                if image_name not in obs_data:
+                    continue
+                
+                ims.append(obs_data[image_name])
+
+            ims = torch.stack(ims, dim=1)
+            B, N, T, C, H, W = ims.shape
+
+            ims = ims.reshape(B * N * T, C, H, W)
+            jittered = self.color_jitter(ims)
+            jittered = jittered.reshape(B, N, T, C, H, W)
+            jittered_ims = torch.unbind(jittered, dim=1)
+            for i, camera_name in enumerate(camera_names):
+                image_name = eu.camera_name_to_image_key(camera_name)
+                if image_name in obs_data:
+                    obs_data[image_name] = jittered_ims[i]
+
+            # for camera_name in eu.list_cameras(self.shape_meta):
+            #     image_name = eu.camera_name_to_image_key(camera_name)
+            #     if image_name not in obs_data:
+            #         continue
+
+            #     x = obs_data[image_name]
+            #     B, T, C, H, W = x.shape
+
+            #     x = x.reshape(B * T, C, H, W)
+            #     jittered = self.color_jitter(x)
+            #     jittered = jittered.reshape(B, T, C, H, W)
+
+            #     obs_data[image_name] = jittered
         
         # self.count += 1
         return data

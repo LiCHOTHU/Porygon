@@ -63,7 +63,7 @@ class BimanualAdapt3REncoder(Adapt3REncoder):
 
         assert len(rgb) == len(pcd)
 
-        rgb = torch.stack(rgb).to(dtype=torch.float32) / 255
+        rgb = torch.stack(rgb).to(dtype=torch.float32)
         pcd = torch.stack(pcd).to(dtype=torch.float32)
 
         device = rgb.device
@@ -163,7 +163,7 @@ class BimanualAdapt3REncoder(Adapt3REncoder):
         rgb = rgb * mask.unsqueeze(-1)
         rgb_features = rgb_features * mask.unsqueeze(-1)
 
-        pcd, rgb_features, rgb, mask = self._downsample_point_cloud(pcd=pcd, rgb_features=rgb_features, rgb=rgb, mask=mask)
+        # pcd, rgb_features, rgb, mask = self._downsample_point_cloud(pcd=pcd, rgb_features=rgb_features, rgb=rgb, mask=mask)
 
         # for i in range(pcd.shape[0]):
         #     pcu.show_point_cloud(pcd[i, 0], rgb[i, 0])

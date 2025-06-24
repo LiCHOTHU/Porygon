@@ -194,6 +194,7 @@ class DexMimicGenWrapper(gymnasium.Env):
         if self.hd_rendering:
             new_sensors, new_names = self.env._create_camera_sensors(
                 cam_name='frontview',
+                # cam_name=cameras[0],
                 cam_w=512,
                 cam_h=512,
                 cam_d=False,
