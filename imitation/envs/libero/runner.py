@@ -188,7 +188,7 @@ class LiberoRunner():
         if hasattr(policy, 'get_action'):
             policy.reset()
             policy_object = policy
-            policy = lambda obs, task_id, task_emb: policy_object.get_action(obs, task_id, task_emb)
+            policy = lambda obs, task_id, **kwargs: policy_object.get_action(obs, task_id, **kwargs)
         
         success, total_reward = [False]*env_num, [0]*env_num
 
@@ -198,7 +198,9 @@ class LiberoRunner():
             episode['render'] = [env.render()]
 
         task_id = self.env_names.index(env_name)
-        task_emb = self.benchmark.get_task_emb(task_id).repeat(env_num, 1)
+        # task_emb = self.benchmark.get_task_emb(task_id).repeat(env_num, 1)
+        task_emb = self.benchmark.get_task_emb(task_id)
+        task_emb = {key: value.repeat(env_num, 1) for key, value in task_emb.items()}
         steps = 0
         done = False
         if self.test_inference_time:
@@ -208,7 +210,7 @@ class LiberoRunner():
             t_start = time.time()
             for i in trange(1000):
                 obs_clone = copy.deepcopy(obs)
-                action = policy(obs_clone, task_id, task_emb)
+                action = policy(obs_clone, task_id, **task_emb)
             t_end = time.time()
             s_per_iter = (t_end - t_start) / 1000
             hz = 1 / s_per_iter
@@ -222,7 +224,7 @@ class LiberoRunner():
             # [np.prod(param.size()) for param in policy_object.parameters()]
             # breakpoint()
             
-            action = policy(obs, task_id, task_emb)
+            action = policy(obs, task_id, **task_emb)
             # action = env.action_space.sample()
             # TODO: fix bounds in the lib env and then uncomment
             # action = np.clip(action, env.action_space.low, env.action_space.high)

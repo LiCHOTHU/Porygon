@@ -198,39 +198,6 @@ class Policy(nn.Module, ABC):
                     pos = torch.einsum("...ij,...nj->...ni", hand_mat_inv[..., :3, :3], pos)
             actions_decomp[i] = [pos, rot, gripper]
         
-
-        # if self.bimanual:
-        #     for i, hand in enumerate(["right", "left"]):
-        #         pos, rot, gripper = actions_decomp[i]
-        #         rot_network = self.rotation_transformer.preprocess(rot)
-
-        #         if self.eecf:
-        #             hand_mat_inv = data[f"obs"][f"robot0_{hand}_eef_mat_inv"][:, -1] # take the last timestep
-
-        #             if self.abs_action:
-        #                 rot_mat = self.rotation_transformer.network_to_matrix(rot_network)
-        #                 mat = pcu.pos_rot_mat_to_mat(pos, rot_mat)  
-        #                 mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat_inv, mat)
-        #                 pos, rot_network_eecf = pcu.matrix_to_pos_rot_matrix(mat_eecf)
-        #                 rot = self.rotation_transformer.matrix_to_network(rot_network_eecf)
-        #             else:
-        #                 assert False, "Not implemented"
-
-        #         actions_decomp[i] = [pos, rot, gripper]
-        # else:
-        #     pos, rot, gripper = actions_decomp
-        #     if self.eecf:
-        #         hand_mat_inv = data[f"obs"][f"hand_mat_inv"][:, -1] # take the last timestep
-        #         if self.abs_action:
-        #             rot_mat = self.rotation_transformer.network_to_matrix(rot)
-        #             mat = pcu.pos_rot_mat_to_mat(pos, rot_mat)
-        #             mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat_inv, mat)
-        #             pos, rot_network_eecf = pcu.matrix_to_pos_rot_matrix(mat_eecf)
-        #             rot = self.rotation_transformer.matrix_to_network(rot_network_eecf)
-        #         else:
-        #             pos = torch.einsum("...ij,...j->...i", hand_mat_inv[..., :3, :3], pos)
-        #         actions_decomp = [pos, rot, gripper]
-
         actions = self.reassemble_actions(actions_decomp)
 
         data["actions"] = actions
@@ -239,38 +206,61 @@ class Policy(nn.Module, ABC):
     def postprocess_actions(self, data):
         actions = data['actions']
         actions_decomp = self.decompose_actions(actions)
+
         if self.bimanual:
-            for i, hand in enumerate(["right", "left"]):
-                pos, rot, gripper = actions_decomp[i]
-                
-                if self.eecf:
-                    hand_mat = data['obs'][f"robot0_{hand}_eef_mat"][:, -1] # take the last timestep
-                    
-                    if self.abs_action:
-                        rot_mat = self.rotation_transformer.network_to_matrix(rot)
-                        mat_eecf = pcu.pos_rot_mat_to_mat(pos, rot_mat)
-                        mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat, mat_eecf)
-                        pos, rot_network_eecf = pcu.matrix_to_pos_rot_matrix(mat_eecf)
-                        rot = self.rotation_transformer.matrix_to_network(rot_network_eecf)
-                    else:
-                        assert False, "Not implemented"
-                actions_decomp[i] = [pos, rot, gripper]
+            hand_mats = [data[f"obs"][f"robot0_{hand}_eef_mat"][:, -1] for hand in ["right", "left"]]
         else:
-            pos, rot, gripper = actions_decomp
+            hand_mats = [data[f"obs"][f"hand_mat"][:, -1]]
+
+        for i in range(len(actions_decomp)):
+            pos, rot_network, gripper = actions_decomp[i]
             if self.eecf:
-                hand_mat = data['obs'][f"hand_mat"][:, -1] # take the last timestep
+                hand_mat = hand_mats[i]
                 if self.abs_action:
-                    rot_mat = self.rotation_transformer.network_to_matrix(rot)
+                    rot_mat = self.rotation_transformer.network_to_matrix(rot_network)
                     mat_eecf = pcu.pos_rot_mat_to_mat(pos, rot_mat)
-                    mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat, mat_eecf)
-                    pos, rot_network_eecf = pcu.matrix_to_pos_rot_matrix(mat_eecf)
-                    rot = self.rotation_transformer.matrix_to_network(rot_network_eecf)
+                    mat = torch.einsum('bij,bnjk->bnik', hand_mat, mat_eecf)
+                    pos, rot_network_eecf = pcu.matrix_to_pos_rot_matrix(mat)
+                    rot_network = self.rotation_transformer.matrix_to_network(rot_network_eecf)
                 else:
                     pos = torch.einsum("...ij,...j->...i", hand_mat[..., :3, :3], pos)
-            actions_decomp = [pos, rot, gripper]
+            actions_decomp[i] = [pos, rot_network, gripper]
         actions = self.reassemble_actions(actions_decomp)
         data["actions"] = actions
         return data
+
+        # if self.bimanual:
+        #     for i, hand in enumerate(["right", "left"]):
+        #         pos, rot, gripper = actions_decomp[i]
+                
+        #         if self.eecf:
+        #             hand_mat = data['obs'][f"robot0_{hand}_eef_mat"][:, -1] # take the last timestep
+                    
+        #             if self.abs_action:
+        #                 rot_mat = self.rotation_transformer.network_to_matrix(rot)
+        #                 mat_eecf = pcu.pos_rot_mat_to_mat(pos, rot_mat)
+        #                 mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat, mat_eecf)
+        #                 pos, rot_network_eecf = pcu.matrix_to_pos_rot_matrix(mat_eecf)
+        #                 rot = self.rotation_transformer.matrix_to_network(rot_network_eecf)
+        #             else:
+        #                 assert False, "Not implemented"
+        #         actions_decomp[i] = [pos, rot, gripper]
+        # else:
+        #     pos, rot, gripper = actions_decomp[0]
+        #     if self.eecf:
+        #         hand_mat = data['obs'][f"hand_mat"][:, -1] # take the last timestep
+        #         if self.abs_action:
+        #             rot_mat = self.rotation_transformer.network_to_matrix(rot)
+        #             mat_eecf = pcu.pos_rot_mat_to_mat(pos, rot_mat)
+        #             mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat, mat_eecf)
+        #             pos, rot_network_eecf = pcu.matrix_to_pos_rot_matrix(mat_eecf)
+        #             rot = self.rotation_transformer.matrix_to_network(rot_network_eecf)
+        #         else:
+        #             pos = torch.einsum("...ij,...j->...i", hand_mat[..., :3, :3], pos)
+        #     actions_decomp[0] = [pos, rot, gripper]
+        # actions = self.reassemble_actions(actions_decomp)
+        # data["actions"] = actions
+        # return data
 
     # This needs to be separate because if we have temporal aggregation and abs_actions, it is 
     # important that the aggregation is done with 6D rotations
@@ -282,9 +272,9 @@ class Policy(nn.Module, ABC):
                 rot = self.rotation_transformer.postprocess(rot)
                 action_decomp[i] = [pos, rot, gripper]
         else:
-            pos, rot, gripper = action_decomp
+            pos, rot, gripper = action_decomp[0]
             rot = self.rotation_transformer.postprocess(rot)
-            action_decomp = [pos, rot, gripper]
+            action_decomp[0] = [pos, rot, gripper]
         action = self.reassemble_actions(action_decomp)
 
         return action
@@ -298,7 +288,7 @@ class Policy(nn.Module, ABC):
     def get_task_emb(self, data):
         return self.encoder.get_task_emb(data)
 
-    def get_action(self, obs, task_id, task_emb=None):
+    def get_action(self, obs, task_id, **kwargs):
         self.eval()
         # for key, value in obs.items():
         #     if key in self.shape_meta["rgb"]:
@@ -312,13 +302,13 @@ class Policy(nn.Module, ABC):
         #     # TODO: repeat for parallel envs, can be done inside env runner
         #     batch["task_id"] = torch.tensor([task_id], dtype=torch.long)
         # batch = map_tensor_to_device(batch, self.device)
-        batch = self._make_batch(obs, task_id, task_emb)
+        batch = self._make_batch(obs, task_id, **kwargs)
         with torch.no_grad():
             action = self.sample_actions(batch)
         action = self.normalizer.unnormalize({self.action_key: action})[self.action_key]
         return action
     
-    def _make_batch(self, obs, task_id, task_emb):
+    def _make_batch(self, obs, task_id, **kwargs):
         for key, value in obs.items():
             if key in self.shape_meta["observation"]["rgb"]:
                 value = ObsUtils.process_frame(value, channel_dim=3)
@@ -329,8 +319,8 @@ class Policy(nn.Module, ABC):
             obs[key] = torch.tensor(value)
         batch = {}
         batch["obs"] = obs
-        if task_emb is not None:
-            batch.update(task_emb)
+        if kwargs is not None:
+            batch.update(kwargs)
         batch["task_id"] = torch.tensor([task_id], dtype=torch.long)
         batch = map_tensor_to_device(batch, self.device)
         return batch
@@ -400,26 +390,27 @@ class ChunkPolicy(Policy):
         else:
             self.action_queue = deque(maxlen=self.action_horizon)
 
-    def get_action(self, obs, task_id, task_emb):
+    def get_action(self, obs, task_id, **kwargs):
         if self.temporal_agg:
-            actions = self._get_action_agg(obs, task_id, task_emb)
+            actions = self._get_action_agg(obs, task_id, **kwargs)
         else:
-            actions = self._get_action_no_agg(obs, task_id, task_emb)
+            actions = self._get_action_no_agg(obs, task_id, **kwargs)
         actions = self.final_postprocess_actions(actions)
         return actions.to(torch.float32).cpu().numpy()
 
-    def _get_action_agg(self, obs, task_id, task_emb):  # obs, task_id, task_emb=None):
+    def _get_action_agg(self, obs, task_id, **kwargs):  # obs, task_id, task_emb=None):
         self.eval()
         if self.batch_size is None:
             self.batch_size = obs[list(obs.keys())[0]].shape[0]
             self.reset()
 
-        batch = self._make_batch(obs, task_id, task_emb)
+        batch = self._make_batch(obs, task_id, **kwargs)
         with torch.no_grad():
             actions = self.sample_actions(batch)
             actions = self.normalizer.unnormalize({"actions": actions})["actions"]
-            batch['actions'] = actions
+            batch['actions'] = torch.tensor(actions, device=self.device)
             actions = self.postprocess_actions(batch)['actions']
+            actions = actions.cpu().numpy()
 
         # Chop off the actions corresponding to the last timestep
         # and the oldest action in the history
@@ -443,7 +434,7 @@ class ChunkPolicy(Policy):
         out_actions = torch.tensor(out_actions)
         return out_actions[:, 0]
 
-    def _get_action_no_agg(self, obs, task_id, task_emb=None):
+    def _get_action_no_agg(self, obs, task_id, **kwargs):
         assert (
             self.action_queue is not None
         ), "you need to call policy.reset() before getting actions"
@@ -451,7 +442,7 @@ class ChunkPolicy(Policy):
         # self.eval()
         # TODO: can shift preprocessing to the env wrapper
         if len(self.action_queue) == 0:
-            batch = self._make_batch(obs, task_id, task_emb)
+            batch = self._make_batch(obs, task_id, **kwargs)
             with torch.no_grad():
                 actions = self.sample_actions(batch)
                 actions = self.normalizer.unnormalize({"actions": actions})["actions"]

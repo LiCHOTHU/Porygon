@@ -153,10 +153,11 @@ def build_dataset(data_prefix,
         task_description = benchmark.get_task(i).language
         descriptions.append(task_description)
         manip_datasets.append(task_i_dataset)
-    task_embs = get_task_embs(task_embedding_format, descriptions)
-    benchmark.set_task_embs(task_embs)
+    task_embs_train = get_task_embs(task_embedding_format, descriptions, train=True)
+    task_embs_test = get_task_embs(task_embedding_format, descriptions, train=False)
+    benchmark.set_task_embs(task_embs_test)
     datasets = [
-        SequenceVLDataset(ds, task_id=i, **emb) for i, (ds, emb) in enumerate(zip(manip_datasets, task_embs))
+        SequenceVLDataset(ds, task_id=i, **emb) for i, (ds, emb) in enumerate(zip(manip_datasets, task_embs_train))
     ]
     n_demos = [data.n_demos for data in datasets]
     n_sequences = [data.total_num_sequences for data in datasets]
@@ -220,7 +221,8 @@ def get_dataset(
     return dataset
 
 
-def get_task_embs(task_embedding_format, descriptions):
+def get_task_embs(task_embedding_format, descriptions, train=True):
+    # TODO: add support for multiple descriptions at train time
     logging.set_verbosity_error()
     if task_embedding_format == "bert":
         tz = AutoTokenizer.from_pretrained(
