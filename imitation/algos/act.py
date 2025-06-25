@@ -10,13 +10,11 @@ class ACT(ChunkPolicy):
             loss_fn,
             kl_weight,
             encoder_input=('perception', 'lowdim',),
-            eecf=False,
             **kwargs
             ):
         super().__init__(**kwargs)
         self.loss_fn = loss_fn
         self.kl_weight = kl_weight
-        self.eecf = eecf
         
         self.act_model = act_model(
             action_dim=self.network_action_dim,
@@ -32,12 +30,7 @@ class ACT(ChunkPolicy):
     def compute_loss(self, data):
         data = self.preprocess_input(data, train_mode=True)
         
-        actions = data["abs_actions"] if self.abs_action else data["actions"]
-        if self.eecf:
-            rot_mat_inv = data['obs']['hand_mat_inv'][..., :3, :3]
-            actions_pos, actions_rest = torch.split(actions, [3, actions.shape[-1]-3], dim=-1)
-            actions_pos = torch.einsum('bfij,bfj->bfi', rot_mat_inv, actions_pos)
-            actions = torch.cat((actions_pos, actions_rest), dim=-1)
+        actions = data["actions"]
 
         perception_encodings, lowdim_encodings, lang_emb = self.get_embeddings(data)
         
@@ -45,7 +38,6 @@ class ACT(ChunkPolicy):
         is_pad = torch.zeros((actions.shape[0], actions.shape[1]), device=self.device, dtype=torch.bool)
         pred_action, _, latent = self.act_model(lowdim_encodings, perception_encodings, lang_emb, actions, is_pad)
 
-        # pred_action, latent = self.forward(data)
         l1_loss = self.loss_fn(pred_action, actions)
         total_kld, dim_wise_kld, mean_kld = kl_divergence(latent[0], latent[1])
         loss = l1_loss + total_kld[0]*self.kl_weight
@@ -59,19 +51,10 @@ class ACT(ChunkPolicy):
     
     def sample_actions(self, data):
         data = self.preprocess_input(data, train_mode=False)
-        # breakpoint()
 
         perception_encodings, lowdim_encodings, lang_emb = self.get_embeddings(data)
 
         pred_action, _, _ = self.act_model(lowdim_encodings, perception_encodings, lang_emb)
-        # pred_action, _ = self.forward(data)
-        # pred_action = pred_action.permute(1, 0, 2)
-
-        if self.eecf:
-            actions_pos, actions_gripper = torch.split(pred_action, [3, pred_action.shape[-1]-3], dim=-1)
-            hand_mat = data['obs']['hand_mat'][:, :, :3, :3]
-            actions_pos_world = torch.einsum('bfij,bfj->bfi', hand_mat, actions_pos)
-            pred_action = torch.cat((actions_pos_world, actions_gripper), dim=-1)
 
         return pred_action.detach().cpu().numpy()
 

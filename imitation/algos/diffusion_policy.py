@@ -35,7 +35,6 @@ class DiffusionPolicy(ChunkPolicy):
             self.encoder.n_out_perception * self.encoder.d_out_perception
             + self.encoder.n_out_lowdim * self.encoder.d_out_lowdim
         )
-        # TODO: this assumes frame_stack=1
         obs_proj = nn.Linear(obs_channels, embed_dim)
 
         # Create wrapper module containing all networks

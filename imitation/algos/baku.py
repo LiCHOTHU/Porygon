@@ -7,7 +7,6 @@ from torch import distributions as pyd
 from torch import nn
 from torch.distributions.utils import _standard_normal
 from torchvision import transforms as T
-import imitation.utils.point_cloud_utils as pcu
 
 from imitation.algos.base import ChunkPolicy
 
@@ -23,7 +22,6 @@ class Baku(ChunkPolicy):
             frame_stack, 
             embed_dim, 
             policy_head, 
-            eecf=False,
             **kwargs
         ):
         super().__init__(**kwargs)
@@ -31,7 +29,6 @@ class Baku(ChunkPolicy):
         self.std = std
         self.language_proj_type = "mlp"  # mlp or identity
         self.frame_stack = frame_stack
-        self.eecf = eecf
 
         num_feat_per_step = (
             self.encoder.n_out_perception + self.encoder.n_out_lowdim
@@ -100,23 +97,6 @@ class Baku(ChunkPolicy):
 
             actions = torch.clamp(actions, -1, 1)
             
-            # if self.eecf:
-            #     action_p1 = ACTION_P1.reshape((1, 1, -1)).to(device=actions.device, dtype=actions.dtype)
-            #     action_p99 = ACTION_P99.reshape((1, 1, -1)).to(device=actions.device, dtype=actions.dtype)
-            #     action_eecf = (actions + 1) * (action_p99 - action_p1) / 2 + action_p1
-
-            #     ee_mat = data['obs']['hand_mat'].squeeze(1)
-            #     pos, rot, gripper = action_eecf.split([3, 6, 1], dim=-1)
-            #     rot_mat = pcu.p3d.rotation_6d_to_matrix(rot)
-            #     action_mat_eecf = pcu.pos_rot_mat_to_mat(pos, rot_mat)
-            #     action_mat = torch.einsum('bij,bnjk->bnik', ee_mat, action_mat_eecf)
-            #     action_pos, action_rot_6d = pcu.matrix_to_pos_6d(action_mat)
-            #     actions = torch.cat((action_pos, action_rot_6d, gripper), dim=-1)
-            # else:
-
-
-        # breakpoint()
-
         return actions.cpu().numpy()
 
 

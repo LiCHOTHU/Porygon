@@ -38,25 +38,13 @@ class Policy(nn.Module, ABC):
         eecf=False,
         bimanual=False,
         normalizer: Normalizer = None,
+        rot_rep=None
     ):
         super().__init__()
 
         self.encoder = encoder
         self.use_augmentation = aug_factory is not None
         self.shape_meta = shape_meta
-        # self.build_pointcloud = isinstance(encoder, Adapt3REncoder)
-
-        # aug_shape_meta = shape_meta.copy()
-
-        # if self.build_pointcloud:
-        #     for key, input_shape in shape_meta["observation"]["depth"].items():
-        #         camera_name = self._depth_key_to_camera_name(key)
-        #         pcd_key = f"{camera_name}_pointcloud_full"
-        #         if pcd_key not in shape_meta["observation"]["pointcloud"]:
-        #             input_shape[0] = 3
-        #             aug_shape_meta["observation"]["pointcloud"][pcd_key] = input_shape
-
-        #     aug_shape_meta["observation"]["depth"] = {}
 
         self.optimizer_factory = optimizer_factory
         if normalizer is None:
@@ -65,12 +53,13 @@ class Policy(nn.Module, ABC):
         self.abs_action = abs_action
         self.eecf = eecf
         self.bimanual = bimanual
-        # self.action_key = 'actions'
         self.device = device
 
         # Use 6D actions if we are predicting abs actions, else axis angle
-        # TODO: I don't like this, we should update the shape meta to handle this
-        self.rot_rep = "rotation_6d" if abs_action else "axis_angle"
+        if rot_rep is None:
+            self.rot_rep = "rotation_6d" if abs_action else "axis_angle"
+        else:
+            self.rot_rep = rot_rep
         rot_rep_in = shape_meta["rotation_rep_in_abs"] if abs_action else shape_meta["rotation_rep_in"]
         self.rotation_transformer = RotationTransformer(
             rep_in=rot_rep_in,
@@ -229,52 +218,15 @@ class Policy(nn.Module, ABC):
         data["actions"] = actions
         return data
 
-        # if self.bimanual:
-        #     for i, hand in enumerate(["right", "left"]):
-        #         pos, rot, gripper = actions_decomp[i]
-                
-        #         if self.eecf:
-        #             hand_mat = data['obs'][f"robot0_{hand}_eef_mat"][:, -1] # take the last timestep
-                    
-        #             if self.abs_action:
-        #                 rot_mat = self.rotation_transformer.network_to_matrix(rot)
-        #                 mat_eecf = pcu.pos_rot_mat_to_mat(pos, rot_mat)
-        #                 mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat, mat_eecf)
-        #                 pos, rot_network_eecf = pcu.matrix_to_pos_rot_matrix(mat_eecf)
-        #                 rot = self.rotation_transformer.matrix_to_network(rot_network_eecf)
-        #             else:
-        #                 assert False, "Not implemented"
-        #         actions_decomp[i] = [pos, rot, gripper]
-        # else:
-        #     pos, rot, gripper = actions_decomp[0]
-        #     if self.eecf:
-        #         hand_mat = data['obs'][f"hand_mat"][:, -1] # take the last timestep
-        #         if self.abs_action:
-        #             rot_mat = self.rotation_transformer.network_to_matrix(rot)
-        #             mat_eecf = pcu.pos_rot_mat_to_mat(pos, rot_mat)
-        #             mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat, mat_eecf)
-        #             pos, rot_network_eecf = pcu.matrix_to_pos_rot_matrix(mat_eecf)
-        #             rot = self.rotation_transformer.matrix_to_network(rot_network_eecf)
-        #         else:
-        #             pos = torch.einsum("...ij,...j->...i", hand_mat[..., :3, :3], pos)
-        #     actions_decomp[0] = [pos, rot, gripper]
-        # actions = self.reassemble_actions(actions_decomp)
-        # data["actions"] = actions
-        # return data
-
     # This needs to be separate because if we have temporal aggregation and abs_actions, it is 
     # important that the aggregation is done with 6D rotations
     def final_postprocess_actions(self, action):
         action_decomp = self.decompose_actions(action)
-        if self.bimanual:
-            for i, hand in enumerate(["right", "left"]):
-                pos, rot, gripper = action_decomp[i]
-                rot = self.rotation_transformer.postprocess(rot)
-                action_decomp[i] = [pos, rot, gripper]
-        else:
-            pos, rot, gripper = action_decomp[0]
+
+        for i in range(len(action_decomp)):
+            pos, rot, gripper = action_decomp[i]
             rot = self.rotation_transformer.postprocess(rot)
-            action_decomp[0] = [pos, rot, gripper]
+            action_decomp[i] = [pos, rot, gripper]
         action = self.reassemble_actions(action_decomp)
 
         return action
@@ -288,20 +240,9 @@ class Policy(nn.Module, ABC):
     def get_task_emb(self, data):
         return self.encoder.get_task_emb(data)
 
+    # TODO: this is out of date and not used since we usually use the chunk policy which overrides this
     def get_action(self, obs, task_id, **kwargs):
         self.eval()
-        # for key, value in obs.items():
-        #     if key in self.shape_meta["rgb"]:
-        #         value = ObsUtils.process_frame(value, channel_dim=3)
-        #     obs[key] = torch.tensor(value)
-        # batch = {}
-        # batch["obs"] = obs
-        # if task_emb is not None:
-        #     batch["task_emb"] = task_emb
-        # else:
-        #     # TODO: repeat for parallel envs, can be done inside env runner
-        #     batch["task_id"] = torch.tensor([task_id], dtype=torch.long)
-        # batch = map_tensor_to_device(batch, self.device)
         batch = self._make_batch(obs, task_id, **kwargs)
         with torch.no_grad():
             action = self.sample_actions(batch)
@@ -332,31 +273,6 @@ class Policy(nn.Module, ABC):
     @abstractmethod
     def sample_actions(self, obs):
         raise NotImplementedError("Implement in subclass")
-
-    # def compute_norm_stats(self, cfg):
-    #     if cfg.pace_copy:
-    #         pace_tmp_dir = os.getenv('TMPDIR')
-    #         copy_data_pace(cfg, pace_tmp_dir)
-    #         dataset = instantiate(cfg.task.dataset,
-    #                             data_prefix=os.path.join(pace_tmp_dir, 'data'))
-    #         dataset_stats = instantiate(cfg.task.dataset, 
-    #                                     data_prefix=os.path.join(pace_tmp_dir, 'data'),
-    #                                     stats_mode=True)
-    #     else:
-    #         dataset = instantiate(cfg.task.dataset)
-    #         dataset_stats = instantiate(cfg.task.dataset, stats_mode=True)
-
-    # def normalize(self, data):
-    #     if self.normalizer is None:
-    #         return data
-    #     else:
-    #         return self.normalizer.normalize(data)
-
-    # def unnormalize(self, data):
-    #     if self.normalizer is None:
-    #         return data
-    #     else:
-    #         return self.normalizer.unnormalize(data)
 
 
 class ChunkPolicy(Policy):
@@ -439,8 +355,6 @@ class ChunkPolicy(Policy):
             self.action_queue is not None
         ), "you need to call policy.reset() before getting actions"
 
-        # self.eval()
-        # TODO: can shift preprocessing to the env wrapper
         if len(self.action_queue) == 0:
             batch = self._make_batch(obs, task_id, **kwargs)
             with torch.no_grad():
