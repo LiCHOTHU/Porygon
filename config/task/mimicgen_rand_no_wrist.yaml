@@ -1,0 +1,42 @@
+defaults:
+  - mimicgen
+  - _self_
+
+data_subfolder: core_depth_abs_rand
+
+shape_meta:
+  actions: 
+    actions: 7
+  abs_actions: 
+    abs_actions: 10
+  rotation_rep_in: axis_angle
+  rotation_rep_in_abs: rotation_6d
+  rotation_rep_out: axis_angle
+  observation:
+    rgb:
+      agentview_image:
+        - 3
+        - ${task.img_height}
+        - ${task.img_width}
+    depth:
+      agentview_depth:
+        - 1
+        - ${task.img_height}
+        - ${task.img_width}
+    lowdim: 
+      robot0_eef_pos: 3
+      robot0_eef_quat: 4
+      robot0_gripper_qpos: 2
+    robot0_eye_in_hand_image:
+      - 3
+      - ${task.img_height}
+      - ${task.img_width}
+    robot0_eye_in_hand_depth:
+      - 1
+      - ${task.img_height}
+      - ${task.img_width}
+  task:
+    type: onehot
+    n_tasks: ${task.n_tasks}
+    dim: 64
+

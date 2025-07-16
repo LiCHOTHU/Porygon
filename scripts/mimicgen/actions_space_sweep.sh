@@ -1,0 +1,204 @@
+export HYDRA_FULL_ERROR=1
+
+# algo_names=(
+#     # fm_policy_S
+#     # dit_policy_S
+#     diffusion_policy
+#     fm_policy_M
+#     dit_policy_M
+#     # fm_policy_L
+#     # dit_policy_L 
+# )
+algo_name=diffusion_policy
+task_names=(
+    square_d1 
+    three_piece_assembly_d1
+    threading_d1
+)
+seeds=(0 1)
+
+baseline_encoders=(
+    rgb
+    dp3
+)
+
+rollout_interval=10
+n_epochs=101
+
+for seed in ${seeds[@]}; do
+    for task_name in ${task_names[@]}; do
+        
+        # Baselines
+        for encoder in ${baseline_encoders[@]}; do
+            echo uv run train.py \
+                --config-name=train.yaml \
+                exp_name=fixed_sweep_actions_space \
+                variant_name=${encoder} \
+                task=mimicgen \
+                task.task_name=${task_name} \
+                algo=${algo_name} \
+                algo/encoder=${encoder} \
+                algo.chunk_size=16 \
+                algo.abs_action=false \
+                algo.policy.temporal_agg=false \
+                rollout.interval=${rollout_interval} \
+                training.n_epochs=${n_epochs} \
+                pace_copy=true \
+                seed=${seed} \
+                $@
+
+            echo uv run train.py \
+                --config-name=train.yaml \
+                exp_name=fixed_sweep_actions_space \
+                variant_name=${encoder}_abs \
+                task=mimicgen \
+                task.task_name=${task_name} \
+                algo=${algo_name} \
+                algo/encoder=${encoder} \
+                algo.chunk_size=16 \
+                algo.abs_action=true \
+                algo.policy.temporal_agg=false \
+                rollout.interval=${rollout_interval} \
+                training.n_epochs=${n_epochs} \
+                pace_copy=true \
+                seed=${seed} \
+                $@
+        done
+
+        # Adapt3R
+        encoder=adapt3r
+        echo uv run train.py \
+            --config-name=train.yaml \
+            exp_name=fixed_sweep_actions_space \
+            variant_name=${encoder}_ft \
+            task=mimicgen \
+            task.task_name=${task_name} \
+            algo=${algo_name} \
+            algo/encoder=${encoder} \
+            algo.chunk_size=16 \
+            algo.abs_action=false \
+            algo.eecf=false \
+            algo.policy.temporal_agg=false \
+            algo.encoder.finetune=true \
+            rollout.interval=${rollout_interval} \
+            training.n_epochs=${n_epochs} \
+            pace_copy=true \
+            seed=${seed} \
+            $@
+
+        echo uv run train.py \
+            --config-name=train.yaml \
+            exp_name=fixed_sweep_actions_space \
+            variant_name=${encoder}_ft_eecf \
+            task=mimicgen \
+            task.task_name=${task_name} \
+            algo=${algo_name} \
+            algo/encoder=${encoder} \
+            algo.chunk_size=16 \
+            algo.abs_action=false \
+            algo.eecf=true \
+            algo.policy.temporal_agg=false \
+            algo.encoder.finetune=true \
+            rollout.interval=${rollout_interval} \
+            training.n_epochs=${n_epochs} \
+            pace_copy=true \
+            seed=${seed} \
+            $@
+
+        echo uv run train.py \
+            --config-name=train.yaml \
+            exp_name=fixed_sweep_actions_space \
+            variant_name=${encoder}_ft_abs \
+            task=mimicgen \
+            task.task_name=${task_name} \
+            algo=${algo_name} \
+            algo/encoder=${encoder} \
+            algo.chunk_size=16 \
+            algo.abs_action=true \
+            algo.eecf=false \
+            algo.policy.temporal_agg=false \
+            algo.encoder.finetune=true \
+            rollout.interval=${rollout_interval} \
+            training.n_epochs=${n_epochs} \
+            pace_copy=true \
+            seed=${seed} \
+            $@
+
+        echo uv run train.py \
+            --config-name=train.yaml \
+            exp_name=fixed_sweep_actions_space \
+            variant_name=${encoder}_ft_abs_eecf \
+            task=mimicgen \
+            task.task_name=${task_name} \
+            algo=${algo_name} \
+            algo/encoder=${encoder} \
+            algo.chunk_size=16 \
+            algo.abs_action=true \
+            algo.eecf=true \
+            algo.policy.temporal_agg=false \
+            algo.encoder.finetune=true \
+            rollout.interval=${rollout_interval} \
+            training.n_epochs=${n_epochs} \
+            pace_copy=true \
+            seed=${seed} \
+            $@
+
+        # No hand frame
+
+        echo uv run train.py \
+            --config-name=train.yaml \
+            exp_name=fixed_sweep_actions_space \
+            variant_name=${encoder}_ft_no_hf \
+            task=mimicgen \
+            task.task_name=${task_name} \
+            algo=${algo_name} \
+            algo/encoder=${encoder} \
+            algo.encoder.hand_frame=false \
+            algo.chunk_size=16 \
+            algo.abs_action=false \
+            algo.eecf=false \
+            algo.policy.temporal_agg=false \
+            algo.encoder.finetune=true \
+            rollout.interval=${rollout_interval} \
+            training.n_epochs=${n_epochs} \
+            pace_copy=true \
+            seed=${seed} \
+            $@
+
+        echo uv run train.py \
+            --config-name=train.yaml \
+            exp_name=fixed_sweep_actions_space \
+            variant_name=${encoder}_ft_no_hf_abs \
+            task=mimicgen \
+            task.task_name=${task_name} \
+            algo=${algo_name} \
+            algo/encoder=${encoder} \
+            algo.encoder.hand_frame=false \
+            algo.chunk_size=16 \
+            algo.abs_action=true \
+            algo.eecf=false \
+            algo.policy.temporal_agg=false \
+            algo.encoder.finetune=true \
+            rollout.interval=${rollout_interval} \
+            training.n_epochs=${n_epochs} \
+            pace_copy=true \
+            seed=${seed} \
+            $@
+    done
+done
+
+# uv run train.py \
+#     --config-name=train_debug.yaml \
+#     task=mimicgen \
+#     task.task_name=square_d1 \
+#     algo=fm_policy_M \
+#     algo/encoder=rgb \
+#     algo.chunk_size=15 \
+#     algo.abs_action=false \
+#     algo.policy.temporal_agg=false \
+#     algo.encoder.finetune=true \
+#     rollout.interval=25 \
+#     training.n_epochs=501 \
+#     pace_copy=true \
+#     seed=0
+

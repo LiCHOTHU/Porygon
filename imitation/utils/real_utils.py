@@ -18,7 +18,7 @@ from transformers import AutoModel, AutoTokenizer, logging
 import imitation.utils.file_utils as FileUtils
 import imitation.utils.obs_utils as ObsUtils
 import imitation.utils.utils as utils
-from imitation.utils.dataset import SequenceDataset
+from imitation.dataset.sequence_dataset import SequenceDataset
 from imitation.utils.draw_utils import show_point_cloud
 from imitation.utils.frame_stack import FrameStackObservationFixed
 

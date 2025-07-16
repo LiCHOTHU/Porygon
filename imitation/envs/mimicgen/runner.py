@@ -65,7 +65,11 @@ class MimicGenRunner():
             else:
                 # return [None] * self.rollouts_per_env
                 fpath = os.path.join(fpath, 'init_states', f'{env_name}_{self.robot}.init')
-            return torch.load(fpath)
+            try:
+                return torch.load(fpath, weights_only=False)
+            except:
+                print(f"No init states found for {env_name}")
+                return [None] * self.rollouts_per_env
         else:
             return [None] * self.rollouts_per_env
 
@@ -230,7 +234,7 @@ class MimicGenRunner():
         if hasattr(policy, 'get_action'):
             policy.reset()
             policy_object = policy
-            policy = lambda obs: policy_object.get_action(obs, 0, None)
+            policy = lambda obs: policy_object.get_action(obs, 0)
         
         success = False
         total_reward = 0

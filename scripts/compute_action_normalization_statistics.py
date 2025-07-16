@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 from pyinstrument import Profiler
 from imitation.utils.logger import Logger
-from imitation.utils.data_utils import copy_data_pace
+from imitation.dataset.utils import copy_data_pace
 import imitation.utils.point_cloud_utils as pcu
 import pytorch3d.transforms as pt
 import einops

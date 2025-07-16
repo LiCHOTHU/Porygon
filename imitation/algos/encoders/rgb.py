@@ -106,7 +106,6 @@ class RGBEncoder(BaseEncoder):
 
         for camera_name in eu.list_cameras(self.shape_meta):
             x = obs_data[eu.camera_name_to_image_key(camera_name)]
-            x = x / 255.0
             x = torch.clip(x, 0, 1)
             obs_data[eu.camera_name_to_image_key(camera_name)] = x
 
@@ -117,7 +116,7 @@ class RGBEncoder(BaseEncoder):
                 
                 x = obs_data[img_name]
                 if self.load_depth:
-                    depth = torch.clamp(obs_data[depth_name] / 1000, 0.001, 5) - 2.5
+                    depth = torch.clamp(obs_data[depth_name], 0.001, 5) - 2.5
                     x = torch.cat((x, depth), dim=2)
 
                 B, T, C, H, W = x.shape
@@ -137,7 +136,7 @@ class RGBEncoder(BaseEncoder):
                 camera_name = eu.image_key_to_camera_name(img_name)
                 depth_name = camera_name + "_depth"
                 if self.load_depth:
-                    depth = torch.clamp(obs_data[depth_name] / 1000, 0.001, 5) - 2.5
+                    depth = torch.clamp(obs_data[depth_name], 0.001, 5) - 2.5
                     img = torch.cat((img, depth), dim=2)
 
                 imgs.append(img)

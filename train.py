@@ -11,8 +11,14 @@ import torch.nn as nn
 import imitation.utils.utils as utils
 from pyinstrument import Profiler
 from imitation.utils.logger import Logger
-from imitation.utils.data_utils import copy_data_pace
+from imitation.dataset.utils import copy_data_pace
 from pathlib import Path
+
+# Disable scientific notation for numpy and torch
+import numpy as np
+np.set_printoptions(suppress=True)
+torch.set_printoptions(sci_mode=False)
+
 
 OmegaConf.register_new_resolver("eval", eval, replace=True)
 os.environ["WANDB_INIT_TIMEOUT"] = "300"
@@ -30,14 +36,16 @@ def main(cfg):
     model.to(device)
     model.train()
 
+    # logger.info("Computing normalization statistics")
+    norm_stats = utils.compute_norm_stats(cfg, model)
+
     # TODO: remove this for release. This is specific to PACE
-    if cfg.pace_copy:
-        pace_tmp_dir = os.getenv('TMPDIR')
-        copy_data_pace(cfg, pace_tmp_dir)
-        dataset = instantiate(cfg.task.dataset,
-                              data_prefix=os.path.join(pace_tmp_dir, 'data'))
-    else:
-        dataset = instantiate(cfg.task.dataset)
+    dataset = utils.make_dataset(cfg)
+    # actions = []
+    # for data in tqdm(dataset_stats):
+    #     actions.append(data['actions'])
+    # breakpoint()
+    # exit()
     model.preprocess_dataset(dataset, use_tqdm=train_cfg.use_tqdm)
     train_dataloader = instantiate(
         cfg.train_dataloader, 
@@ -67,7 +75,7 @@ def main(cfg):
     OmegaConf.save(cfg, config_file)
     logger.info(f"Saved configuration to: {config_file}")
 
-    start_epoch, steps, wandb_id, norm_stats = 0, 0, None, None
+    start_epoch, steps, wandb_id = 0, 0, None
     if train_cfg.resume and len([x for x in os.listdir(experiment_dir) if 'pth' in x]) > 0:
         checkpoint_path = experiment_dir
     else: 
@@ -97,14 +105,8 @@ def main(cfg):
         logger.info("Training already completed. Exiting.")
         exit(0)
 
-    
-    if norm_stats is None:
-        logger.info("Computing normalization statistics")
-        norm_stats = utils.compute_norm_stats(dataset, 
-                                              normalize_action=cfg.normalize_action, 
-                                              normalize_obs=cfg.normalize_obs,
-                                              do_tqdm=train_cfg.use_tqdm)
     model.normalizer.fit(norm_stats)
+    
 
     if cfg.rollout.enabled:
         env_runner = instantiate(cfg.task.env_runner)

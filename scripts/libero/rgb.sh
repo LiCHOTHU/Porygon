@@ -4,7 +4,6 @@ uv run train.py \
     --config-name=train_debug.yaml \
     task=libero \
     algo=diffusion_policy \
-    algo/encoder=rgb  \
     algo.chunk_size=8 \
     $@
 

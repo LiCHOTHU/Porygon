@@ -1,0 +1,122 @@
+suite_name: dexmimicgen
+task_name: two_arm_coffee
+benchmark_name: ${task.task_name}
+mode: all
+robot: Panda
+cam_shift: null
+bimanual: true
+
+# todo: not sure exactly how to handle this for train / eval split. will deal with later
+n_tasks: 1
+demos_per_env: 1000
+img_height: 128
+img_width: 128
+horizon: 500
+data_subfolder: processed
+
+shape_meta:
+  # Note: for bimanual tasks, order should be right_pos, right_rot, left_pos, left_rot, right_gripper, left_gripper
+  actions: null
+  abs_actions: 
+    action_dict/right_abs_pos: 3
+    action_dict/right_abs_rot_6d: 6
+    action_dict/left_abs_pos: 3
+    action_dict/left_abs_rot_6d: 6
+    action_dict/right_gripper: 6
+    action_dict/left_gripper: 6
+  rotation_rep_in: null
+  rotation_rep_in_abs: rotation_6d
+  rotation_rep_out: axis_angle
+  observation:
+    rgb:
+      agentview_image:
+        - 3
+        - ${task.img_height}
+        - ${task.img_width}
+      robot0_eye_in_left_hand_image:
+        - 3
+        - ${task.img_height}
+        - ${task.img_width}
+      robot0_eye_in_right_hand_image:
+        - 3
+        - ${task.img_height}
+        - ${task.img_width}
+    depth:
+      agentview_depth:
+        - 1
+        - ${task.img_height}
+        - ${task.img_width}
+      robot0_eye_in_left_hand_depth:
+        - 1
+        - ${task.img_height}
+        - ${task.img_width}
+      robot0_eye_in_right_hand_depth:
+        - 1
+        - ${task.img_height}
+        - ${task.img_width}
+    lowdim: 
+      robot0_right_eef_pos: 3
+      robot0_right_eef_quat: 4
+      robot0_right_gripper_qpos: 11
+      robot0_left_eef_pos: 3
+      robot0_left_eef_quat: 4
+      robot0_left_gripper_qpos: 11
+  task:
+    type: onehot
+    n_tasks: ${task.n_tasks}
+    dim: 64
+
+# build_dataset(data_prefix, benchmark_name, benchmark_name, seq_len, obs_seq_len, obs_modality):
+dataset:
+  _target_: imitation.envs.mimicgen.utils.build_single_task_dataset
+  data_prefix: ${data_prefix}
+  dataset_name: dexmimicgen
+  data_subfolder: ${task.data_subfolder}
+  task_name: ${task.task_name}
+  seq_len: ${algo.dataset.seq_len}
+  frame_stack: ${algo.dataset.frame_stack}
+  obs_seq_len: ${algo.dataset.obs_seq_len}
+  shape_meta: ${task.shape_meta}
+  abs_action: ${algo.abs_action}
+  load_obs: ${training.load_obs}
+  load_image: ${algo.encoder.load_image}
+  load_depth: ${algo.encoder.load_depth}
+  n_demos: ${task.demos_per_env}
+  extra_obs_modality:
+    low_dim: 
+      - agentview_extrinsic
+      - robot0_eye_in_left_hand_extrinsic
+      - robot0_eye_in_right_hand_extrinsic
+      - agentview_intrinsic
+      - robot0_eye_in_left_hand_intrinsic
+      - robot0_eye_in_right_hand_intrinsic
+      - robot0_right_eef_mat
+      - robot0_left_eef_mat
+      - robot0_right_eef_mat_inv
+      - robot0_left_eef_mat_inv
+
+env_factory:
+  _target_: imitation.envs.dexmimicgen.wrapper.DexMimicGenWrapper
+  _partial_: true 
+  env_name: ${task.task_name}
+  shape_meta: ${task.shape_meta}
+  img_height: ${task.img_height}
+  img_width: ${task.img_width}
+  cameras:
+    - agentview
+    - robot0_eye_in_left_hand
+    - robot0_eye_in_right_hand
+  abs_action: ${algo.abs_action}
+  robot: ${task.robot}
+  camera_pose_variations: ${task.cam_shift}
+
+env_runner:
+  _target_: imitation.envs.dexmimicgen.runner.DexMimicGenRunner
+  env_factory: ${task.env_factory}
+  benchmark_name: ${task.benchmark_name}
+  mode: ${task.mode}
+  rollouts_per_env: ${rollout.rollouts_per_env}
+  max_episode_length: ${rollout.max_episode_length}
+  deterministic: true
+  fps: 24
+  debug: false

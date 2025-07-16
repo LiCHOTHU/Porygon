@@ -1,5 +1,5 @@
 # import imitation.utils.dexmimicgen_utils as dmgu
-from imitation.utils.dexmimicgen_env_wrapper import DexMimicGenFrameStack
+from imitation.envs.dexmimicgen.wrapper import DexMimicGenFrameStack
 import wandb
 import numpy as np
 from tqdm import tqdm, trange
@@ -63,7 +63,7 @@ class DexMimicGenRunner():
             else:
                 # return [None] * self.rollouts_per_env
                 fpath = os.path.join(os.path.dirname(fpath), 'utils', 'mg_init', f'{env_name}_{self.robot}.init')
-            return torch.load(fpath)
+            return torch.load(fpath, weights_only=False)
         else:
             return [None] * self.rollouts_per_env
 
@@ -76,7 +76,8 @@ class DexMimicGenRunner():
             save_video_fn=None, 
             save_hdf5=False,
             do_tqdm=False,
-            env_names=None
+            env_names=None,
+            fault_tolerant=False
             ):
         if save_progress and os.path.exists(os.path.join(save_dir, 'progress.json')):
             progress_file = os.path.join(save_dir, 'progress.json')
@@ -210,12 +211,12 @@ class DexMimicGenRunner():
             yield success, total_reward, episode
 
     def run_episode(self, env, policy, render=False, init_state=None, do_tqdm=False):
-        obs, info = env.reset(init_state=init_state)
+        obs, info = env.reset()
 
         if hasattr(policy, 'get_action'):
             policy.reset()
             policy_object = policy
-            policy = lambda obs: policy_object.get_action(obs, 0, None)
+            policy = lambda obs: policy_object.get_action(obs, 0)
         
         success = False
         total_reward = 0

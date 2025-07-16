@@ -7,7 +7,6 @@ from torch import distributions as pyd
 from torch import nn
 from torch.distributions.utils import _standard_normal
 from torchvision import transforms as T
-import imitation.utils.point_cloud_utils as pcu
 
 from imitation.algos.base import ChunkPolicy
 
@@ -23,7 +22,6 @@ class Baku(ChunkPolicy):
             frame_stack, 
             embed_dim, 
             policy_head, 
-            eecf=False,
             **kwargs
         ):
         super().__init__(**kwargs)
@@ -31,7 +29,6 @@ class Baku(ChunkPolicy):
         self.std = std
         self.language_proj_type = "mlp"  # mlp or identity
         self.frame_stack = frame_stack
-        self.eecf = eecf
 
         num_feat_per_step = (
             self.encoder.n_out_perception + self.encoder.n_out_lowdim
@@ -58,7 +55,7 @@ class Baku(ChunkPolicy):
     def forward(self, data):
         perception_encodings, lowdim_encodings = self.obs_encode(data)
         encodings = perception_encodings + lowdim_encodings
-        encodings_stacked = torch.stack(encodings, dim=2)
+        encodings_stacked = torch.stack(encodings, dim=1)
         lang_emb = self.get_task_emb(data)
         features = self.trunk(encodings_stacked, lang_emb)
         pred_action = self._action_head(
@@ -70,7 +67,7 @@ class Baku(ChunkPolicy):
     def compute_loss(self, data):
         data = self.preprocess_input(data, train_mode=True)
 
-        actions = data["abs_actions"] if self.abs_action else data["actions"]
+        actions = data["actions"]
 
         # TODO: currently it doesn't work with frame_stack > 1 because it assumes that
         # for each stacked frame we have a corresponding action sequence starting from
@@ -78,11 +75,11 @@ class Baku(ChunkPolicy):
         # arrange them accordingly. I believe this is similar to vqbet
         pred_action = self(data)
 
-        B, F, D = actions.shape
-        actions_normalized = einops.rearrange(actions_normalized, "b t d -> b (t d)")
+        B, T, D = actions.shape
+        actions = einops.rearrange(actions, "b t d -> b (t d)")
         # TODO: change this when you fix the above issue with frame stacking
-        actions_normalized = einops.repeat(actions_normalized, "b d -> b 1 d")
-        loss = self._action_head.loss_fn(pred_action, actions_normalized)
+        actions = einops.repeat(actions, "b d -> b 1 d")
+        loss = self._action_head.loss_fn(pred_action, actions)
         info = {"loss": loss.item()}
 
         return loss, info
@@ -100,23 +97,6 @@ class Baku(ChunkPolicy):
 
             actions = torch.clamp(actions, -1, 1)
             
-            if self.eecf:
-                action_p1 = ACTION_P1.reshape((1, 1, -1)).to(device=actions.device, dtype=actions.dtype)
-                action_p99 = ACTION_P99.reshape((1, 1, -1)).to(device=actions.device, dtype=actions.dtype)
-                action_eecf = (actions + 1) * (action_p99 - action_p1) / 2 + action_p1
-
-                ee_mat = data['obs']['hand_mat'].squeeze(1)
-                pos, rot, gripper = action_eecf.split([3, 6, 1], dim=-1)
-                rot_mat = pcu.p3d.rotation_6d_to_matrix(rot)
-                action_mat_eecf = pcu.pos_rot_mat_to_mat(pos, rot_mat)
-                action_mat = torch.einsum('bij,bnjk->bnik', ee_mat, action_mat_eecf)
-                action_pos, action_rot_6d = pcu.matrix_to_pos_6d(action_mat)
-                actions = torch.cat((action_pos, action_rot_6d, gripper), dim=-1)
-            # else:
-
-
-        # breakpoint()
-
         return actions.cpu().numpy()
 
 
@@ -146,13 +126,12 @@ class GPTTrunk(nn.Module):
         )
 
     def forward(self, obs, prompt):
-        B, F, T, D = obs.shape
+        B, T, D = obs.shape
         B, D = prompt.shape
 
         # insert action token at each self._num_feat_per_step interval
-        action_token = einops.repeat(self._action_token, "d -> b f 1 d", b=B, f=F)
-        obs = torch.cat([obs, action_token], dim=2)
-        obs = einops.rearrange(obs, "b f t d -> b (f t) d")
+        action_token = einops.repeat(self._action_token, "d -> b 1 d", b=B)
+        obs = torch.cat([obs, action_token], dim=1)
         prompt = einops.rearrange(prompt, "b d -> b 1 d")
         obs = torch.cat([prompt, obs], dim=1)
 

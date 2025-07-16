@@ -5,7 +5,7 @@ from collections import OrderedDict
 
 import imitation.utils.file_utils as FileUtils
 import imitation.utils.obs_utils as ObsUtils
-from imitation.utils.dataset import SequenceDataset
+from imitation.dataset.sequence_dataset import SequenceDataset
 
 import metaworld
 from metaworld.policies import *

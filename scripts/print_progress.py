@@ -30,7 +30,7 @@ def main():
                 with open(os.path.join(root, 'progress.json'), 'r') as f:
                     data_dict = json.load(f)
                 successes = data_dict['successes']
-                num = len(data_dict['per_env_any_success'])
+                num = len(successes)
                 progress.append(num)
                 data.append(np.mean(successes))
                 # data.append(data_dict['rollout']['overall_success_rate'])

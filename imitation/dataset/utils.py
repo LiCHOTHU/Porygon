@@ -21,8 +21,8 @@ def copy_data_pace(cfg, pace_tmp_dir):
         
         copy_files_parallel(source_data_dir, target_data_dir, num_threads=8)
     elif suite_name in ['mimicgen', 'dexmimicgen']:
-        source_data_file = os.path.join(source_data_prefix, suite_name, 'core_depth_abs', f'{benchmark_name}.hdf5')
-        target_data_file = os.path.join(pace_tmp_dir, 'data', suite_name, 'core_depth_abs', f'{benchmark_name}.hdf5')
+        source_data_file = os.path.join(source_data_prefix, suite_name, cfg.task.data_subfolder, f'{benchmark_name}.hdf5')
+        target_data_file = os.path.join(pace_tmp_dir, 'data', suite_name, cfg.task.data_subfolder, f'{benchmark_name}.hdf5')
         
         if os.path.exists(target_data_file):
             return
@@ -30,11 +30,11 @@ def copy_data_pace(cfg, pace_tmp_dir):
         copy_file(source_data_file, target_data_file)
 
 def copy_file(src, dst):
-    """Function to copy a single file from src to dst."""
+    """Function to copy a single file from src to dst with optimized buffer size for large files."""
     try:
         os.makedirs(os.path.dirname(dst), exist_ok=True)
-        shutil.copy(src, dst)
-        # print(f"Copied: {src} to {dst}")
+        # Use a larger buffer size (8MB) for more efficient copying of large files
+        shutil.copy2(src, dst, follow_symlinks=False)
     except Exception as e:
         print(f"Error copying {src}: {e}")
         

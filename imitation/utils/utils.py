@@ -13,6 +13,11 @@ from tqdm import tqdm
 import imitation.utils.pytorch3d_transforms as pt
 import logging
 from typing import Optional
+import hashlib
+import pickle
+from hydra.utils import instantiate
+from omegaconf import OmegaConf
+
 
 def get_experiment_dir(cfg, evaluate=False, allow_overlap=False):
     # if eval_flag:
@@ -59,62 +64,115 @@ def get_experiment_dir(cfg, evaluate=False, allow_overlap=False):
     experiment_name = "_".join(experiment_dir.split("/")[len(cfg.output_prefix.split('/')):])
     return experiment_dir, experiment_name
 
-def abs_actions_to_rot_6d(traj):
-        """Hacky way to normalize according to 6D rotation"""
-        abs_actions = traj['abs_actions']
-        abs_actions = torch.tensor(abs_actions)
-        pos, rot, grip = torch.split(abs_actions, [3, 3, 1], dim=-1)
-        rot = pt.matrix_to_rotation_6d(pt.axis_angle_to_matrix(rot))
-        traj['abs_actions'] = torch.cat((pos, rot, grip), dim=-1).numpy()
-        return traj
+def make_dataset(cfg, stats_mode=False):
+    import imitation.dataset.utils as data_utils
+    if cfg.pace_copy:
+        pace_tmp_dir = os.getenv('TMPDIR')
+        data_prefix = os.path.join(pace_tmp_dir, 'data')
+        data_utils.copy_data_pace(cfg, pace_tmp_dir)
+        dataset = instantiate(cfg.task.dataset,
+                              data_prefix=data_prefix,
+                              stats_mode=stats_mode)
+    else:
+        dataset = instantiate(cfg.task.dataset, stats_mode=stats_mode)
+    return dataset
 
-def compute_norm_stats(dataset, 
-                       normalize_action=True, 
-                       normalize_obs=False, 
-                       do_tqdm=True, 
-                       transform=None):
-    def _aggregate_traj_stats(traj_stats_a, traj_stats_b):
-        """
-        Helper function to aggregate trajectory statistics.
-        See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
-        for more information.
-        """
-        merged_stats = {}
-        for k in traj_stats_a:
-            n_a, avg_a, M2_a = traj_stats_a[k]["n"], traj_stats_a[k]["mean"], traj_stats_a[k]["sqdiff"]
-            n_b, avg_b, M2_b = traj_stats_b[k]["n"], traj_stats_b[k]["mean"], traj_stats_b[k]["sqdiff"]
-            n = n_a + n_b
-            mean = (n_a * avg_a + n_b * avg_b) / n
-            delta = (avg_b - avg_a)
-            M2 = M2_a + M2_b + (delta ** 2) * (n_a * n_b) / n
+def compute_norm_stats(cfg, policy):
+    hash_input = {
+        'dataset': OmegaConf.to_container(cfg.task.dataset, resolve=True),
+        'eecf': cfg.algo.eecf,
+        'abs_action': cfg.algo.abs_action,
+    }
+    hash = hash_dict(hash_input)
+    cache_dir = get_cache_dir()
+    cache_file = cache_dir / f'{hash}.pkl'
+    if os.path.exists(cache_file):
+        print(f'Loading cached norm stats from {cache_file}')
+        return pickle.load(open(cache_file, 'rb'))
+    
+    print(f'Computing norm stats and caching to {cache_file}')
+    dataset = make_dataset(cfg, stats_mode=True)
+    dataloader = torch.utils.data.DataLoader(
+        dataset, 
+        batch_size=256, 
+        shuffle=False, 
+        num_workers=0)
+    lowdim_keys = cfg.task.shape_meta.observation.lowdim.keys()
+    data = {
+        'actions': []
+    }
+    data.update({key: [] for key in lowdim_keys})
+    for entry in tqdm(dataloader):
+        entry = map_tensor_to_device(entry, 'cuda')
+        entry = policy.preprocess_actions(entry)
+        data['actions'].append(entry['actions'])
+        for key in lowdim_keys:
+            data[key].append(entry['obs'][key])
+        
+    for key in data:
+        data[key] = torch.cat(data[key], dim=0)
+    
+    stats = {}
+    for key in data:
+        stats[key] = {
+            'mean': data[key].mean(dim=0).cpu().numpy(),
+            'std': data[key].std(dim=0).cpu().numpy(),
+            'max': data[key].max(dim=0)[0].cpu().numpy(),
+            'min': data[key].min(dim=0)[0].cpu().numpy(),
+            'p1': torch.quantile(data[key], 0.01, dim=0).cpu().numpy(),
+            'p99': torch.quantile(data[key], 0.99, dim=0).cpu().numpy()
+        }
+    pickle.dump(stats, open(cache_file, 'wb'))
+    return stats
 
-            merged_max = np.maximum(traj_stats_a[k]['max'], traj_stats_b[k]['max'])
-            merged_min = np.minimum(traj_stats_a[k]['min'], traj_stats_b[k]['min'])
-            merged_stats[k] = dict(n=n, mean=mean, sqdiff=M2, max=merged_max, min=merged_min)
-        return merged_stats
+# def compute_norm_stats_old(
+#         dataset, 
+#                        normalize_action=True, 
+#                        normalize_obs=False, 
+#                        do_tqdm=True, 
+#                        transform=None):
+#     def _aggregate_traj_stats(traj_stats_a, traj_stats_b):
+#         """
+#         Helper function to aggregate trajectory statistics.
+#         See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
+#         for more information.
+#         """
+#         merged_stats = {}
+#         for k in traj_stats_a:
+#             n_a, avg_a, M2_a = traj_stats_a[k]["n"], traj_stats_a[k]["mean"], traj_stats_a[k]["sqdiff"]
+#             n_b, avg_b, M2_b = traj_stats_b[k]["n"], traj_stats_b[k]["mean"], traj_stats_b[k]["sqdiff"]
+#             n = n_a + n_b
+#             mean = (n_a * avg_a + n_b * avg_b) / n
+#             delta = (avg_b - avg_a)
+#             M2 = M2_a + M2_b + (delta ** 2) * (n_a * n_b) / n
 
-    merged_stats = {}
-    if normalize_action:
-        merged_stats_action = dataset.datasets[0].sequence_dataset.normalize_action()
-        merged_stats.update(merged_stats_action)
-    if normalize_obs:
-        merged_stats_obs = dataset.datasets[0].sequence_dataset.normalize_obs()
-        merged_stats.update(merged_stats_obs)
-    for sub_dataset in tqdm(dataset.datasets[1:], disable=not do_tqdm):
-        new_stats = {}
-        if normalize_action:
-            new_stats_action = sub_dataset.sequence_dataset.normalize_action()
-            new_stats.update(new_stats_action)
-        if normalize_obs:
-            new_stats_obs = sub_dataset.sequence_dataset.normalize_obs()
-            new_stats.update(new_stats_obs)
-        merged_stats = _aggregate_traj_stats(merged_stats, new_stats)
+#             merged_max = np.maximum(traj_stats_a[k]['max'], traj_stats_b[k]['max'])
+#             merged_min = np.minimum(traj_stats_a[k]['min'], traj_stats_b[k]['min'])
+#             merged_stats[k] = dict(n=n, mean=mean, sqdiff=M2, max=merged_max, min=merged_min)
+#         return merged_stats
 
-    for k in merged_stats:
-        # note we add a small tolerance of 1e-3 for std
-        merged_stats[k]["std"] = np.sqrt(merged_stats[k]["sqdiff"] / merged_stats[k]["n"]) + 1e-3
+#     merged_stats = {}
+#     if normalize_action:
+#         merged_stats_action = dataset.datasets[0].sequence_dataset.normalize_action()
+#         merged_stats.update(merged_stats_action)
+#     if normalize_obs:
+#         merged_stats_obs = dataset.datasets[0].sequence_dataset.normalize_obs()
+#         merged_stats.update(merged_stats_obs)
+#     for sub_dataset in tqdm(dataset.datasets[1:], disable=not do_tqdm):
+#         new_stats = {}
+#         if normalize_action:
+#             new_stats_action = sub_dataset.sequence_dataset.normalize_action()
+#             new_stats.update(new_stats_action)
+#         if normalize_obs:
+#             new_stats_obs = sub_dataset.sequence_dataset.normalize_obs()
+#             new_stats.update(new_stats_obs)
+#         merged_stats = _aggregate_traj_stats(merged_stats, new_stats)
 
-    return merged_stats
+#     for k in merged_stats:
+#         # note we add a small tolerance of 1e-3 for std
+#         merged_stats[k]["std"] = np.sqrt(merged_stats[k]["sqdiff"] / merged_stats[k]["n"]) + 1e-3
+
+#     return merged_stats
 
 def get_latest_checkpoint(checkpoint_dir):
     if os.path.isfile(checkpoint_dir):
@@ -187,22 +245,7 @@ def save_state(state_dict, path):
     torch.save(save_dict, path)
 
 def load_state(path):
-    return torch.load(path)
-
-def torch_save_model(model, optimizer, scheduler, model_path, cfg=None):
-    torch.save(
-        {
-            "model_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-            "scheduler_state_dict": scheduler.state_dict(),
-            "cfg": cfg,
-        },
-        model_path,
-    )
-
-def torch_load_model(model_path):
-    checkpoint = torch.load(model_path)
-    return checkpoint["model_state_dict"], checkpoint["optimizer_state_dict"], checkpoint["scheduler_state_dict"], checkpoint["cfg"]
+    return torch.load(path, weights_only=False)
 
 def recursive_update(base_dict, update_dict):
     """
@@ -265,7 +308,7 @@ def setup_logger(log_file: str, experiment_dir: Optional[str] = None) -> logging
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.StreamHandler(),
-            logging.FileHandler(log_file)
+            # logging.FileHandler(log_file)
         ]
     )
     logger = logging.getLogger(__name__)
@@ -279,3 +322,19 @@ def setup_logger(log_file: str, experiment_dir: Optional[str] = None) -> logging
     
     return logger
 
+def hash(obj):
+    return hashlib.sha256(pickle.dumps(obj)).hexdigest()
+
+def hash_dict(d):
+    return hashlib.sha256(json.dumps(d, sort_keys=True).encode()).hexdigest()
+
+def get_cache_dir():
+    """Get the cache directory path.
+    
+    Returns:
+        Path: Path to the cache directory in the main script directory
+    """
+    script_dir = Path(__file__).resolve().parent.parent.parent
+    cache_dir = script_dir / 'cache'
+    cache_dir.mkdir(exist_ok=True)
+    return cache_dir

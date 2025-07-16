@@ -8,22 +8,43 @@ import matplotlib.patches as mpatches
 plt.rcParams["font.family"] = "serif"
 plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
 
-def walk_dirs(folders, prefix=None):
-    data = []
-    for folder in folders:
-        data_len_begin = len(data)
-        if prefix is not None:
-            folder = os.path.join(prefix, folder)
-        for root, dirs, files in os.walk(folder):
-            if 'data.json' in files:
-                with open(os.path.join(root, 'data.json'), 'r') as f:
+def walk_dirs(folders, prefix=None, agg='mean'):
+    if agg == 'mean':
+        data = []
+        for folder in folders:
+            data_len_begin = len(data)
+            if prefix is not None:
+                folder = os.path.join(prefix, folder)
+            for root, dirs, files in os.walk(folder):
+                if 'data.json' in files:
+                    with open(os.path.join(root, 'data.json'), 'r') as f:
+                        data_dict = json.load(f)
+                    data.append(data_dict['rollout']['overall_success_rate'] * 100)
+            if len(data) == data_len_begin:
+                print(f'Warning: {folder} had no data')
+        mean_success_rate = np.mean(data)
+        std_error = np.std(data) / np.sqrt(len(data)) if data else 0
+        return mean_success_rate, std_error
+    elif agg == 'max':
+        per_seed_data = {}
+        for folder in folders:
+            if prefix is not None:
+                folder = os.path.join(prefix, folder)
+            for seed in os.listdir(folder):
+                per_seed_data[seed] = []
+        for folder in folders:
+            if prefix is not None:
+                folder = os.path.join(prefix, folder)
+            for seed in os.listdir(folder):
+                with open(os.path.join(folder, seed, 'data.json'), 'r') as f:
                     data_dict = json.load(f)
-                data.append(data_dict['rollout']['overall_success_rate'] * 100)
-        if len(data) == data_len_begin:
-            print(f'Warning: {folder} had no data')
-    mean_success_rate = np.mean(data)
-    std_error = np.std(data) / np.sqrt(len(data)) if data else 0
-    return mean_success_rate, std_error
+                per_seed_data[seed].append(data_dict['rollout']['overall_success_rate'] * 100)
+        per_seed_max = {key: np.max(val) for key, val in per_seed_data.items()}
+        mean_success_rate = np.mean(list(per_seed_max.values()))
+        std_error = np.std(list(per_seed_max.values())) / np.sqrt(len(per_seed_max)) if per_seed_max else 0
+        return mean_success_rate, std_error
+    else:
+        raise ValueError(f'Invalid aggregation method: {agg}')
 
 
 def plot_grouped_bar(data, args):
@@ -84,7 +105,7 @@ def plot_grouped_bar(data, args):
     ax.set_xlabel(args.xlabel, fontsize=args.font_size_label)
     ax.set_title(args.title, fontsize=args.font_size_title)
     ax.set_xticks(np.arange(num_groups))
-    ax.set_xticklabels(args.labels, fontsize=args.font_size_xtick)
+    ax.set_xticklabels(args.labels, fontsize=args.font_size_xtick, rotation=args.xlabel_rotation)
     if args.ylim is not None:
         ax.set_ylim(0, args.ylim)
     ax.tick_params(axis='y', labelsize=args.font_size_ytick)
@@ -128,6 +149,7 @@ def main():
     parser.add_argument('--colors', nargs='*')
     parser.add_argument('--line-colors', nargs='*')
     parser.add_argument('--group-size', type=int, default=1)
+    parser.add_argument('--agg', type=str, default='mean', choices=['mean', 'max'])
     parser.add_argument('--prefix')
 
     # Customization defaults
@@ -151,6 +173,7 @@ def main():
     parser.add_argument('--fname')
     parser.add_argument('--legend-fname')
     parser.add_argument('--show', action='store_true')
+    parser.add_argument('--xlabel-rotation', type=float, default=0, help='Rotation angle for x-axis labels in degrees')
 
     args = parser.parse_args()
 
@@ -166,7 +189,7 @@ def main():
     for bar_size in bar_sizes:
         bar_data_dirs = data_dirs[:bar_size]
         data_dirs = data_dirs[bar_size:]
-        mean_success_rate, std_error = walk_dirs(bar_data_dirs, prefix=prefix)
+        mean_success_rate, std_error = walk_dirs(bar_data_dirs, prefix=prefix, agg=args.agg)
         data.append((mean_success_rate, std_error))
     
 
