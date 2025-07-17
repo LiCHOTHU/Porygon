@@ -162,12 +162,13 @@ def build_dataset(data_prefix,
     n_demos = [data.n_demos for data in datasets]
     n_sequences = [data.total_num_sequences for data in datasets]
     concat_dataset = ConcatDataset(datasets)
-    print("\n===================  Benchmark Information  ===================")
-    print(f" Name: {benchmark.name}")
-    print(f" # Tasks: {n_tasks}")
-    print(" # demonstrations: " + " ".join(f"({x})" for x in n_demos))
-    print(" # sequences: " + " ".join(f"({x})" for x in n_sequences))
-    print("=======================================================================\n")
+    if not stats_mode:
+        print("\n===================  Benchmark Information  ===================")
+        print(f" Name: {benchmark.name}")
+        print(f" # Tasks: {n_tasks}")
+        print(" # demonstrations: " + " ".join(f"({x})" for x in n_demos))
+        print(" # sequences: " + " ".join(f"({x})" for x in n_sequences))
+        print("=======================================================================\n")
     return concat_dataset
 
 def get_dataset(

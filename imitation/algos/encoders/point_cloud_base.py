@@ -10,8 +10,7 @@ import imitation.utils.point_cloud_utils as pcu
 from imitation.utils.point_cloud_utils import lift_point_cloud_batch
 
 
-NEW_HAND_FRAME_CROP = ((-0.05, -1, -1), (1, 1, 1))
-OLD_HAND_FRAME_CROP = ((0, -1, -1), (1, 1, 1))
+HAND_FRAME_CROP = ((0, -1, -1), (1, 1, 1))
 
 class PointCloudBaseEncoder(BaseEncoder):
     def __init__(
@@ -64,7 +63,7 @@ class PointCloudBaseEncoder(BaseEncoder):
         self.register_buffer("boundaries", torch.tensor(boundaries, dtype=torch.float32))
         self.boundaries: torch.Tensor = self.boundaries # To help with type checking
         
-        hand_frame_boundaries = torch.tensor(((0, -1, -1), (1, 1, 1)), dtype=torch.float32)
+        hand_frame_boundaries = torch.tensor(HAND_FRAME_CROP, dtype=torch.float32)
         self.register_buffer('hand_frame_boundaries', hand_frame_boundaries)
         self.hand_frame_boundaries: torch.Tensor = self.hand_frame_boundaries # To help with type checking
         

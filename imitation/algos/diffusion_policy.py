@@ -46,8 +46,30 @@ class DiffusionPolicy(ChunkPolicy):
 
         # Initialize EMA for the entire networks module
         self.ema: EMAModel = ema_factory(parameters=self.networks.parameters())
+        
+        # Flag to track if we're using EMA parameters
+        self._using_ema_params = False
 
         self.networks.diffusion_model.apply(weight_init)
+
+    def train(self, mode=True):
+        """Override train method to manage EMA parameters."""
+        if mode and self._using_ema_params:
+            # Switching to train mode, restore original parameters
+            self.ema.restore(self.networks.parameters())
+            self._using_ema_params = False
+        elif not mode and not self._using_ema_params:
+            # Switching to eval mode, use EMA parameters
+            self.ema.store(self.networks.parameters())
+            self.ema.copy_to(self.networks.parameters())
+            self._using_ema_params = True
+        
+        # Call parent train method
+        return super().train(mode)
+
+    def eval(self):
+        """Override eval method to manage EMA parameters."""
+        return self.train(mode=False)
 
     def compute_loss(self, data):
         data = self.preprocess_input(data, train_mode=True)
@@ -67,21 +89,10 @@ class DiffusionPolicy(ChunkPolicy):
 
     def sample_actions(self, data):
         with torch.no_grad():
-            # Store original parameters
-            self.ema.store(self.networks.parameters())
-            
-            # Use EMA parameters for inference
-            self.ema.copy_to(self.networks.parameters())
-            
-            try:
-                data = self.preprocess_input(data, train_mode=False)
-                cond = self.get_cond(data)
-                actions = self.networks.diffusion_model.get_action(cond)
-                return actions.cpu().numpy()
-            finally:
-                # Restore original parameters
-                # pass
-                self.ema.restore(self.networks.parameters())
+            data = self.preprocess_input(data, train_mode=False)
+            cond = self.get_cond(data)
+            actions = self.networks.diffusion_model.get_action(cond)
+            return actions.cpu().numpy()
 
     def get_cond(self, data):
         # Use networks.encoder and networks.obs_proj

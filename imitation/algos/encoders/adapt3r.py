@@ -86,9 +86,6 @@ class Adapt3REncoder(PointCloudBaseEncoder):
         # Setup language projection
         self._init_language_projection()
 
-        # Setup language projection
-        self._init_language_projection(hidden_dim)
-
     def _init_pointcloud_extractor(self, factory) -> None:
         """Initialize the point cloud extractor."""
 

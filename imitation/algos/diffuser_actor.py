@@ -35,7 +35,6 @@ class DiffuserActor(ChunkPolicy):
         self,
         embedding_dim=60,
         use_instruction=True,
-        rotation_parametrization="rotation_6d",
         #  quaternion_format='xyzw',
         # TODO: change this to train_timesteps
         diffusion_timesteps=100,
@@ -50,7 +49,6 @@ class DiffuserActor(ChunkPolicy):
         **kwargs
     ):
         super().__init__(**kwargs)
-        self._rotation_parametrization = rotation_parametrization
         self._relative = relative
         self.use_instruction = use_instruction
         self.nhist = nhist
@@ -59,7 +57,6 @@ class DiffuserActor(ChunkPolicy):
         self.prediction_head = DiffusionHead(
             embedding_dim=embedding_dim,
             use_instruction=use_instruction,
-            rotation_parametrization=rotation_parametrization,
             nhist=nhist,
             lang_enhanced=lang_enhanced,
         )
@@ -95,6 +92,8 @@ class DiffuserActor(ChunkPolicy):
         self.boundaries = self.boundaries
         self.build_pointcloud = True
 
+        assert self.abs_action, "DiffuserActor requires abs_action=True"
+
     def compute_loss(self, data):
         data = self.preprocess_input(data, train_mode=True)
         gt_trajectory, obs_data, instruction, curr_gripper = self.parse_batch(data)
@@ -126,12 +125,13 @@ class DiffuserActor(ChunkPolicy):
     def parse_batch(self, data):
         obs_data = data["obs"]
 
-        if "abs_actions" in data:
-            gt_trajectory = data["abs_actions"]
+        if "actions" in data:
+            gt_trajectory = data["actions"]
 
+            # Assume 6D rotation representation
             pos, rot, gripper = torch.split(gt_trajectory, [3, 6, 1], dim=-1)
-            # rot_trans = self.rotation_transformer.forward(rot)
-            # TODO: hardcoding this in to account for libero gripper positions being [-1, 1] instead of [0, 1]
+
+            # We assume that the gripper is normalized to [-1, 1], so this unnormalizes it to [0, 1]
             gripper = (1 - gripper) / 2
             gt_trajectory = torch.cat((pos, rot, gripper), dim=-1)
         else:
@@ -416,17 +416,13 @@ class DiffusionHead(nn.Module):
         embedding_dim=60,
         num_attn_heads=8,
         use_instruction=False,
-        rotation_parametrization="quat",
         nhist=3,
         lang_enhanced=False,
     ):
         super().__init__()
         self.use_instruction = use_instruction
         self.lang_enhanced = lang_enhanced
-        if "6d" in rotation_parametrization:
-            rotation_dim = 6  # continuous 6D
-        else:
-            rotation_dim = 4  # quaternion
+        rotation_dim = 6  # continuous 6D
 
         # Encoders
         self.traj_encoder = nn.Linear(9, embedding_dim)

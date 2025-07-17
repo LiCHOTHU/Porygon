@@ -182,10 +182,10 @@ class Policy(nn.Module, ABC):
                     mat = pcu.pos_rot_mat_to_mat(pos, rot_mat)
                     mat_eecf = torch.einsum('bij,bnjk->bnik', hand_mat_inv, mat)
                     pos, rot_network_eecf = pcu.matrix_to_pos_rot_matrix(mat_eecf)
-                    rot = self.rotation_transformer.matrix_to_network(rot_network_eecf)
+                    rot_network = self.rotation_transformer.matrix_to_network(rot_network_eecf)
                 else:
                     pos = torch.einsum("...ij,...nj->...ni", hand_mat_inv[..., :3, :3], pos)
-            actions_decomp[i] = [pos, rot, gripper]
+            actions_decomp[i] = [pos, rot_network, gripper]
         
         actions = self.reassemble_actions(actions_decomp)
 

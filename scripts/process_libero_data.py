@@ -83,8 +83,8 @@ def process_demo(old_demo, env):
         controller = env.env.robots[0].controller
         goal_pos = controller.goal_pos
         goal_ori = Rotation.from_matrix(controller.goal_ori).as_rotvec()
-        # goal_ori_quat = Rotation.from_matrix(controller.goal_ori).as_quat()
-        abs_action = np.concatenate((goal_pos, goal_ori, actions[t][..., -1:]))
+        gripper = actions[t][..., -1:]
+        abs_action = np.concatenate((goal_pos, goal_ori, gripper))
         
         # rgb = obs['agentview_image']
         # rgb = rgb.reshape((-1, 3)).astype(np.float32) / 255
@@ -140,7 +140,7 @@ def main(cfg):
 
     # define source and destination directories
     source_dir = os.path.join(cfg.data_prefix, cfg.task.suite_name, cfg.task.benchmark_name + '_unprocessed')
-    save_dir = os.path.join(cfg.data_prefix, cfg.task.suite_name, cfg.task.benchmark_name + '_processed')
+    save_dir = os.path.join(cfg.data_prefix, cfg.task.suite_name, cfg.task.benchmark_name)
     os.makedirs(save_dir, exist_ok=True)
 
     print(source_dir)

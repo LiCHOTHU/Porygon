@@ -27,9 +27,9 @@ shape_meta:
   actions: 
     actions: 7
   abs_actions: 
-    abs_actions: 10
+    abs_actions: 7
   rotation_rep_in: axis_angle
-  rotation_rep_in_abs: rotation_6d
+  rotation_rep_in_abs: axis_angle
   rotation_rep_out: axis_angle
   observation:
     rgb:

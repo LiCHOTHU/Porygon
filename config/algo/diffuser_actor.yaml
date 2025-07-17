@@ -16,7 +16,6 @@ policy:
     mode: identity
   embedding_dim: ${algo.embed_dim}
   use_instruction: True
-  rotation_parametrization: 'rotation_6d'
   diffusion_timesteps: 100
   inference_timesteps: 10
   nhist: ${algo.frame_stack}

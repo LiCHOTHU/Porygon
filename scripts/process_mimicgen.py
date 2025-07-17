@@ -141,8 +141,9 @@ def extract_trajectory(
         # Extract absolute action from controller after proper state/action update
         controller = env.env.robots[0].controller
         goal_pos = controller.goal_pos
-        goal_ori = controller.goal_ori[:2, :].reshape(-1)
-        abs_action = np.concatenate((goal_pos, goal_ori, actions[t - 1][..., -1:]))
+        goal_ori = Rotation.from_matrix(controller.goal_ori).as_rotvec()
+        gripper = actions[t - 1][..., -1:]
+        abs_action = np.concatenate((goal_pos, goal_ori, gripper))
         traj["abs_actions"].append(abs_action.astype(np.float32))
 
         # collect transition
