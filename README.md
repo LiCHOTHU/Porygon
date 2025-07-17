@@ -23,22 +23,10 @@ uv sync
 ```
 
 ### 4. Install dependencies:
-```bash
-# Install main dependencies
-uv pip install -e .
 
-# Install development dependencies
-uv pip install -e ".[dev]"
-```
-
-If you want to run point cloud stuff you need to also install DGL
+If you want to run point cloud stuff you need to also install DGL according to the instructions [here](https://www.dgl.ai/pages/start.html). On my system I used the following:
 ```bash
 uv pip install  dgl -f https://data.dgl.ai/wheels/torch-2.4/cu124/repo.html
-```
-
-You'll probably need CLIP for something
-```bash
-uv pip install git+https://github.com/openai/CLIP.git
 ```
 
 ### 5. (optional) Install LIBERO
@@ -113,6 +101,34 @@ pip install qpsolvers[quadprog]
 
 This repository _heavily_ uses Hydra and will be difficult to follow without a working understanding of Hydra. If you're not up to date make sure to read the [Hydra documentation](https://hydra.cc/docs/intro/).
 
+## Data Download / Processing
+
+### LIBERO
+
+First download the dataset. Note that our code base assumes the data is stored in a folder titled `data/` within the Adapt3r repository. If you would like to store it somewhere else please create a symlink. 
+
+Download the data into `data/` by running
+```bash
+uv run scripts/download_libero.py
+```
+Note that this file renames the data such that, for LIBERO-90, it is stored in `data/libero/libero_90_unprocessed`
+
+Then, process it into a format that is suitable for our training by running 
+```bash
+uv run scripts/process_libero_data.py  task=libero_90_data
+```
+You can minimally modify these instructions to support whichever other LIBERO benchmark you'd like to evaluate on.
+
+### MimicGen
+
+Download the MimicGen data based on the instructions [here](https://mimicgen.github.io/docs/datasets/mimicgen_corl_2023.html). Make sure it ends up in the folder `data/mimicgen/core`.
+
+Next, you'll need to process it to add absolute actions, depth and calibration information. To do this, run the following command (updating the task name to correspond to whichever task you are interested in processing):
+```bash
+uv run scripts/process_mimicgen.py --hdf5_path data/mimicgen/core/task_dx.hdf5 --output_dir data/mimicgen/core_depth/task_dx.hdf5 --depth
+```
+Note: This will take a few hours :(.
+
 ## Training
 
 Example script to train a diffusion policy with a ResNet backbone on the LIBERO-90 benchmark
@@ -126,7 +142,19 @@ uv run train.py \
     algo.chunk_size=8
 ```
 
-There are also lots of example scripts in the `scripts` folder to take a look at
+There are also lots of example scripts in the `scripts` folder to take a look at.
+
+To train another policy, replace `algo` with the desired policy (options are `act` and `baku`). To train with DP3 or iDP3, replace `algo/encoder` with `dp3` or `idp3` respectively. To train RGB or RGBD, replace `algo/encoder` with `default` and change `task` to `libero_90_rgb` or `libero_90_rgbd` respectively.
+
+`exp_name` and `variant_name` are used to organize your training runs. In particular, they determind where they are saved. Generally in our workflow, `exp_name` would refer to an experiment encompassing several runs while `variant_name` would be one configuration of parameters encompassing several seeds. For example, if you were sweeping over chunk sizes you might choose `exp_name=chunk_size_sweep` and launch several runs with `chunk_size=${chunk_size} variant_name=chunk_size_${chunk_size}`. Then in WandB, filter by `exp_name` and group by `variant_name`
+
+For debugging, we recommend replacing `--config-name=train.yaml` with `--config-name=train_debug.yaml`, which will change several parameters to make debugging more convenient (enabling TQDM, disabling WandB logging, etc.). 
+
+Other useful training tips:
+ - Our pipeline automatically saves a checkpoint after each epoch that is overwritten after the subsequent epoch. If training crashes, you can resume training by simply rerunning the original command (assuming you are not using the debug mode, which creates a unique directory for each run).
+ - You may want to adjust the dataloader configuration to better fit your system.
+ - Our pipeline, by default, saves a checkpoint which is not overwritten every 10 epochs. You can change this behavior in the configs
+
 
 ## Evaluation
 
@@ -139,6 +167,9 @@ uv run evaluate.py \
     checkpoint_path=[path]
 ```
 to export videos instead, replace `evaluate.py` with `export_videos.py`.
+
+To run evaluation with an unseen embodiment, add `task.robot=ROBOT`, where `ROBOT` can be one of {`UR5e`, `Kinova3`, `IIWA`}. To run with an unseen viewpoint, add `task.cam_shift=SIZE` where `SIZE` is one of {`small`, `medium`, `large`} or an angle in radians. Our code base also has old infrastructure for adding distractor objects and randomizing the lighting and colors of objects in the scene, but that is untested and unsupported.
+
 
 Note: you can override parameters saved in the model (maybe temporal aggregation) using the following
 ```bash
@@ -154,6 +185,15 @@ You can change the robot by doing `task.robot=X` and move the camera by doing `t
 ## Design Notes
 
 In this section I ramble about design decisions I've made to help make the repository more readable. Feel free to add if there are things that I've missed that would be helpful to understand
+
+### Hydra Use
+
+I am generally pretty religious with my use of hydra.utils.instantiate. This gives the nice property that most of the objects in the code base are recreatable purely based on python dictionaries, which leads to some nice properties. For example:
+ - All parameters passed into any object are visible in the WandB logs. 
+ - For evaluation, we can just point to the checkpoint path (where the parameter dictionary is saved) and evaluate without needing to pass in any other information about the policy.
+
+I think that with an understanding of Hydra this makes it much nicer to work with this codebase. However, this paradigm is different from standard Python practices, so I'd suggest giving the [Hydra docs](https://hydra.cc/docs/intro/) a close read before trying to make any substantial changes to this repo.
+
 
 ### Modular policies
 
