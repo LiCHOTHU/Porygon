@@ -1,0 +1,34 @@
+defaults:
+  - chunk_base
+  - _self_
+  - override encoder: rgb_no_pool
+
+policy:
+  _target_: imitation.algos.fm_policy.FlowMatchingPolicy
+  num_inference_steps: ${algo.num_inference_steps}
+  dropout: ${algo.dropout}
+  feat_norm: layer_norm
+  embed_dim: ${algo.embed_dim}
+  velocity_net_kwargs:
+    time_dim: 128
+    hidden_dim: ${algo.embed_dim}
+    num_blocks: 4
+    dim_feedforward: 512
+    dropout: ${algo.dropout}
+    nhead: 4
+    activation: "gelu"
+  flow_sampling: beta
+  flow_alpha: 1.5
+  flow_beta: 1.0
+  flow_sig_min: 0.001
+
+name: fm_policy_dice
+
+dropout: 0.1
+num_inference_steps: 10
+embed_dim: 256
+
+# Must match the BC cold-start training to avoid loading mismatch.
+
+# DICE doesn't use the rolling agg eval path; the student is a one-step distilled MLP.
+temporal_agg: false

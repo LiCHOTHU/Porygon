@@ -1,0 +1,68 @@
+defaults:
+  - task: libero
+  - algo: fm_policy_rl_S
+  - _self_
+
+exp_name: fm_rl
+variant_name: null
+seed: 10000
+device: cuda:0
+output_prefix: /storage/scratch1/8/lwang831/imitation/experiments_rl
+data_prefix: ./data
+make_unique_experiment_dir: false
+logging_folder: rl
+normalize_action: true
+normalize_obs: false
+
+# Path to a behavior-cloning cold-start checkpoint (.pth) to initialize from.
+cold_start_checkpoint: ???
+# Absolute LIBERO task id to fine-tune on (must match the cold-start task).
+task_index: 0
+# Optional: list of LIBERO task ids for multi-task RL. If set (non-null), overrides
+# task_index. In multi-task mode, rl.inits_per_iter is interpreted as inits *per task*
+# per iter; group_ids are made globally unique within each iter so the within-group
+# baseline does not mix tasks.
+task_indices: null
+
+rl:
+  n_iters: 100
+  group_size: 8          # rollouts per GRPO group (same init state); keep >=8 for mixed outcomes
+  inits_per_iter: 4      # number of distinct init states (groups) per iteration
+  ppo_epochs: 4          # inner PPO epochs (cut short by KL early-stop)
+  minibatch_size: 64     # rows (decision x env) per minibatch
+  lr: 1.0e-6             # small: per-step KL ~ lr^2/var, and var=sigma^2*dt is tiny
+  clip_eps: 0.2
+  grad_clip: 1.0
+  target_kl: 0.03        # KL early-stop threshold (0.5*E[log_ratio^2]); ~matches clip_eps range
+  std_normalize: false   # centered advantage by default; True divides by group std
+  # SimpleVLA-RL "filter_accuracy": drop groups whose 8-rollout mean is outside [low, high]
+  # before the PPO update. With group_size=8 and binary reward, [0.1, 0.9] drops only
+  # all-fail and all-success groups. Concentrates the gradient on prompts with real
+  # within-group variance -- critical when starting from a near-saturated BC checkpoint.
+  filter_accuracy: false
+  filter_low: 0.1
+  filter_high: 0.9
+  eval_interval: 5
+  eval_rollouts_per_env: 20
+  save_interval: 10
+  max_episode_length: ${task.horizon}
+
+# Consumed by the env_runner interpolation (used for deterministic eval).
+rollout:
+  enabled: true
+  interval: ${rl.eval_interval}
+  rollouts_per_env: ${rl.eval_rollouts_per_env}
+  max_episode_length: ${task.horizon}
+  num_parallel_envs: 1
+  n_video: 0
+
+training:
+  load_obs: false
+  use_tqdm: true
+
+logging:
+  group: null
+  mode: online
+  project: cleanup-rl
+  resume: false
+  save_code: false

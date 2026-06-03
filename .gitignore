@@ -123,3 +123,6 @@ Thumbs.db
 .uv/
 uv.lock
 
+# Claude Code session state
+.claude/
+

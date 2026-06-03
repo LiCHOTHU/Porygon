@@ -1,0 +1,53 @@
+defaults:
+  - base
+  - _self_
+
+_target_: imitation.algos.encoders.wan_dialga.WanDialgaEncoder
+
+# RGB sub-encoder (same factory the vanilla configs use).
+image_encoder_factory:
+  _target_: imitation.algos.encoders.rgb_modules.ResnetEncoder
+  _partial_: true
+  output_size: ${algo.image_embed_dim}
+  pretrained: true
+  freeze: false
+  remove_layer_num: 2
+  no_stride: false
+  language_fusion: film
+  replace_bn_with_gn: false
+  do_projection: false
+
+lowdim_encoder_factory:
+  _target_: imitation.algos.utils.mlp_proj.MLPProj
+  _partial_: true
+  output_size: ${algo.lowdim_embed_dim}
+  num_layers: 1
+
+share_image_encoder: true
+share_lowdim_encoder: true
+
+# Per-run flags — defaults are all OFF. Each fm_policy_r{N}.yaml flips
+# the flag(s) it needs.
+language_fusion: false
+emit_zdyn: false
+emit_zstatic: false
+emit_wanflat: false
+
+# Frozen models
+wan_model_id: "Wan-AI/Wan2.2-TI2V-5B-Diffusers"
+dialga_ckpt_path: "/storage/scratch1/8/lwang831/dialga_outputs/libero_v512_big/v5_best.pt"
+wan_dtype: "float16"
+
+# Alignment / token-budget knobs
+rgb_frames_used: 1                    # last frame goes to RGB ResNet (cheap)
+dialga_cameras: ["agentview_image"]    # match DIALGA's pretraining camera
+
+# Pre-encoded Wan-VAE latent cache. When set, the dataset injects the
+# cached latent per sample and the encoder skips its inline Wan-VAE forward
+# (also skips loading the 10 GB Wan-VAE weights). Null = run live encode.
+wan_cache_dir: null
+
+# Hydra passes these from algo block automatically; declared here for clarity.
+# frame_stack: ${algo.frame_stack}
+# shape_meta: ${task.shape_meta}
+# lang_embed_dim: ${algo.lang_embed_dim}

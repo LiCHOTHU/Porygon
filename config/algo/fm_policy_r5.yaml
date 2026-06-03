@@ -1,0 +1,28 @@
+# Run 5: obs + proprio + z_static  (ours, identity only — no motion slot)
+#
+# Sanity ablation — should underperform run 1 / run 3 on dynamic tasks.
+
+defaults:
+  - fm_policy_S
+  - _self_
+  - override encoder: wan_dialga
+
+variant_name: r5_zstatic
+
+frame_stack: 33
+
+encoder:
+  language_fusion: false
+  emit_zdyn: false
+  emit_zstatic: true
+  emit_wanflat: false
+  rgb_frames_used: 1
+  dialga_cameras: ["agentview_image"]
+  task_embedding_format: clip
+
+dataset:
+  seq_len: ${algo.chunk_size}
+  frame_stack: ${algo.frame_stack}
+  obs_seq_len: 1
+  lowdim_obs_seq_len: null
+  load_next_obs: false

@@ -1,6 +1,6 @@
 import os
 from hydra.utils import to_absolute_path
-from tqdm import trange
+from tqdm import tqdm
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 import numpy as np
@@ -96,15 +96,15 @@ def deconstruct_task_name(task_name):
 
 def build_dataset(data_prefix,
                   suite_name,
-                  benchmark_name, 
-                  mode, 
-                  seq_len, 
+                  benchmark_name,
+                  mode,
+                  seq_len,
                   frame_stack,
                   shape_meta,
                   n_demos,
                   hdf5_cache_mode='low_dim',
                   extra_obs_modality=None,
-                  obs_seq_len=1, 
+                  obs_seq_len=1,
                   load_obs=True,
                   load_image=True,
                   load_depth=True,
@@ -112,9 +112,13 @@ def build_dataset(data_prefix,
                   load_next_obs=False,
                   stats_mode=False,
                   action_keys=('actions',),
+                  task_subset=None,
+                  wan_cache_dir=None,
+                  wan_cache_cameras=("agentview_image",),
                   ):
     benchmark = get_benchmark(benchmark_name)()
     n_tasks = benchmark.n_tasks
+    task_indices = list(range(n_tasks)) if task_subset is None else list(task_subset)
     few_shot_demos = [1, 5, 10, 20, 45] if mode == 'fewshot' else None
     few_shot_demos_list = [f"demo_{i}" for i in few_shot_demos] if few_shot_demos is not None else None
     
@@ -133,7 +137,7 @@ def build_dataset(data_prefix,
             obs_modality[key] = obs_modality[key] + extra_obs_modality[key]
     
     ObsUtils.initialize_obs_utils_with_obs_specs({"obs": obs_modality})
-    for i in trange(n_tasks):
+    for i in tqdm(task_indices):
         task_i_dataset = get_dataset(
             dataset_path=os.path.join(
                 data_prefix, suite_name, benchmark.get_task_demonstration(i)
@@ -156,8 +160,25 @@ def build_dataset(data_prefix,
     task_embs_train = get_task_embs(task_embedding_format, descriptions, train=True)
     task_embs_test = get_task_embs(task_embedding_format, descriptions, train=False)
     benchmark.set_task_embs(task_embs_test)
+
+    # Resolve per-task Wan-VAE latent cache paths (or None).
+    if wan_cache_dir is not None:
+        wan_cache_paths = []
+        for i in task_indices:
+            hdf5_rel = benchmark.get_task_demonstration(i)        # e.g. "libero_90/<name>.hdf5"
+            cache_name = os.path.basename(hdf5_rel).replace(".hdf5", ".h5")
+            wan_cache_paths.append(os.path.join(wan_cache_dir, cache_name))
+    else:
+        wan_cache_paths = [None] * len(task_indices)
+
     datasets = [
-        SequenceVLDataset(ds, task_id=i, **emb) for i, (ds, emb) in enumerate(zip(manip_datasets, task_embs_train))
+        SequenceVLDataset(
+            ds, task_id=j,
+            wan_cache_path=wan_cache_paths[j],
+            wan_cache_cameras=wan_cache_cameras,
+            **emb,
+        )
+        for j, (ds, emb) in enumerate(zip(manip_datasets, task_embs_train))
     ]
     n_demos = [data.n_demos for data in datasets]
     n_sequences = [data.total_num_sequences for data in datasets]
@@ -165,7 +186,7 @@ def build_dataset(data_prefix,
     if not stats_mode:
         print("\n===================  Benchmark Information  ===================")
         print(f" Name: {benchmark.name}")
-        print(f" # Tasks: {n_tasks}")
+        print(f" # Tasks: {len(task_indices)} (of {n_tasks})")
         print(" # demonstrations: " + " ".join(f"({x})" for x in n_demos))
         print(" # sequences: " + " ".join(f"({x})" for x in n_sequences))
         print("=======================================================================\n")

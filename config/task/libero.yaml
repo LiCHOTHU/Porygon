@@ -12,6 +12,7 @@ benchmark_instance:
   robot: ${task.robot}
 mode: all
 n_tasks: ${eval:"90 if '${task.benchmark_name}' == 'libero_90' else 10"}
+task_subset: null  # null = all tasks; set e.g. [0] to train on a single task index
 demos_per_env: 50
 distractor_objects: false
 robot: Panda
@@ -74,6 +75,7 @@ dataset:
   load_depth: ${algo.encoder.load_depth}
   task_embedding_format: ${task.task_embedding_format}
   n_demos: ${task.demos_per_env}
+  task_subset: ${task.task_subset}
   hdf5_cache_mode: low_dim
   action_keys: ${eval:"'abs_actions' if ${algo.abs_action} else 'actions'"}
   extra_obs_modality:
@@ -85,6 +87,10 @@ dataset:
       - agentview_intrinsic
       - robot0_eye_in_hand_intrinsic
   load_next_obs: ${algo.dataset.load_next_obs}
+  # Pre-encoded Wan-VAE latent cache (per-task .h5 files). When set, the
+  # dataset injects obs[_wan_lat_<cam>] for every sample so the encoder
+  # can skip its inline Wan-VAE forward. Null = no cache.
+  wan_cache_dir: ${oc.select:algo.encoder.wan_cache_dir,null}
 
 env_factory:
   _target_: imitation.envs.libero.wrappers.LiberoWrapper

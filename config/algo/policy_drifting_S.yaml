@@ -1,0 +1,37 @@
+defaults:
+  - chunk_base
+  - _self_
+  - override encoder: rgb_no_pool
+
+policy:
+  _target_: imitation.algos.policy_drifting.PolicyDrifting
+  num_inference_steps: ${algo.num_inference_steps}
+  dropout: ${algo.dropout}
+  feat_norm: layer_norm
+  embed_dim: ${algo.embed_dim}
+  velocity_net_kwargs:
+    time_dim: 128
+    hidden_dim: ${algo.embed_dim}
+    num_blocks: 4
+    dim_feedforward: 512
+    dropout: ${algo.dropout}
+    nhead: 4
+    activation: "gelu"
+  # Inherited FM knobs (kept for API parity with parent; unused by drift loss).
+  flow_sampling: beta
+  flow_alpha: 1.5
+  flow_beta: 1.0
+  flow_sig_min: 0.001
+  # Drifting (lambertae JAX defaults; scale_inputs internalizes feature scale).
+  drift_R_list: [0.02, 0.05, 0.2]
+  drift_t: 0.0
+  drift_num_gen: 4
+  action_clamp: true
+
+name: policy_drifting
+
+dropout: 0.1
+# Drifting is a 1-step generator; default to 1 NFE at eval.
+num_inference_steps: 1
+
+embed_dim: 256

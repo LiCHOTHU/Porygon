@@ -1,0 +1,29 @@
+# Run 1: obs + proprio + z_dyn + z_static  (ours, full)
+#
+# All 5 runs share the same FlowMatchingPolicy + DiT. Only the encoder
+# flags differ.  frame_stack=33 because DIALGA's pretrain chunk is 33.
+
+defaults:
+  - fm_policy_S
+  - _self_
+  - override encoder: wan_dialga
+
+variant_name: r1_zdyn_zstatic
+
+frame_stack: 33
+
+encoder:
+  language_fusion: false
+  emit_zdyn: true
+  emit_zstatic: true
+  emit_wanflat: false
+  rgb_frames_used: 1
+  dialga_cameras: ["agentview_image"]
+  task_embedding_format: clip
+
+dataset:
+  seq_len: ${algo.chunk_size}
+  frame_stack: ${algo.frame_stack}
+  obs_seq_len: 1
+  lowdim_obs_seq_len: null
+  load_next_obs: false

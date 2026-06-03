@@ -1,0 +1,28 @@
+# Run 2: obs + proprio + lang  (vanilla baseline — language is the task signal)
+#
+# Identical architecture to runs 1/3/4/5, identical frame_stack=33 so the
+# input modality is matched.  No z_dyn / z_static / wan_flat tokens.
+
+defaults:
+  - fm_policy_S
+  - _self_
+  - override encoder: wan_dialga
+
+variant_name: r2_lang_baseline
+
+frame_stack: 33
+
+encoder:
+  language_fusion: true
+  emit_zdyn: false
+  emit_zstatic: false
+  emit_wanflat: false
+  rgb_frames_used: 1
+  task_embedding_format: clip
+
+dataset:
+  seq_len: ${algo.chunk_size}
+  frame_stack: ${algo.frame_stack}
+  obs_seq_len: 1
+  lowdim_obs_seq_len: null
+  load_next_obs: false

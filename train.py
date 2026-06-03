@@ -140,6 +140,8 @@ def main(cfg):
         t0 = time.time()
         model.train()
         training_loss = 0.0
+        action_mse_sum = 0.0
+        action_mse_count = 0
         if train_cfg.do_profile:
             profiler = Profiler()
             profiler.start()
@@ -174,6 +176,10 @@ def main(cfg):
                 })
             lr = optimizers[0].param_groups[0]["lr"]
             info.update({"lr": lr})
+            # Optional per-epoch inferenced-action metric (policy_drifting populates it).
+            if "action_mse" in info:
+                action_mse_sum += float(info["action_mse"])
+                action_mse_count += 1
             info = {cfg.logging_folder: info}
             training_loss += loss.item()
             steps += 1
@@ -191,8 +197,11 @@ def main(cfg):
         training_loss /= len(train_dataloader)
         t1 = time.time()
         epoch_time = (t1-t0)/60
+        amse_msg = ""
+        if action_mse_count > 0:
+            amse_msg = f" | inferenced action MSE: {action_mse_sum / action_mse_count:.6f}"
         logger.info(
-            f"Epoch {epoch:3d} | train loss: {training_loss:5.5f} | time: {epoch_time:4.2f} min"
+            f"Epoch {epoch:3d} | train loss: {training_loss:5.5f}{amse_msg} | time: {epoch_time:4.2f} min"
         )
 
         model_checkpoint_name_latest = os.path.join(

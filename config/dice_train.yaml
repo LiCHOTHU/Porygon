@@ -1,0 +1,73 @@
+defaults:
+  - task: libero
+  - algo: fm_policy_dice_S
+  - _self_
+
+exp_name: fm_dice
+variant_name: null
+seed: 10000
+device: cuda:0
+output_prefix: /storage/scratch1/8/lwang831/imitation/experiments_dice
+data_prefix: ./data
+make_unique_experiment_dir: false
+logging_folder: dice
+normalize_action: true
+normalize_obs: false
+
+# Path to BC cold-start checkpoint (.pth). The encoder + FM are frozen.
+cold_start_checkpoint: ???
+# Single-task default; set task_indices to a list for multi-task.
+task_index: 0
+task_indices: null
+
+dice:
+  # Outer-loop knobs.
+  n_iters: 50
+  episodes_per_iter: 4         # online rollouts collected per outer iter
+  warmup_episodes: 20          # teacher rollouts before any RL update; seeds the replay
+  gradient_steps: 200          # actor/critic/Polyak steps per outer iter
+  eval_interval: 5
+  save_interval: 10
+  max_episode_length: ${task.horizon}
+
+  # Replay.
+  replay_size: 50000           # CPU-side; per-row ~ cond + noise + action + ... = ~50kB
+  batch_size: 256
+
+  # Model.
+  actor_hidden: [512, 512, 512]
+  critic_hidden: [512, 512, 512]
+  ensemble_size: 2
+  q_depends_on_noise: true
+  conservative: min            # min | lcb | mean
+  lcb_kappa: 0.1
+  td_loss: huber               # huber | mse | bce
+
+  # Optimization.
+  actor_lr: 3.0e-5
+  critic_lr: 3.0e-4
+  bc_loss_weight: 100.0        # matches DICE-RL-Robot README default
+  num_multi_z: 4               # K noise samples per state in actor_loss
+  grad_clip: 1.0
+  gamma: 0.99
+  tau: 0.005                   # Polyak coefficient
+
+# Consumed by env_runner interpolation (used for eval).
+rollout:
+  enabled: true
+  interval: ${dice.eval_interval}
+  rollouts_per_env: 20
+  max_episode_length: ${task.horizon}
+  num_parallel_envs: 1
+  n_video: 0
+
+training:
+  load_obs: false
+  use_tqdm: true
+
+logging:
+  group: null
+  mode: online
+  project: cleanup-dice
+  resume: false
+  save_code: false

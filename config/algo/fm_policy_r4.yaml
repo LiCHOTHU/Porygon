@@ -1,0 +1,28 @@
+# Run 4: obs + proprio + wan_flat  (raw Wan VAE latent — no DIALGA)
+#
+# Emits 9 tokens of dim (48*8*8=3072) per camera, projected to image_embed_dim.
+
+defaults:
+  - fm_policy_S
+  - _self_
+  - override encoder: wan_dialga
+
+variant_name: r4_wanflat
+
+frame_stack: 33
+
+encoder:
+  language_fusion: false
+  emit_zdyn: false
+  emit_zstatic: false
+  emit_wanflat: true
+  rgb_frames_used: 1
+  dialga_cameras: ["agentview_image"]
+  task_embedding_format: clip
+
+dataset:
+  seq_len: ${algo.chunk_size}
+  frame_stack: ${algo.frame_stack}
+  obs_seq_len: 1
+  lowdim_obs_seq_len: null
+  load_next_obs: false
