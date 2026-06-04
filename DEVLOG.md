@@ -199,8 +199,127 @@ group to produce non-zero centered advantage, and at 12.5% most G=8 groups are a
 - **Rollout eval is sim-bound, not GPU-bound** → keep evals on V100/A100 and reserve L40S for
   training. 90 tasks × 10 rolls in ~2 h on V100 is comfortable.
 
+## 2026-06-04 — Multi-task RL on hard-8: DICE-RL + SimpleVLA-RL × FM + drift
+
+### Setup
+With multi-task BC saturating at ~91% on LIBERO-90 (2026-06-03), pivoted to the **8 hardest
+tasks** (indices `[8, 21, 32, 53, 65, 73, 75, 81]`) as the arena where RL has room to move.
+Built out **two RL algos × two policies = 4 cells**:
+
+- **DICE-RL** ("From Prior to Pro", arXiv 2603.10263; ported from `real-stanford/dice-rl` +
+  `zhanyisun/DICE-RL-Robot`): residual `a_total = a_teacher + actor(state, noise)` with an
+  ensemble-of-10 critic, Q-normalization, n-step returns (n=3), multi-z next-noise targets,
+  soft Q-filtering, expert/online data masks, optional self-imitation. Entrypoint
+  `dice_train.py`; algo files under `imitation/algos/dice/`.
+- **SimpleVLA-RL** (arXiv 2509.09674) flavor: GRPO advantage (group ≥ G rollouts from same
+  init state), **std-normalized advantage hardcoded true**, **asymmetric PPO clip
+  `[0.20, 0.28]`**, inclusive filter `[0.1, 0.9]`. Entrypoint `rl_train.py`; algo files under
+  `imitation/algos/rl/`.
+
+Drift treated as **K=1 flow** (smoke test [3] confirmed bit-exact equivalence of drift's
+deployed 1-step rule and FM-arch + `num_inference_steps=1`); no separate algo, just the
+config override on either trainer.
+
+### Smoke tests (all PASS)
+- `scripts/smoke_dice_residual.py`: [1] iter-0 residual exactly 0 (zero-final-layer), [2]
+  gradient flows through residual / teacher frozen, [3] K=1 FMTeacher == drift's 1-step
+  rule (max-err 0.0), [4] full `loss()` w/ Q-norm + multi-z + n-step runs.
+- `scripts/smoke_dice_pipeline.py`: [A] n-step return math matches closed form, [B]
+  `sample()` shape contract, [C] 20-step update loop no-NaN + target drift + bounded
+  actor grad, [D] actor↔critic backward isolation (Δ=0.0 between graphs).
+- `scripts/smoke_simplevla_rl.py`: [1] GRPO std-norm matches paper formula (max-err 0e0),
+  [2] asymmetric clip / clipfrac matches log-bound math, [3] inclusive filter bitmask
+  match, [4] ratio=1 → no-op clip.
+
+### Hard-8 multi-task results (jobs 9420087–9420090, ~2.5–3 h each on A100/H100)
+
+| algo / policy | cold-start | final | Δ |
+|---|---:|---:|---:|
+| **DICE-RL × FM** (K=10) | 0.725 | **0.769** | **+0.044 ✓** |
+| DICE-RL × drift (K=1) | 0.717 | 0.681 | −0.036 |
+| SimpleVLA-RL × FM | 0.725 | 0.708 | −0.017 |
+| SimpleVLA-RL × drift | 0.717 | 0.692 | −0.025 |
+
+**Headline:** of the four, **only `fm_dice` beat its frozen-BC cold-start globally**. drift_dice
+showed a steep within-run climb (0.588 → 0.681 over iters 3 → 12, +9.3pp) but never recovered
+to its 0.717 starting point — early DICE actor noise hurts more with K=1 (no Euler-step
+smoothing), and the Q-filter (12 activations over the run) wasn't enough at this LR/iter count.
+SimpleVLA-RL on both policies stayed roughly at cold-start parity for the 6 iters it managed
+(its filter+PPO inner loop is ~2× DICE's per-iter cost).
+
+### Per-task picture (hard-8, fm_dice; iter 3 → iter 12)
+- KITCHEN_SCENE3 (21): 0.70 → 0.85 (+0.15) ✓
+- LIVING_ROOM_SCENE2 (53): 0.80 → 0.90 (+0.10) ✓
+- STUDY_SCENE1-right / **t75**: 0.50 → **0.80** (+0.30) ✓ largest gain
+- STUDY_SCENE3 (81): 0.60 → 0.75 (+0.15) ✓
+- KITCHEN_SCENE5 (32): 0.75 → 0.75 (flat)
+- KITCHEN_SCENE1 (8): 0.95 → 0.90 (−0.05)
+- LIVING_ROOM_SCENE5 (65): 0.85 → 0.80 (−0.05)
+- STUDY_SCENE1-front (73): 0.70 → **0.40** (−0.30) ✗ largest loss
+
+Even the winning algo improves 4/8 tasks and regresses 3/8 — RL gain is non-uniform at the
+per-task level. The +0.044 mean is the *net* of these.
+
+### Per-task-75 slice across all 4 algos (15-rollout estimates; ±0.12 noise)
+
+| | DICE Δ on t75 | SimpleVLA Δ on t75 |
+|---|---:|---:|
+| FM | **+0.07** (0.73 → 0.80) | −0.06 (0.73 → 0.67) |
+| Drift | **+0.08** (0.67 → 0.75) | **+0.13** (0.67 → 0.80) ← largest single cell |
+| **mean** | +0.075 | +0.035 |
+| **spread** | 0.01 (tight) | 0.19 (wide) |
+
+DICE looks more *consistent* per-task; SimpleVLA has the biggest single cell but also the only
+negative one. Caveat: 15-rollout noise (±0.12) means SimpleVLA's spread is partly sampling
+variance, not a true ceiling difference. These numbers are from the multi-task hard-8 ckpts
+sliced to task 75, not from a single-task RL run.
+
+### Single-task RL on t75 — submitted to SLURM
+True single-task ablation (RL on `task_indices=[75]` alone, starting from each cold-start
+ckpt) is the cleaner version of the comparison. Local interactive H100 attempts crashed:
+- Attempt 1 (4 algos × `num_parallel_envs=5`): all crashed with `EGLError(EGL_NOT_INITIALIZED)`
+  in forked subprocess — re-hit the **parallel-env gotcha** ([[runtime-env]]), `num_parallel_envs>1`
+  uses `SubprocVectorEnv` which can't share EGL contexts. Mine to remember; ~76 min wasted, 0
+  eval lines.
+- Attempt 2 (`num_parallel_envs=1` smoke): silent SIGKILL mid-rollout at 2.4 s/env-step
+  (~50× slower than dedicated-GPU rate). Local node was either OOM-killing or thrashing
+  rendering against another invisible user.
+
+Submitted **job 9431681** (`scripts/rl_single_t75_all4.sbatch`) — one sbatch runs all 4 algos
+sequentially on task 75, 8 h budget, embers, partitions `gpu-a100,gpu-h100,gpu-v100`, scrubbed
+env to dodge the `SLURM_JOB_PARTITION` leak gotcha. Per-algo settings mirror the hard-8 runs
+(DICE: n_iters=12, eps=8, warmup=16, grad_steps=200, eval every 2; SimpleVLA: n_iters=8,
+G=16, inits=4, lr=1e-6, target_kl=0.05, filter [0.1, 0.9], eval every 2). Resume-safe — each
+`run_dice` / `run_simplevla` skips an algo whose log already has the expected eval count, so
+requeue doesn't lose progress. Currently `PENDING (Resources)`.
+
+### Bug fixes that landed this session (worth remembering)
+- **DICE-RL residual structure** was wrong: previous `distill_rl.py` had an independent
+  Tanh-MLP actor with a BC-MSE pull, NOT the residual `a_teacher + actor(...)` form. Rewrote
+  to mirror the official sim repo's `DistillResidualRLModel` (Identity output, optional
+  `zero_final_layer=True` — verified by smoke [1]). All production knobs (Q-norm, n-step,
+  multi-z, soft Q-filter, exploration strategies) ported.
+- **dice_train.py update-loop bug:** else-branch was calling `actor_total.backward(retain_graph=True)`
+  without `zero_grad` → stale-actor-grad accumulation. Removed.
+- **SimpleVLA-RL config defaults were wrong:** `std_normalize=false` (should be hardcoded `true`),
+  filter used strict `<` (should be inclusive `<=`), symmetric clip (should be asymmetric
+  `0.20/0.28`). All three fixed in `config/rl_train.yaml` + `imitation/algos/rl/grpo.py`.
+- **dice_train.py** now accepts `+dice_resume_checkpoint=<path>` to load a trained student
+  for eval-only / continued training (added 2026-06-04). Pair with `dice.n_iters=0` and
+  `dice.warmup_episodes=0` for a clean eval-only invocation.
+
 ## Open threads
 
+- **Single-task RL on t75 (job 9431681, PENDING):** confirm whether dedicated single-task RL
+  beats both (a) the cold-start baseline and (b) the multi-task hard-8 per-task-75 numbers.
+  If yes, that's the cleanest "RL extracts more from data than BC" signal we have on LIBERO-90.
+- **30-rollout re-eval of hard-8 DICE ckpts on t75:** dice_latest.pth exists for both fm_dice
+  and drift_dice (SimpleVLA did NOT save); a tight re-eval would denoise the ±0.12 sample
+  variance and let us actually conclude on per-cell lift.
+- **drift_dice early-collapse:** iter-3 eval landed at 0.588 vs 0.717 cold-start — try smaller
+  actor LR (1e-4 → 3e-5) or longer warmup to see if the climb crosses baseline.
+- **libero_10 multitask BC + RL:** still the pivot target. Multi-task BC on libero_10 not yet
+  trained; both FM and drift cold-starts are the prereq.
 - **d=30 gap-filler** + **d=15 gap-filler**: localize the BC 20→40 jump and the RL gain
   20→40 collapse (does the inverted-U peak at d=10 or d=15?).
 - **Demo sweep replication on a second task**: test whether the inverted-U RL-gain shape
@@ -229,4 +348,14 @@ group to produce non-zero centered advantage, and at 12.5% most G=8 groups are a
 | Drift training script | `scripts/train_multitask_lib90_drift.sbatch` (job 9403479) |
 | Drift eval script | `scripts/eval_drift_multitask_lib90.{py,sbatch}` (job 9414477) |
 | libero_10 preprocessing script | `scripts/process_libero_10.sbatch` (job 9403912) |
+| DICE-RL trainer + algo | `dice_train.py`, `imitation/algos/dice/{distill_rl,replay_buffer,collector,teacher}.py` |
+| SimpleVLA-RL trainer + algo | `rl_train.py`, `imitation/algos/rl/{grpo,rollout_collector,buffer}.py` |
+| DICE-RL config | `config/dice_train.yaml`, `config/algo/fm_policy_dice_S.yaml` |
+| SimpleVLA-RL config | `config/rl_train.yaml`, `config/algo/fm_policy_rl_S.yaml` |
+| Algo smoke tests | `scripts/smoke_{dice_residual,dice_pipeline,simplevla_rl}.py` |
+| Hard-8 RL sbatches | `scripts/rl_hard8_{fm,drift}_{dice,simplevla}.sbatch` (jobs 9420087–9420090) |
+| Hard-8 RL logs / results | `/storage/scratch1/8/lwang831/rl_hard8_{fm,drift}_{dice,simplevla}.{log,_results.txt}` |
+| Hard-8 DICE ckpts | `/storage/scratch1/8/lwang831/imitation/experiments_dice/libero/libero_90/rl_hard8_{fm,drift}_dice/dice_latest.pth` |
+| Single-task t75 sbatch | `scripts/rl_single_t75_all4.sbatch` (job 9431681) |
+| Single-task t75 results | `/storage/scratch1/8/lwang831/rl_single_t75_all4_results.txt` (pending) |
 | Plan | `~/.claude/plans/sequential-gliding-salamander.md` |

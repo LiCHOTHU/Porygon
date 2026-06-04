@@ -65,22 +65,42 @@ class SequenceVLDataset(Dataset):
 
     # ------------------------------------------------------------------
     def _ensure_cache_open(self):
-        """Lazy-open the cache .h5 — called inside __getitem__ so each
-        DataLoader worker process gets its own file handle after fork."""
+        """Lazy-open the cache file — called inside __getitem__ so each
+        DataLoader worker process gets its own handle after fork.
+
+        Supports two formats, distinguished by file extension:
+          .h5  → h5py.File (legacy; ~6 ms per random read on shared scratch)
+          .npy → np.memmap + sidecar .meta.json (fast; ~1 µs per random read
+                 once OS page cache is warm)
+        """
         if self._wan_cache_file is not None or self.wan_cache_path is None:
             return
-        f = h5py.File(self.wan_cache_path, "r", libver="latest", swmr=False)
-        # Sanity: the cache must list the same demos in the same order.
-        cache_keys = [s.decode() for s in f["demo_keys"][:]]
-        for k, ck in zip(self.sequence_dataset.demos, cache_keys):
-            assert k == ck, (
-                f"demo order mismatch between SequenceDataset and Wan cache: "
-                f"{k} vs {ck} (cache={self.wan_cache_path})"
-            )
-        self._wan_cache_camera_key = f.attrs.get("camera_key", "agentview_image")
-        if isinstance(self._wan_cache_camera_key, bytes):
-            self._wan_cache_camera_key = self._wan_cache_camera_key.decode()
-        self._wan_cache_file = f
+        if self.wan_cache_path.endswith(".npy"):
+            import json
+            meta_path = self.wan_cache_path[:-4] + ".meta.json"
+            with open(meta_path) as fh:
+                meta = json.load(fh)
+            for k, ck in zip(self.sequence_dataset.demos, meta["demo_keys"]):
+                assert k == ck, (
+                    f"demo order mismatch between SequenceDataset and Wan cache: "
+                    f"{k} vs {ck} (cache={self.wan_cache_path})"
+                )
+            self._wan_cache_camera_key = meta["camera_key"]
+            self._wan_cache_file = np.load(self.wan_cache_path, mmap_mode="r")
+            self._wan_cache_is_npy = True
+        else:
+            f = h5py.File(self.wan_cache_path, "r", libver="latest", swmr=False)
+            cache_keys = [s.decode() for s in f["demo_keys"][:]]
+            for k, ck in zip(self.sequence_dataset.demos, cache_keys):
+                assert k == ck, (
+                    f"demo order mismatch between SequenceDataset and Wan cache: "
+                    f"{k} vs {ck} (cache={self.wan_cache_path})"
+                )
+            self._wan_cache_camera_key = f.attrs.get("camera_key", "agentview_image")
+            if isinstance(self._wan_cache_camera_key, bytes):
+                self._wan_cache_camera_key = self._wan_cache_camera_key.decode()
+            self._wan_cache_file = f
+            self._wan_cache_is_npy = False
 
     def __len__(self):
         return len(self.sequence_dataset)
@@ -102,7 +122,10 @@ class SequenceVLDataset(Dataset):
             demo_key = self.sequence_dataset._index_to_demo_id[idx]
             demo_idx = self._demo_key_to_idx[demo_key]
             t_in_demo = idx - self.sequence_dataset._demo_id_to_start_indices[demo_key]
-            lat = self._wan_cache_file["latents"][demo_idx, t_in_demo]   # (48, 9, 8, 8) fp16
+            if self._wan_cache_is_npy:
+                lat = self._wan_cache_file[demo_idx, t_in_demo]          # (48, 9, 8, 8) fp16
+            else:
+                lat = self._wan_cache_file["latents"][demo_idx, t_in_demo]   # (48, 9, 8, 8) fp16
             lat_t = torch.from_numpy(np.ascontiguousarray(lat))
             if "obs" not in return_dict:
                 return_dict["obs"] = {}

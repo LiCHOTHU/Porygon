@@ -134,6 +134,18 @@ def main(cfg):
     logger.info(f"Student actor params: {sum(p.numel() for p in student.actor.parameters())/1e6:.2f}M; "
                 f"critic params: {sum(p.numel() for p in student.critic.parameters())/1e6:.2f}M")
 
+    # Optional: resume a previously-trained DICE student for eval-only / continued training.
+    dice_resume = cfg.get("dice_resume_checkpoint", None)
+    if dice_resume:
+        logger.info(f"Loading DICE student from {dice_resume}")
+        dice_state = torch.load(dice_resume, map_location=device)
+        student.actor.load_state_dict(dice_state["student_actor"])
+        student.critic.load_state_dict(dice_state["student_critic"])
+        if "student_target_critic" in dice_state:
+            student.target_critic.load_state_dict(dice_state["student_target_critic"])
+        logger.info(f"Resumed DICE student (saved at iter={dice_state.get('iter','?')}, "
+                    f"training_step={dice_state.get('training_step','?')})")
+
     # --- optimizers (official uses Adam, not AdamW; match that) ---
     actor_opt = torch.optim.Adam(
         student.actor.parameters(), lr=cfg.dice.actor_lr,

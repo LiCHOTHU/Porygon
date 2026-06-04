@@ -161,13 +161,19 @@ def build_dataset(data_prefix,
     task_embs_test = get_task_embs(task_embedding_format, descriptions, train=False)
     benchmark.set_task_embs(task_embs_test)
 
-    # Resolve per-task Wan-VAE latent cache paths (or None).
+    # Resolve per-task Wan-VAE latent cache paths (or None). Prefer .npy
+    # (np.memmap, ~6000x faster random reads) over .h5 if both exist.
     if wan_cache_dir is not None:
         wan_cache_paths = []
         for i in task_indices:
             hdf5_rel = benchmark.get_task_demonstration(i)        # e.g. "libero_90/<name>.hdf5"
-            cache_name = os.path.basename(hdf5_rel).replace(".hdf5", ".h5")
-            wan_cache_paths.append(os.path.join(wan_cache_dir, cache_name))
+            base = os.path.basename(hdf5_rel).replace(".hdf5", "")
+            npy_path = os.path.join(wan_cache_dir, base + ".npy")
+            h5_path = os.path.join(wan_cache_dir, base + ".h5")
+            if os.path.exists(npy_path):
+                wan_cache_paths.append(npy_path)
+            else:
+                wan_cache_paths.append(h5_path)
     else:
         wan_cache_paths = [None] * len(task_indices)
 
