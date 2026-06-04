@@ -1,24 +1,31 @@
-"""Distilled RL model for LIBERO FM policy (port of DICE-RL-Robot's DistilledRLModel).
+"""Distilled residual-RL model for LIBERO FM policy.
 
-Single-process MVP. Uses a frozen BC FlowMatchingPolicy as both:
-  (i) the visual encoder that produces `cond` = state embedding
- (ii) the teacher whose action is anchored against via BC-MSE in actor_loss.
+Faithful port of real-stanford/dice-rl's DistillResidualRLModel (arXiv 2603.10263,
+ICML 2026 -- "From Prior to Pro"). The sim repo's model is at:
+    https://github.com/real-stanford/dice-rl/blob/main/model/rl/distill_residual_rl.py
+and this file mirrors its loss(), actor_loss(), critic_loss(), get_exploration_action()
+and the residual-on-teacher get_action() structure 1:1, with two LIBERO-specific
+adaptations:
 
-Student actor is a flat MLP `(state_emb_flat, noise_flat) -> action_chunk_flat`.
-Critic is an ensemble of `(state, noise, action) -> Q(s,z,a)` MLPs with target net + Polyak.
+  (i)  The frozen pretrained policy is attached via `attach_teacher(teacher_fn)`
+       (an FMTeacher wrapping our BC FlowMatchingPolicy) instead of being
+       instantiated from a saved hydra config.
+  (ii) Optional `zero_final_layer` zero-inits the final actor Linear so the
+       initial residual is exactly 0 (a_student == a_teacher at iter 0).
+       The official does NOT zero-init; we expose this as opt-in for the LIBERO
+       use case where "from prior" should be exact at iter 0.
 
-Loss shape (matches DICE-RL-Robot core branch, warmup-only / no soft-Q-filtering / no SI):
-  L_actor  = -E_K[Q(s, z_k, a_student(s, z_k))]
-             + bc_loss_weight * MSE(a_student(s, z_k), a_teacher(s, z_k))
-  L_critic = TD(MSE/Huber/BCE) over ensemble vs target_q
-             target_q = r + gamma * (1 - done) * target_critic(s', z', a_student(s', z'))
+Everything else -- warmup vs post-warmup loss schedule, Q-normalization, soft
+Q-filtering, self-imitation BC mask, multi-z next-noise target, n-step gamma,
+expert/online data masks, Q-based exploration -- matches the official.
 
-Skipped (faithful but minimal): dynamics, intrinsic reward, self-imitation, soft-Q
-filtering, q-normalization, n-step, multi-z next-noise sampling. Trivial to re-add as
-options later. The ladder is to first show the spine works.
+Action shape conventions (matched to LIBERO):
+    state    : (B, num_enc, hidden)  -- cond from the BC encoder
+    noise    : (B, horizon, A)       -- per-chunk Gaussian
+    action   : (B, horizon, A)       -- normalized, NOT clamped inside the model
+    a_student = a_teacher(state, noise) + residual_theta(state, noise)
 """
 
-import math
 from typing import Dict, List, Optional, Tuple
 
 import torch
@@ -42,11 +49,16 @@ def _mlp(dims: List[int], activation: str = "Mish", use_layernorm: bool = True,
 
 
 class DistilledActor(nn.Module):
-    """(state, noise) -> action chunk; flat MLP, normalized [-1, 1] action space."""
+    """(state, noise) -> residual chunk. Unbounded MLP delta added on top of the
+    frozen teacher's action. Output activation is Identity (the residual is NOT
+    a normalized [-1, 1] action). If zero_final_layer=True, the last Linear is
+    zero-initialized so the initial residual is exactly 0 (deviation from the
+    official; opt-in for the LIBERO "from prior" property)."""
 
     def __init__(self, state_dim: int, action_dim: int, horizon_steps: int,
-                 hidden_dims: List[int] = (512, 512, 512),
-                 activation: str = "Mish", use_layernorm: bool = True):
+                 hidden_dims: List[int] = (1024, 1024, 1024),
+                 activation: str = "Mish", use_layernorm: bool = True,
+                 zero_final_layer: bool = False):
         super().__init__()
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -55,50 +67,71 @@ class DistilledActor(nn.Module):
         out_dim = horizon_steps * action_dim
         self.mlp = _mlp([in_dim] + list(hidden_dims) + [out_dim],
                         activation=activation, use_layernorm=use_layernorm,
-                        out_activation="Tanh")  # actions live in [-1, 1]
+                        out_activation="Identity")
+        if zero_final_layer:
+            last_linear = None
+            for m in self.mlp.modules():
+                if isinstance(m, nn.Linear):
+                    last_linear = m
+            assert last_linear is not None, "no Linear layer found in actor MLP"
+            nn.init.zeros_(last_linear.weight)
+            if last_linear.bias is not None:
+                nn.init.zeros_(last_linear.bias)
 
     def forward(self, state: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
-        B = state.shape[0]
-        x = torch.cat([state.view(B, -1), noise.view(B, -1)], dim=-1)
-        a = self.mlp(x)
-        return a.view(B, self.horizon_steps, self.action_dim)
+        """Returns the residual delta, NOT the full action."""
+        B = noise.shape[0]
+        x = torch.cat([state.reshape(B, -1), noise.reshape(B, -1)], dim=-1)
+        delta = self.mlp(x)
+        return delta.view(B, self.horizon_steps, self.action_dim)
 
 
 class DistilledCritic(nn.Module):
-    """Ensemble of Q(s, z, a) -> R. Conservative aggregation via min or LCB."""
+    """Ensemble of Q(s, a) or Q(s, z, a) -> R. Conservative aggregation via min
+    (official default) or LCB / mean for diagnostics."""
 
     def __init__(self, state_dim: int, action_dim: int, horizon_steps: int,
-                 hidden_dims: List[int] = (512, 512, 512),
-                 ensemble_size: int = 2, q_depends_on_noise: bool = True,
+                 hidden_dims: List[int] = (1024, 1024, 1024),
+                 ensemble_size: int = 10, q_depends_on_noise: bool = False,
                  conservative: str = "min", lcb_kappa: float = 0.1,
-                 activation: str = "Mish", use_layernorm: bool = True):
+                 activation: str = "Mish", use_layernorm: bool = True,
+                 td_loss: str = "mse"):
         super().__init__()
         self.q_depends_on_noise = q_depends_on_noise
         self.conservative = conservative
         self.lcb_kappa = lcb_kappa
+        self.td_loss = td_loss
         in_extra = 2 if q_depends_on_noise else 1
         in_dim = state_dim + in_extra * horizon_steps * action_dim
-        self.qs = nn.ModuleList([
+        self.Q_ensemble = nn.ModuleList([
             _mlp([in_dim] + list(hidden_dims) + [1], activation=activation,
                  use_layernorm=use_layernorm, out_activation="Identity")
             for _ in range(ensemble_size)
         ])
 
-    def _features(self, state: torch.Tensor, noise: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
-        B = state.shape[0]
-        parts = [state.view(B, -1)]
+    def _features(self, state: torch.Tensor, noise: Optional[torch.Tensor],
+                  action: torch.Tensor) -> torch.Tensor:
+        B = action.shape[0]
+        parts = [state.reshape(B, -1)]
         if self.q_depends_on_noise:
-            parts.append(noise.view(B, -1))
-        parts.append(action.view(B, -1))
+            assert noise is not None, "q_depends_on_noise=True but noise=None"
+            parts.append(noise.reshape(B, -1))
+        parts.append(action.reshape(B, -1))
         return torch.cat(parts, dim=-1)
 
-    def forward(self, state: torch.Tensor, noise: torch.Tensor, action: torch.Tensor,
-                return_all: bool = False) -> torch.Tensor:
+    def forward(self, state: torch.Tensor, noise: Optional[torch.Tensor],
+                action: torch.Tensor, return_all: bool = False,
+                return_mean: bool = False) -> torch.Tensor:
         x = self._features(state, noise, action)
-        qs = [q(x) for q in self.qs]
+        qs = [q(x) for q in self.Q_ensemble]
+        # BCE: sigmoid before returning a single Q (loss path uses raw logits via return_all).
+        if self.td_loss == "bce" and not return_all:
+            qs = [torch.sigmoid(q) for q in qs]
         if return_all:
             return qs
         q_stack = torch.stack(qs, dim=0)
+        if return_mean:
+            return q_stack.mean(dim=0)
         if self.conservative == "min":
             return q_stack.min(dim=0).values
         if self.conservative == "lcb":
@@ -109,157 +142,450 @@ class DistilledCritic(nn.Module):
 
 
 class DistilledRLModel(nn.Module):
-    """Wraps DistilledActor + DistilledCritic ensemble + target critic + BC teacher.
+    """Residual-RL student that adds an MLP delta on top of a frozen teacher.
 
-    The visual encoder is the frozen BC FM policy: state = flatten(get_cond(data)).
-    The teacher action a_teacher is obtained by running the BC FM Euler sampler from
-    the SAME starting noise as the student's `noise` input -- so the BC-MSE anchor is
-    a meaningful pointwise distance (both conditioned on the same x_0).
-
-    External API:
-      forward / get_action(state_emb, noise) -> a_student (B, H, A)
-      loss(state_emb, noise, action, next_state_emb, reward, done, gamma) -> dict
-      update_target_critic(tau)
+    See module docstring for the exact loss formulas (mirrors official). External
+    API: get_action, get_exploration_action, loss, update_target_networks, and
+    the attach_teacher(teacher_fn) hook used in our LIBERO wiring.
     """
 
     def __init__(self, state_dim: int, action_dim: int, horizon_steps: int,
-                 actor_hidden: List[int] = (512, 512, 512),
-                 critic_hidden: List[int] = (512, 512, 512),
-                 ensemble_size: int = 2, q_depends_on_noise: bool = True,
+                 # Network configurations
+                 actor_hidden: List[int] = (1024, 1024, 1024),
+                 critic_hidden: List[int] = (1024, 1024, 1024),
+                 ensemble_size: int = 10,
+                 q_depends_on_noise: bool = False,
                  conservative: str = "min", lcb_kappa: float = 0.1,
-                 td_loss: str = "huber",
+                 td_loss: str = "mse",
+                 # Loss coefficients
                  bc_loss_weight: float = 100.0,
-                 num_multi_z: int = 4,
-                 clip_action: bool = True,
+                 critic_weight: float = 1.0,
+                 # Multi-z sampling
+                 num_multi_z: int = 8,
+                 # Q-filtering / self-imitation (post-warmup)
+                 use_soft_q_filtering: bool = False,
+                 q_filtering_warmup_steps: int = 25000,
+                 q_underestimation_threshold: float = -0.1,
+                 # Exploration warmup (separate from Q-filtering)
+                 replay_flow_warmup_steps: int = 1000,
+                 # Q-normalization
+                 use_q_normalization: bool = False,
+                 # Multi-sample next-noise for stable target Q
+                 multi_sample_next_noise: bool = False,
+                 num_next_noise_samples: int = 4,
+                 # N-step returns
+                 use_n_step: bool = False,
+                 n_step: int = 1,
+                 # Expert / online data masks (RLPD)
+                 disable_q_loss_for_expert_data: bool = False,
+                 disable_td_loss_for_expert_data: bool = False,
+                 always_retain_bc_loss_for_expert_data: bool = False,
+                 # Misc
+                 clip_action: bool = False,    # official sim does NOT clamp inside get_action
+                 zero_final_layer: bool = False,
                  device: str = "cuda"):
         super().__init__()
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.horizon_steps = horizon_steps
         self.bc_loss_weight = bc_loss_weight
+        self.critic_weight = critic_weight
         self.num_multi_z = num_multi_z
         self.td_loss = td_loss
         self.clip_action = clip_action
         self.device = device
+        # Q-filtering
+        self.use_soft_q_filtering = use_soft_q_filtering
+        self.q_filtering_warmup_steps = q_filtering_warmup_steps
+        self.q_underestimation_threshold = q_underestimation_threshold
+        # Exploration warmup
+        self.replay_flow_warmup_steps = replay_flow_warmup_steps
+        # Q-norm
+        self.use_q_normalization = use_q_normalization
+        # Multi-z target
+        self.multi_sample_next_noise = multi_sample_next_noise
+        self.num_next_noise_samples = num_next_noise_samples
+        # N-step
+        self.use_n_step = use_n_step
+        self.n_step = n_step
+        # Data-source masks
+        self.disable_q_loss_for_expert_data = disable_q_loss_for_expert_data
+        self.disable_td_loss_for_expert_data = disable_td_loss_for_expert_data
+        self.always_retain_bc_loss_for_expert_data = always_retain_bc_loss_for_expert_data
 
         self.actor = DistilledActor(
             state_dim=state_dim, action_dim=action_dim, horizon_steps=horizon_steps,
             hidden_dims=actor_hidden, use_layernorm=True,
+            zero_final_layer=zero_final_layer,
         ).to(device)
         self.critic = DistilledCritic(
             state_dim=state_dim, action_dim=action_dim, horizon_steps=horizon_steps,
             hidden_dims=critic_hidden, ensemble_size=ensemble_size,
             q_depends_on_noise=q_depends_on_noise,
             conservative=conservative, lcb_kappa=lcb_kappa,
+            td_loss=td_loss,
         ).to(device)
         self.target_critic = DistilledCritic(
             state_dim=state_dim, action_dim=action_dim, horizon_steps=horizon_steps,
             hidden_dims=critic_hidden, ensemble_size=ensemble_size,
             q_depends_on_noise=q_depends_on_noise,
             conservative=conservative, lcb_kappa=lcb_kappa,
+            td_loss=td_loss,
         ).to(device)
         self.target_critic.load_state_dict(self.critic.state_dict())
         for p in self.target_critic.parameters():
             p.requires_grad = False
 
-        # teacher_fn(state_emb, noise) -> a_teacher in [-1,1] normalized action space.
-        # Attached externally so this module stays light. Expected: torch.no_grad inside.
+        # teacher_fn(state_unflat (B,num_enc,hidden), noise (B,H,A)) -> a_teacher (B,H,A)
+        # Returns the BC FM's deterministic Euler output (already clamped to [-1, 1]).
+        # Computed under torch.no_grad in FMTeacher; we treat it as frozen.
         self._teacher_fn = None
 
+    # ------------------------------------------------------------------
+    # Teacher / action
+    # ------------------------------------------------------------------
     def attach_teacher(self, teacher_fn):
-        """teacher_fn: callable(state_emb (B,S), noise (B,H,A)) -> action (B,H,A) under no_grad."""
         self._teacher_fn = teacher_fn
 
-    def get_action(self, state: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
-        a = self.actor(state, noise)
-        if self.clip_action:
-            a = torch.clamp(a, -1.0, 1.0)
-        return a
+    def get_action(self, state: torch.Tensor, noise: torch.Tensor,
+                   return_pretrained_actions: bool = False):
+        """a_student = a_teacher(state, noise) + actor(state, noise).
 
-    # ---- losses ----
-    def _critic_td_loss(self, q_pred: torch.Tensor, target_q: torch.Tensor) -> torch.Tensor:
-        if self.td_loss == "mse":
-            return F.mse_loss(q_pred, target_q)
-        if self.td_loss == "huber":
-            return F.smooth_l1_loss(q_pred, target_q, beta=1.0)
-        if self.td_loss == "bce":
-            assert (target_q >= 0).all() and (target_q <= 1).all(), \
-                f"BCE TD requires targets in [0,1]; got [{target_q.min():.3f},{target_q.max():.3f}]"
-            return F.binary_cross_entropy_with_logits(q_pred, target_q)
-        raise ValueError(f"Unknown td_loss: {self.td_loss}")
-
-    def critic_loss(self, state: torch.Tensor, noise: torch.Tensor, action: torch.Tensor,
-                    target_q: torch.Tensor) -> Dict[str, torch.Tensor]:
-        qs = self.critic(state, noise, action, return_all=True)
-        per_q = [self._critic_td_loss(q, target_q) for q in qs]
-        total = sum(per_q)
-        out = {"critic_loss": total}
-        for i, q in enumerate(qs):
-            out[f"q{i}_loss"] = per_q[i]
-            out[f"q{i}_mean"] = q.mean().detach()
-        return out
-
-    def actor_loss(self, state: torch.Tensor) -> Dict[str, torch.Tensor]:
-        """Multi-z actor loss: sample K noise vectors per state, average -Q and BC-MSE.
-
-        L_actor = -E_K[Q(s, z_k, a_student(s, z_k))]
-                  + bc_weight * E_K[||a_student - a_teacher||^2]
+        Mirrors real-stanford/dice-rl: total is UNCLAMPED inside the model
+        (env-execution sites in collector / dice_train clamp before stepping).
+        Set self.clip_action=True if you want internal clamping (matches the
+        DICE-RL-Robot variant); we leave it off by default.
         """
-        assert self._teacher_fn is not None, "Call attach_teacher(teacher_fn) before loss()."
+        assert self._teacher_fn is not None, "call attach_teacher(teacher_fn) first."
+        with torch.no_grad():
+            a_teacher = self._teacher_fn(state, noise)
+        residual = self.actor(state, noise)
+        a_total = a_teacher + residual
+        if self.clip_action:
+            a_total = torch.clamp(a_total, -1.0, 1.0)
+        if return_pretrained_actions:
+            return a_total, a_teacher
+        return a_total
+
+    # ------------------------------------------------------------------
+    # Q-based exploration (matches official get_exploration_action)
+    # ------------------------------------------------------------------
+    def get_exploration_action(self, state: torch.Tensor, num_samples: int = 10,
+                               exploration_strategy: str = "max_q_std",
+                               training_step: int = 0):
+        """Select a noise that maximises a Q-ensemble criterion. Mirrors the
+        official's max_q_std / max_q_min / max_q_std_filtered_by_min strategies.
+        Returns (selected_action, selected_noise), both (B, H, A)."""
+        B = state.shape[0]
+        device = state.device
+        if training_step <= self.replay_flow_warmup_steps:
+            # Warmup: single random sample.
+            noise = torch.randn(B, self.horizon_steps, self.action_dim, device=device)
+            with torch.no_grad():
+                action = self.get_action(state, noise)
+            return action, noise
+
+        # Sample num_samples noise vectors per batch element.
+        noise_samples = torch.randn(num_samples, B, self.horizon_steps, self.action_dim, device=device)
+        state_rep = state.unsqueeze(0).expand(num_samples, *state.shape).reshape(
+            num_samples * B, *state.shape[1:]
+        )
+        noise_flat = noise_samples.reshape(num_samples * B, self.horizon_steps, self.action_dim)
+        with torch.no_grad():
+            actions_flat = self.get_action(state_rep, noise_flat)
+            q_all = self.critic(state_rep, noise_flat, actions_flat, return_all=True)
+            # q_all: list of (num_samples*B, 1); stack into (ensemble, num_samples, B, 1)
+            q_stacked = torch.stack(q_all, dim=0).view(len(q_all), num_samples, B, 1)
+            if exploration_strategy == "max_q_min":
+                q_min = q_stacked.min(dim=0)[0].squeeze(-1)              # (num_samples, B)
+                sel = q_min.argmax(dim=0)                                 # (B,)
+            elif exploration_strategy == "max_q_std":
+                q_std = q_stacked.std(dim=0).squeeze(-1)                  # (num_samples, B)
+                sel = q_std.argmax(dim=0)
+            elif exploration_strategy == "max_q_std_filtered_by_min":
+                q_min = q_stacked.min(dim=0)[0].squeeze(-1)               # (num_samples, B)
+                k = min(3, num_samples)
+                top_q, top_idx = q_min.topk(k, dim=0)                      # (k, B)
+                top_q_full = torch.stack([
+                    q_stacked[:, top_idx[i], torch.arange(B)]              # (ensemble, B, 1)
+                    for i in range(k)
+                ], dim=1)                                                  # (ensemble, k, B, 1)
+                top_std = top_q_full.std(dim=0).squeeze(-1)                # (k, B)
+                sel_in_topk = top_std.argmax(dim=0)                        # (B,)
+                sel = torch.gather(top_idx, 0, sel_in_topk.unsqueeze(0)).squeeze(0)
+            else:
+                raise ValueError(f"unknown exploration_strategy: {exploration_strategy}")
+
+            actions_view = actions_flat.view(num_samples, B, self.horizon_steps, self.action_dim)
+            sel_actions = torch.stack([actions_view[sel[b], b] for b in range(B)])
+            sel_noise = torch.stack([noise_samples[sel[b], b] for b in range(B)])
+        return sel_actions, sel_noise
+
+    # ------------------------------------------------------------------
+    # Losses (mirrors real-stanford/dice-rl)
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _q_norm_scale(q_current_samples: torch.Tensor,
+                      online_mask: Optional[torch.Tensor]) -> Optional[torch.Tensor]:
+        """Return a no-grad scalar 1/mean(|Q|) to divide q_loss by, or None if
+        the mean is tiny. Mirrors the official's online-masked normalization."""
+        if online_mask is not None:
+            K = q_current_samples.shape[1]
+            mask = online_mask.unsqueeze(-1).expand(-1, K)
+            n = mask.sum()
+            if n > 0:
+                q_abs_mean = ((q_current_samples * mask).abs().sum() / n).detach()
+            else:
+                q_abs_mean = q_current_samples.abs().mean().detach()
+        else:
+            q_abs_mean = q_current_samples.abs().mean().detach()
+        if q_abs_mean > 1e-8:
+            return 1.0 / q_abs_mean
+        return None
+
+    def actor_loss(self, state: torch.Tensor,
+                   training_step: int = 0,
+                   q_overestimation: Optional[torch.Tensor] = None,
+                   data_source: Optional[torch.Tensor] = None) -> Dict[str, torch.Tensor]:
+        """Residual-RL actor loss, multi-z, with optional Q-filtering / self-imitation.
+
+        Mirrors real-stanford/dice-rl actor_loss exactly:
+          - Sample K noise vectors per state.
+          - For each (s, z_k): compute a_student_k and a_teacher_k, Q(s, z_k, a_*).
+          - During warmup: -mean Q + bc_weight * ||residual||^2 (uniform).
+          - Post-warmup: same, but BC term is dropped (per-sample) when the policy
+            beats the teacher AND Q is underestimated -> self-imitation.
+
+        Args (data_source / q_overestimation are pass-through; safe to leave None):
+          state           : (B, num_enc, hidden)
+          training_step   : current global step (for warmup gate)
+          q_overestimation: (B, 1) predicted_q - mc_return (None disables sQF)
+          data_source     : (B, 1)  0=online, 1=expert (None disables masks)
+        """
+        assert self._teacher_fn is not None, "call attach_teacher(teacher_fn) first."
         B = state.shape[0]
         K = self.num_multi_z
+        H = self.horizon_steps
+        A = self.action_dim
 
-        # Replicate state K times while preserving the unflat (B, num_enc, hidden) shape:
-        # the teacher needs it, while actor/critic flatten internally via view(B, -1).
+        # Replicate state K times.
         if state.dim() == 3:
             ne, h = state.shape[1], state.shape[2]
             state_rep = state.unsqueeze(1).expand(-1, K, -1, -1).reshape(B * K, ne, h)
         else:
             state_rep = state.unsqueeze(1).expand(-1, K, -1).reshape(B * K, -1)
-        noise_rep = torch.randn(B * K, self.horizon_steps, self.action_dim, device=self.device)
+        noise_samples = torch.randn(B, K, H, A, device=self.device)
+        noise_flat = noise_samples.reshape(B * K, H, A)
 
-        a_student = self.get_action(state_rep, noise_rep)  # (B*K, H, A)
+        # Compute student + teacher actions for each of B*K rows.
+        actions_flat, pretrained_actions_flat = self.get_action(
+            state_rep, noise_flat, return_pretrained_actions=True)
+
+        actions_samples = actions_flat.reshape(B, K, H, A)
+        pretrained_actions_samples = pretrained_actions_flat.reshape(B, K, H, A)
+
+        # Q for current actions (grad flows to actor through Q).
+        q_current_flat = self.critic(state_rep, noise_flat, actions_flat)  # (B*K, 1)
+        q_current_samples = q_current_flat.reshape(B, K)
+
+        # Q for pretrained actions (no grad).
         with torch.no_grad():
-            a_teacher = self._teacher_fn(state_rep, noise_rep)  # (B*K, H, A)
+            q_pretrained_flat = self.critic(state_rep, noise_flat, pretrained_actions_flat)
+            q_pretrained_samples = q_pretrained_flat.reshape(B, K)
 
-        q_pred = self.critic(state_rep, noise_rep, a_student)  # (B*K, 1)
-        q_loss = -q_pred.mean()
-        bc_mse = ((a_student - a_teacher) ** 2).mean()
+        in_warmup = training_step <= self.q_filtering_warmup_steps
 
-        total = q_loss + self.bc_loss_weight * bc_mse
+        # ---- Q loss ----
+        q_loss_per_batch = q_current_samples.mean(dim=1)  # (B,)
+        online_mask = None
+        if self.disable_q_loss_for_expert_data and data_source is not None:
+            # data_source: (B, 1) -> (B,)
+            online_mask = (data_source == 0).float().squeeze(-1)
+            q_loss_per_batch = q_loss_per_batch * online_mask
+        q_loss = -q_loss_per_batch.mean()
+
+        if self.use_q_normalization:
+            scale = self._q_norm_scale(q_current_samples, online_mask)
+            if scale is not None:
+                q_loss = scale * q_loss
+
+        # ---- BC / residual regularization with optional filtering ----
+        # action_diff(B, K, H, A) -> mse_per_sample(B, K)
+        action_diff = actions_samples - pretrained_actions_samples
+        mse_per_timestep = (action_diff ** 2).mean(dim=-1)              # (B, K, H)
+        mse_per_sample = mse_per_timestep.mean(dim=-1)                  # (B, K)
+
+        if in_warmup:
+            # Uniform average BC anchor; equivalent to ||residual||^2 (mean over B*K*H*A).
+            filtered_bc_loss = mse_per_sample.mean(dim=1).mean()
+            bc_filter = torch.ones(B, 1, device=self.device)
+            better_percentage = torch.tensor(0.0, device=self.device)
+            q_advantage = torch.zeros(B, 1, device=self.device)
+        else:
+            with torch.no_grad():
+                q_adv_per_sample = q_current_samples - q_pretrained_samples       # (B, K)
+                better_per_sample = (q_adv_per_sample > 0).float()                # (B, K)
+                avg_q_curr = q_current_samples.mean(dim=1, keepdim=True)          # (B, 1)
+                avg_q_pre = q_pretrained_samples.mean(dim=1, keepdim=True)        # (B, 1)
+                q_advantage = avg_q_curr - avg_q_pre                              # (B, 1)
+                better_percentage = better_per_sample.mean()
+                if self.use_soft_q_filtering:
+                    if q_overestimation is not None:
+                        q_under = (q_overestimation < self.q_underestimation_threshold).float()  # (B, 1)
+                        q_under_exp = q_under.expand(-1, K)
+                        # Drop BC ONLY when better AND Q is underestimated (trust self-improvement).
+                        should_filter = better_per_sample * q_under_exp           # (B, K)
+                        bc_filter_exp = 1.0 - should_filter
+                    else:
+                        bc_filter_exp = 1.0 - better_per_sample
+                else:
+                    bc_filter_exp = torch.ones_like(better_per_sample)
+
+                if self.always_retain_bc_loss_for_expert_data and data_source is not None:
+                    expert_mask = (data_source == 1).float()                       # (B, 1)
+                    expert_mask_exp = expert_mask.expand(-1, K)
+                    bc_filter_exp = expert_mask_exp + (1.0 - expert_mask_exp) * bc_filter_exp
+
+                bc_filter = bc_filter_exp.mean(dim=1, keepdim=True)               # (B, 1) -- log only
+
+            uniform_weights = torch.ones(B, K, device=self.device) / K
+            weighted_filtered_mse = uniform_weights * bc_filter_exp * mse_per_sample  # (B, K)
+            filtered_bc_loss = weighted_filtered_mse.sum(dim=1).mean()
+
+        total_loss = q_loss + self.bc_loss_weight * filtered_bc_loss
+
         with torch.no_grad():
-            residual_norm = ((a_student - a_teacher) ** 2).mean().sqrt()
+            residual_norm = ((actions_samples - pretrained_actions_samples) ** 2).mean().sqrt()
+            avg_q_curr_log = q_current_samples.mean(dim=1, keepdim=True)
+            avg_q_pre_log = q_pretrained_samples.mean(dim=1, keepdim=True)
+
         return {
-            "actor_total": total,
+            "actor_total": total_loss,
             "actor_q_loss": q_loss,
-            "actor_bc_loss": bc_mse,
+            "actor_residual_loss": filtered_bc_loss,
+            "actor_bc_loss": filtered_bc_loss,
+            "q_advantage_mean": q_advantage.mean() if not in_warmup else torch.tensor(0.0, device=self.device),
+            "better_than_expert_percentage": better_percentage,
+            "pretrained_q_mean": avg_q_pre_log.mean(),
+            "current_q_mean": avg_q_curr_log.mean(),
             "residual_norm": residual_norm,
-            "q_actor_mean": q_pred.mean().detach(),
+            "q_filtering_active": bc_filter.mean() if not in_warmup else torch.tensor(1.0, device=self.device),
         }
 
-    def loss(self, state: torch.Tensor, noise: torch.Tensor, action: torch.Tensor,
-             next_state: torch.Tensor, reward: torch.Tensor, done: torch.Tensor,
-             gamma: float = 0.99) -> Dict[str, torch.Tensor]:
-        """One joint forward producing actor_total + critic_loss + diagnostics."""
-        B = state.shape[0]
+    def _critic_td_loss(self, q_pred: torch.Tensor, target_q: torch.Tensor,
+                        online_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """Per-Q TD loss with optional online-only masking. Matches official."""
+        if self.td_loss == "mse":
+            if online_mask is not None:
+                per_sample = F.mse_loss(q_pred, target_q, reduction="none")  # (B, 1)
+                return (per_sample * online_mask).mean()
+            return F.mse_loss(q_pred, target_q)
+        if self.td_loss == "huber":
+            if online_mask is not None:
+                per_sample = F.smooth_l1_loss(q_pred, target_q, reduction="none", beta=1.0)
+                return (per_sample * online_mask).mean()
+            return F.smooth_l1_loss(q_pred, target_q, beta=1.0)
+        if self.td_loss == "bce":
+            assert (target_q >= 0).all() and (target_q <= 1).all(), \
+                f"BCE TD requires targets in [0,1]; got [{target_q.min():.3f},{target_q.max():.3f}]"
+            if online_mask is not None:
+                per_sample = F.binary_cross_entropy_with_logits(q_pred, target_q, reduction="none")
+                return (per_sample * online_mask).mean()
+            return F.binary_cross_entropy_with_logits(q_pred, target_q)
+        raise ValueError(f"Unknown td_loss: {self.td_loss}")
 
-        # ----- target_q (no grad) -----
-        with torch.no_grad():
-            next_noise = torch.randn(B, self.horizon_steps, self.action_dim, device=self.device)
-            next_action = self.get_action(next_state, next_noise)
-            target_next_q = self.target_critic(next_state, next_noise, next_action)
-            target_q = reward + gamma * (1.0 - done) * target_next_q
-
-        critic_d = self.critic_loss(state, noise, action, target_q)
-        actor_d = self.actor_loss(state)
-
-        out = {**critic_d, **actor_d,
-               "target_q_mean": target_q.mean().detach(),
-               "reward_mean": reward.mean().detach(),
-               "done_frac": done.mean().detach()}
+    def critic_loss(self, state: torch.Tensor, noise: Optional[torch.Tensor],
+                    action: torch.Tensor, target_q: torch.Tensor,
+                    data_source: Optional[torch.Tensor] = None) -> Dict[str, torch.Tensor]:
+        qs = self.critic(state, noise, action, return_all=True)
+        online_mask = None
+        if self.disable_td_loss_for_expert_data and data_source is not None:
+            online_mask = (data_source == 0).float()  # (B, 1)
+        per_q = [self._critic_td_loss(q, target_q, online_mask) for q in qs]
+        total = sum(per_q)
+        out = {"critic_loss": total}
+        for i, q in enumerate(qs):
+            if i < 3:
+                out[f"q{i+1}_loss"] = per_q[i]
+            out[f"q{i}_mean"] = q.mean().detach()
         return out
 
-    def update_target_critic(self, tau: float = 0.005):
+    # ------------------------------------------------------------------
+    # End-to-end loss
+    # ------------------------------------------------------------------
+    def loss(self, state: torch.Tensor, noise: torch.Tensor, action: torch.Tensor,
+             next_state: torch.Tensor, reward: torch.Tensor, done: torch.Tensor,
+             gamma: float = 0.99,
+             training_step: int = 0,
+             q_overestimation: Optional[torch.Tensor] = None,
+             n_steps: Optional[torch.Tensor] = None,
+             data_source: Optional[torch.Tensor] = None,
+             **kwargs) -> Dict[str, torch.Tensor]:
+        """Compute joint actor + critic loss. Mirrors official.
+
+        Note: the official RE-SAMPLES noise inside this method (the buffer's stored
+        noise is effectively unused except for q_depends_on_noise=True). We accept
+        the buffer's noise but it is only consumed by the critic when
+        q_depends_on_noise=True; that path is OFF by default, matching official.
+        """
+        B = state.shape[0]
+        H = self.horizon_steps
+        A = self.action_dim
+
+        # ---- target Q ----
+        with torch.no_grad():
+            if not self.multi_sample_next_noise:
+                next_noise = torch.randn(B, H, A, device=self.device)
+                next_actions = self.get_action(next_state, next_noise)
+                target_next_q = self.target_critic(next_state, next_noise, next_actions)
+            else:
+                Kn = self.num_next_noise_samples
+                next_noise_samples = torch.randn(Kn, B, H, A, device=self.device)
+                if next_state.dim() == 3:
+                    ne, h = next_state.shape[1], next_state.shape[2]
+                    next_state_rep = next_state.unsqueeze(0).expand(Kn, -1, -1, -1).reshape(Kn * B, ne, h)
+                else:
+                    next_state_rep = next_state.unsqueeze(0).expand(Kn, -1, -1).reshape(Kn * B, -1)
+                next_noise_flat = next_noise_samples.reshape(Kn * B, H, A)
+                next_actions = self.get_action(next_state_rep, next_noise_flat)
+                target_q_samples = self.target_critic(next_state_rep, next_noise_flat, next_actions)
+                target_next_q = target_q_samples.reshape(Kn, B, 1).mean(dim=0)
+
+            if self.use_n_step and n_steps is not None:
+                gamma_effective = gamma ** n_steps.float()  # (B, 1)
+            else:
+                gamma_effective = gamma
+
+            target_q = reward + gamma_effective * (1.0 - done.float()) * target_next_q
+
+        # ---- actor + critic loss ----
+        # NOTE: the official passes buffer noise to critic_loss, but with
+        # q_depends_on_noise=False (the default) the noise is unused, so the
+        # buffer's noise vs a fresh sample doesn't matter for the critic.
+        actor_d = self.actor_loss(
+            state, training_step=training_step,
+            q_overestimation=q_overestimation, data_source=data_source,
+        )
+        critic_d = self.critic_loss(state, noise, action, target_q, data_source=data_source)
+
+        total = actor_d["actor_total"] + self.critic_weight * critic_d["critic_loss"]
+        return {
+            "total_loss": total,
+            **actor_d,
+            **critic_d,
+            "target_q_mean": target_q.mean().detach(),
+            "reward_mean": reward.float().mean().detach(),
+            "done_frac": done.float().mean().detach(),
+        }
+
+    # ------------------------------------------------------------------
+    # Target net update
+    # ------------------------------------------------------------------
+    def update_target_networks(self, tau: float = 0.005):
         with torch.no_grad():
             for tp, p in zip(self.target_critic.parameters(), self.critic.parameters()):
                 tp.data.mul_(1.0 - tau).add_(tau * p.data)
+
+    # Back-compat alias
+    def update_target_critic(self, tau: float = 0.005):
+        self.update_target_networks(tau=tau)

@@ -44,7 +44,9 @@ def _make_student_sample_actions(bc_policy, student_model):
         B = cond.shape[0]
         noise = torch.randn(B, bc_policy.chunk_size, bc_policy.network_action_dim,
                             device=cond.device, dtype=cond.dtype)
-        a = student_model.get_action(cond, noise)
+        # student.get_action returns a_teacher + residual (UNCLAMPED). The env path
+        # needs actions in [-1, 1] so clamp here, at the env boundary.
+        a = torch.clamp(student_model.get_action(cond, noise), -1, 1)
         if was_training:
             bc_policy.train()
         return a.to(torch.float32).cpu().numpy()
@@ -96,7 +98,7 @@ def main(cfg):
     logger.info(f"Probed encoder cond shape: (num_enc={num_enc}, hidden={hidden})")
     probe_env.close()
 
-    # --- student model ---
+    # --- student model (mirror official knobs) ---
     student = DistilledRLModel(
         state_dim=num_enc * hidden,
         action_dim=bc_policy.network_action_dim,
@@ -109,8 +111,22 @@ def main(cfg):
         lcb_kappa=cfg.dice.lcb_kappa,
         td_loss=cfg.dice.td_loss,
         bc_loss_weight=cfg.dice.bc_loss_weight,
+        critic_weight=cfg.dice.get("critic_weight", 1.0),
         num_multi_z=cfg.dice.num_multi_z,
-        clip_action=True,
+        use_soft_q_filtering=cfg.dice.get("use_soft_q_filtering", False),
+        q_filtering_warmup_steps=cfg.dice.get("q_filtering_warmup_steps", 25000),
+        q_underestimation_threshold=cfg.dice.get("q_underestimation_threshold", -0.1),
+        replay_flow_warmup_steps=cfg.dice.get("replay_flow_warmup_steps", 1000),
+        use_q_normalization=cfg.dice.get("use_q_normalization", False),
+        multi_sample_next_noise=cfg.dice.get("multi_sample_next_noise", False),
+        num_next_noise_samples=cfg.dice.get("num_next_noise_samples", 4),
+        use_n_step=cfg.dice.get("use_n_step", False),
+        n_step=cfg.dice.get("n_step", 1),
+        disable_q_loss_for_expert_data=cfg.dice.get("disable_q_loss_for_expert_data", False),
+        disable_td_loss_for_expert_data=cfg.dice.get("disable_td_loss_for_expert_data", False),
+        always_retain_bc_loss_for_expert_data=cfg.dice.get("always_retain_bc_loss_for_expert_data", False),
+        clip_action=cfg.dice.get("clip_action", True),
+        zero_final_layer=cfg.dice.get("zero_final_layer", False),
         device=device,
     ).to(device)
     teacher = FMTeacher(bc_policy)
@@ -118,19 +134,40 @@ def main(cfg):
     logger.info(f"Student actor params: {sum(p.numel() for p in student.actor.parameters())/1e6:.2f}M; "
                 f"critic params: {sum(p.numel() for p in student.critic.parameters())/1e6:.2f}M")
 
-    # --- optimizers ---
-    actor_opt = torch.optim.AdamW(student.actor.parameters(), lr=cfg.dice.actor_lr)
-    critic_opt = torch.optim.AdamW(student.critic.parameters(), lr=cfg.dice.critic_lr)
+    # --- optimizers (official uses Adam, not AdamW; match that) ---
+    actor_opt = torch.optim.Adam(
+        student.actor.parameters(), lr=cfg.dice.actor_lr,
+        weight_decay=cfg.dice.get("actor_weight_decay", 0.0),
+    )
+    critic_opt = torch.optim.Adam(
+        student.critic.parameters(), lr=cfg.dice.critic_lr,
+        weight_decay=cfg.dice.get("critic_weight_decay", 0.0),
+    )
+    actor_update_freq = int(cfg.dice.get("actor_update_freq", 1))
+    target_update_freq = int(cfg.dice.get("critic_target_update_freq", 1))
+    log_q_overestimation = bool(cfg.dice.get("log_q_overestimation", False))
 
     # --- replay + collector ---
-    replay = ReplayBuffer(max_size=cfg.dice.replay_size,
-                          cond_shape=(num_enc, hidden),
-                          horizon=bc_policy.chunk_size,
-                          action_dim=bc_policy.network_action_dim,
-                          device=device)
-    collector = DiceCollector(env_runner, bc_policy, student, device,
-                              max_episode_length=cfg.dice.max_episode_length,
-                              use_teacher_for_collect=False)
+    replay = ReplayBuffer(
+        max_size=cfg.dice.replay_size,
+        cond_shape=(num_enc, hidden),
+        horizon=bc_policy.chunk_size,
+        action_dim=bc_policy.network_action_dim,
+        device=device,
+        gamma=cfg.dice.gamma,
+        use_n_step=cfg.dice.get("use_n_step", False),
+        n_step=cfg.dice.get("n_step", 1),
+        use_rlpd=cfg.dice.get("use_rlpd", False),
+        expert_ratio=cfg.dice.get("expert_ratio", 0.5),
+        expert_dataset=None,  # RLPD demo loader hook -- TODO wiring
+    )
+    collector = DiceCollector(
+        env_runner, bc_policy, student, device,
+        max_episode_length=cfg.dice.max_episode_length,
+        use_teacher_for_collect=False,
+        online_explore_strategy=cfg.dice.get("online_explore_strategy", "standard"),
+        num_exploration_samples=cfg.dice.get("num_exploration_samples", 10),
+    )
 
     # --- wandb ---
     try:
@@ -187,60 +224,87 @@ def main(cfg):
     rng = np.random.default_rng(cfg.seed + 1)
     training_step = 0
     for it in range(1, cfg.dice.n_iters + 1):
-        # (a) collect
+        # (a) collect (pass training_step so Q-based exploration respects warmup)
         collect_succ = []
         for _ in range(cfg.dice.episodes_per_iter):
             ti = int(rng.choice(task_indices))
             ii = int(rng.integers(0, n_inits_by_task[ti]))
-            succ, _ = collector.rollout_episode(ti, ii, replay)
+            succ, _ = collector.rollout_episode(ti, ii, replay, training_step=training_step)
             collect_succ.append(float(succ))
         c_succ = float(np.mean(collect_succ)) if collect_succ else 0.0
         logger.info(f"[iter {it}] collect: success={c_succ:.3f} replay_size={len(replay)}")
         wandb.log({"collect/success": c_succ, "collect/replay_size": len(replay)}, step=it)
 
-        # (b) update
+        # (b) update -- official-style joint actor+critic loss, with delayed updates
         if len(replay) >= cfg.dice.batch_size:
-            actor_losses, critic_losses, bc_losses, q_means = [], [], [], []
-            for _ in range(cfg.dice.gradient_steps):
+            actor_losses, critic_losses, bc_losses, q_means, qfilt_active = [], [], [], [], []
+            for gs in range(cfg.dice.gradient_steps):
                 batch = replay.sample(cfg.dice.batch_size)
+
+                # Q-overestimation = predicted_q - mc_return  (for soft Q-filtering).
+                q_over = None
+                if log_q_overestimation:
+                    with torch.no_grad():
+                        # When q_depends_on_noise=False, noise is unused.
+                        predicted_q = student.critic(batch["cond"], batch["noise"], batch["action"])
+                        q_over = predicted_q - batch["mc_return"]
+
                 d = student.loss(
                     state=batch["cond"], noise=batch["noise"], action=batch["action"],
                     next_state=batch["next_cond"], reward=batch["reward"], done=batch["done"],
                     gamma=cfg.dice.gamma,
+                    training_step=training_step,
+                    q_overestimation=q_over,
+                    n_steps=batch["n_steps"],
+                    data_source=batch["data_source"],
                 )
-                actor_opt.zero_grad(set_to_none=True)
-                d["actor_total"].backward(retain_graph=False)
-                torch.nn.utils.clip_grad_norm_(student.actor.parameters(), cfg.dice.grad_clip)
-                actor_opt.step()
 
+                # actor_total and critic_loss are INDEPENDENT graphs (two distinct
+                # critic forwards: one on a_student, one on the buffer action), so we
+                # can backward through them separately without retain_graph.
+                #
+                # Actor update (delayed): when we skip the actor step we don't backward
+                # at all -- the actor graph buffers get freed when `d` goes out of scope.
+                # backward-without-step would WRONGLY accumulate grads across skipped
+                # iterations and corrupt the next real actor step.
+                actor_step = ((training_step + 1) % actor_update_freq == 0)
+                if actor_step:
+                    actor_opt.zero_grad(set_to_none=True)
+                    d["actor_total"].backward()  # also dirties critic grads -> cleared below
+                    torch.nn.utils.clip_grad_norm_(student.actor.parameters(), cfg.dice.grad_clip)
+                    actor_opt.step()
+
+                # Critic update (always). zero_grad clears any critic grads dirtied by
+                # the actor backward above (if it ran). The critic forward inside
+                # actor_loss touched critic params but those grads must not contribute
+                # to the critic optimizer step -- that step should follow ONLY the TD
+                # gradient.
                 critic_opt.zero_grad(set_to_none=True)
-                # critic_loss is detached from actor params via target_q's no_grad and via
-                # critic ensemble using buf actions, but recompute cleanly to be safe.
-                with torch.no_grad():
-                    next_noise = torch.randn(batch["cond"].shape[0], student.horizon_steps,
-                                             student.action_dim, device=device)
-                    next_a = student.get_action(batch["next_cond"], next_noise)
-                    tgt_q = batch["reward"] + cfg.dice.gamma * (1.0 - batch["done"]) \
-                            * student.target_critic(batch["next_cond"], next_noise, next_a)
-                cl = student.critic_loss(batch["cond"], batch["noise"], batch["action"], tgt_q)
-                cl["critic_loss"].backward()
+                d["critic_loss"].backward()
                 torch.nn.utils.clip_grad_norm_(student.critic.parameters(), cfg.dice.grad_clip)
                 critic_opt.step()
 
-                student.update_target_critic(cfg.dice.tau)
+                # Polyak (delayed).
+                if (training_step + 1) % target_update_freq == 0:
+                    student.update_target_networks(cfg.dice.tau)
+
                 training_step += 1
-                actor_losses.append(d["actor_total"].item())
-                critic_losses.append(cl["critic_loss"].item())
-                bc_losses.append(d["actor_bc_loss"].item())
-                q_means.append(d["q_actor_mean"].item())
+                actor_losses.append(float(d["actor_total"].detach()))
+                critic_losses.append(float(d["critic_loss"].detach()))
+                bc_losses.append(float(d["actor_bc_loss"].detach()))
+                q_means.append(float(d["current_q_mean"].detach()))
+                qfilt_active.append(float(d["q_filtering_active"].detach()))
 
             logger.info(f"[iter {it}] update steps={cfg.dice.gradient_steps} "
                         f"actor={np.mean(actor_losses):.4f} critic={np.mean(critic_losses):.4f} "
-                        f"bc_mse={np.mean(bc_losses):.4f} Q(s,a_student)={np.mean(q_means):.4f}")
+                        f"residual_mse={np.mean(bc_losses):.4f} Q(s,a_student)={np.mean(q_means):.4f} "
+                        f"qfilt_keep={np.mean(qfilt_active):.3f}")
             wandb.log({"train/actor_loss": float(np.mean(actor_losses)),
                        "train/critic_loss": float(np.mean(critic_losses)),
-                       "train/bc_mse": float(np.mean(bc_losses)),
-                       "train/q_actor_mean": float(np.mean(q_means))}, step=it)
+                       "train/residual_mse": float(np.mean(bc_losses)),
+                       "train/q_actor_mean": float(np.mean(q_means)),
+                       "train/q_filtering_active": float(np.mean(qfilt_active)),
+                       "train/training_step": training_step}, step=it)
         else:
             logger.info(f"[iter {it}] skipping update -- replay {len(replay)} < batch_size {cfg.dice.batch_size}")
 

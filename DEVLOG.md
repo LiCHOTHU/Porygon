@@ -138,6 +138,67 @@ group to produce non-zero centered advantage, and at 12.5% most G=8 groups are a
    representation, model scale, warm-start protocol} is doing the heavy lifting in their
    result — worth isolating before generalizing the "RL works best with few demos" framing.
 
+## 2026-06-03 — Multi-task LIBERO-90: drift vs FM-BC head-to-head
+
+### Setup
+- Trained `PolicyDrifting` (lambertae JAX port → PyTorch; 1-step generator, `R_list=[0.02,0.05,0.2]`,
+  `scale_inputs=true`, per-state `G=4` generators) on **all 90 LIBERO-90 tasks, 50 demos each**.
+  Run: `exp_name=drift_multitask_lib90`, 30 epochs, `chunk_size=16`, `action_horizon=8`,
+  `rollout.enabled=false` (eval done separately).
+- Hardware: **L40S** (account `gts-agarg35-ideas_l40s`, partition `gpu-l40s`, embers QoS).
+  Job 9403479 → 30 epochs in **3:46:26** wall (~7.4 min/epoch on 90 tasks). Loss curve healthy:
+  inferenced-action MSE 0.0524 → 0.0165 (3.2× reduction).
+- Eval: `scripts/eval_drift_multitask_lib90.{py,sbatch}` — 10 deterministic rollouts/task,
+  5 parallel envs → **900 total rollouts**. Per-task resumable (results file is the resume key).
+  Job 9414477 → **1:56:23 wall on V100**. Comparison baseline: FM-BC `cold_multitask_lib90`
+  ckpt (also 50 demos, 30 epochs), same 10-rollouts/task protocol.
+
+### Headline result
+
+| | drift (`PolicyDrifting`) | FM-BC (`FlowMatchingPolicy`) | Δ |
+|---|---:|---:|---:|
+| mean success over 90 tasks | **0.9122** | 0.9067 | **+0.56pp** |
+| tasks with sr = 1.00 | **55 / 90** | 48 / 90 | +7 |
+| tasks with sr = 0.00 | 1 / 90 | 1 / 90 | tie (same task: `LIVING_ROOM_SCENE2_pick_up_butter_and_put_it_in_the_basket`) |
+| win / tie / loss (drift's view) | 21 / 52 / 17 | — | — |
+
+- **Multi-task BC on LIBERO-90 is saturating around ~91% for both methods.** Drift edges FM-BC
+  by +0.56pp on the mean, but the more interesting signal is the **+7 perfect-task gap** (55 vs 48):
+  drift more reliably nails tasks all the way to 100%, with the trade that it loses small amounts
+  on a handful of single-step pick-place tasks.
+- Per-task biggest **drift wins** (Δ ≥ +0.20):
+  - t8 `KITCHEN_SCENE1_open_top_drawer_and_put_…` 1.00 vs 0.60 (+0.40)
+  - t13 `KITCHEN_SCENE2_put_bowl_front_on_plate` 1.00 vs 0.70 (+0.30)
+  - t43 `KITCHEN_SCENE9_put_white_bowl_on_cabinet` 1.00 vs 0.70 (+0.30)
+  - t21 `KITCHEN_SCENE3_turn_on_stove_and_put_pan` 0.70 vs 0.50 (+0.20)
+  - t23 `KITCHEN_SCENE4_close_drawer_and_open_…` 0.90 vs 0.70 (+0.20)
+  - t45 `KITCHEN_SCENE9_turn_on_stove_and_put_pan` 1.00 vs 0.80 (+0.20)
+  - t53 `LIVING_ROOM_SCENE2_pick_up_oj_in_basket` 0.80 vs 0.60 (+0.20)
+- Per-task biggest **drift losses** (Δ ≤ −0.20):
+  - t65 `LIVING_ROOM_SCENE5_put_red_mug_on_left_plate` 0.50 vs 0.90 (−0.40)
+  - t27 `KITCHEN_SCENE4_put_wine_bottle_on_rack` 0.70 vs 1.00 (−0.30)
+  - t81 `STUDY_SCENE3_book_in_front_compartment` 0.60 vs 0.90 (−0.30)
+  - t26 `KITCHEN_SCENE4_put_wine_bottle_in_drawer` 0.70 vs 0.90 (−0.20)
+  - t48 `LIVING_ROOM_SCENE1_pick_up_ketchup_in_basket` 0.80 vs 1.00 (−0.20)
+  - t89 `STUDY_SCENE4_book_right_under` 0.70 vs 0.90 (−0.20)
+- Win-pattern (informal): drift's wins concentrate on **compound / sequential KITCHEN tasks**
+  (`open-then-put`, `turn-on-then-put`, `close-then-open`); its losses are mostly **single-step
+  precision pick-place** (mugs/wine bottles/books to a specific compartment).
+
+### Implications for the data-usefulness thesis
+- **The ~91% multi-task BC ceiling kills the "RL extracts more from few demos than BC" headroom
+  on LIBERO-90.** FM-RL on the multi-task setting earlier moved the mean only +2.2pp (78%→80.2%
+  best, see the May-30 RL sweep notes for the d≥30 saturation pattern); with BC now at 91%, the
+  multi-task RL gain ceiling is even tighter. → Pivoted to **LIBERO-Long (libero_10)** as the
+  hard-task arena where the methods can actually separate; libero_10 is already downloaded
+  (cedar, 13 GB, 10 HDF5s) and preprocessed (job 9403912, 1:06:32 on V100). Next: train
+  multi-task FM + drift on libero_10 and re-run this head-to-head.
+- **L40S is the right training rig for libero_90-scale multitask runs**: 7.4 min/epoch vs V100's
+  estimated ~25 min/epoch → ~3.4× speedup, full 30-epoch run inside the 8-hour embers wall.
+  Use `--account=gts-agarg35-ideas_l40s` (default `gts-agarg35` silently falls back to V100).
+- **Rollout eval is sim-bound, not GPU-bound** → keep evals on V100/A100 and reserve L40S for
+  training. 90 tasks × 10 rolls in ~2 h on V100 is comfortable.
+
 ## Open threads
 
 - **d=30 gap-filler** + **d=15 gap-filler**: localize the BC 20→40 jump and the RL gain
@@ -159,4 +220,13 @@ group to produce non-zero centered advantage, and at 12.5% most G=8 groups are a
 | BC→RL sweep results | `/storage/scratch1/8/lwang831/rl_demos_sweep_t16_results.txt` |
 | BC→RL per-cell logs | `/storage/scratch1/8/lwang831/fm_rl_t16_d{5,10,20,40}.log` |
 | LIBERO-90 processed data | `/storage/scratch1/8/lwang831/imitation/data/libero/libero_90/` |
+| LIBERO-Long raw data (cedar) | `/storage/cedar/cedar0/cedarp-agarg35-0/liquan.w/LIBERO-datasets/libero_10/` |
+| LIBERO-Long processed data | `/storage/scratch1/8/lwang831/imitation/data/libero/libero_10/` |
+| Drift multitask training ckpt | `/storage/scratch1/8/lwang831/imitation/cold_start/libero/libero_90/drift_multitask_lib90/` |
+| FM-BC multitask training ckpt | `/storage/scratch1/8/lwang831/imitation/cold_start/libero/libero_90/cold_multitask_lib90/` |
+| Drift multitask eval results | `/storage/scratch1/8/lwang831/imitation/eval_results/drift_multitask_lib90_per_task.tsv` |
+| FM-BC multitask eval results | `/storage/scratch1/8/lwang831/eval_multitask_lib90_per_task.txt` |
+| Drift training script | `scripts/train_multitask_lib90_drift.sbatch` (job 9403479) |
+| Drift eval script | `scripts/eval_drift_multitask_lib90.{py,sbatch}` (job 9414477) |
+| libero_10 preprocessing script | `scripts/process_libero_10.sbatch` (job 9403912) |
 | Plan | `~/.claude/plans/sequential-gliding-salamander.md` |

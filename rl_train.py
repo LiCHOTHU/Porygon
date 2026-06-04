@@ -131,7 +131,8 @@ def main(cfg):
             for g in torch.unique(gids):
                 m = (gids == g)
                 gm = buf["rewards"][m].float().mean().item()
-                if cfg.rl.filter_low < gm < cfg.rl.filter_high:
+                # SimpleVLA-RL uses inclusive bounds: low <= acc <= high.
+                if cfg.rl.filter_low <= gm <= cfg.rl.filter_high:
                     keep_mask |= m
                     kept += 1
             n_total = int(torch.unique(gids).numel())
@@ -166,7 +167,10 @@ def main(cfg):
                     step_mask = valid_mb[:, None].expand(-1, K)
                     loss, info = grpo.ppo_clip_loss(
                         mu_new, mu_old_mb, chain_mb[:, 1:], adv_mb, var,
-                        clip_eps=cfg.rl.clip_eps, step_mask=step_mask)
+                        clip_eps=cfg.rl.clip_eps,
+                        clip_ratio_low=cfg.rl.get("clip_ratio_low", None),
+                        clip_ratio_high=cfg.rl.get("clip_ratio_high", None),
+                        step_mask=step_mask)
                     # KL early-stop: skip the overshooting step and end the update for this iter
                     if info["approx_kl"] > cfg.rl.target_kl:
                         stop = True

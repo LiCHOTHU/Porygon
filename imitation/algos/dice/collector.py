@@ -2,12 +2,14 @@
 
 Drives one in-process env (DummyVectorEnv size 1). At each chunk boundary:
   - encode obs through the frozen BC encoder -> cond (1, num_enc, hidden)
-  - sample noise (1, H, A)
-  - get action chunk from the DistilledActor (or from the FM teacher during warm-up)
-  - unnormalize + execute chunk
-  - on next decision (or on episode end) write the transition to the replay buffer
+  - sample noise (1, H, A); pick a noise via the configured exploration strategy
+  - student.get_action(cond, noise) -> a_total = a_teacher + residual (unclamped)
+  - clamp + unnormalize + execute chunk
+  - buffer per-chunk-decision rows; at episode end push the whole trajectory to
+    the replay (which computes n_step lookahead + mc_return + dones).
 
-Mirrors imitation.algos.rl.rollout_collector.FlowRLCollector for env setup.
+Exploration strategy is delegated to DistilledRLModel.get_exploration_action; we
+just pass cond + training_step + strategy through.
 """
 
 import numpy as np
@@ -18,15 +20,10 @@ import imitation.envs.libero.wrappers as lw
 
 class DiceCollector:
     def __init__(self, env_runner, bc_policy, student_model, device,
-                 max_episode_length=None, use_teacher_for_collect: bool = False):
-        """
-        env_runner       : LiberoRunner
-        bc_policy        : frozen BC FlowMatchingPolicy (provides encoder + normalizer + teacher)
-        student_model    : DistilledRLModel (provides actor for collection)
-        device           : torch device
-        use_teacher_for_collect : if True, act with the BC FM teacher (warm-up phase);
-                                  otherwise act with the student actor.
-        """
+                 max_episode_length=None,
+                 use_teacher_for_collect: bool = False,
+                 online_explore_strategy: str = "standard",
+                 num_exploration_samples: int = 10):
         self.runner = env_runner
         self.bc = bc_policy
         self.student = student_model
@@ -44,6 +41,8 @@ class DiceCollector:
         self._env = None
         self._env_task = None
         self.use_teacher_for_collect = bool(use_teacher_for_collect)
+        self.online_explore_strategy = str(online_explore_strategy)
+        self.num_exploration_samples = int(num_exploration_samples)
 
     def _build_env(self, task_index: int):
         env_fn = lambda: lw.LiberoFrameStack(
@@ -58,19 +57,20 @@ class DiceCollector:
 
     @torch.no_grad()
     def _encode_cond(self, obs, task_index: int, task_emb):
-        """Build batch from raw obs, run BC preprocess + encoder -> cond (1, num_enc, hidden)."""
         batch = self.bc._make_batch({k: v for k, v in obs.items()}, task_index, **task_emb)
         batch = self.bc.preprocess_input(batch, train_mode=False)
         cond = self.bc.get_cond(batch)  # (1, num_enc, hidden)
         return cond, batch
 
     @torch.no_grad()
-    def _act(self, cond: torch.Tensor) -> torch.Tensor:
-        """Sample one normalized action chunk + the noise used. Returns (a_norm, noise)
-        both shaped (1, chunk, A) on device. Uses student actor unless warm-up flag set."""
-        noise = torch.randn(1, self.chunk_size, self.action_dim, device=self.device)
+    def _act(self, cond: torch.Tensor, training_step: int = 0):
+        """Returns (a_norm, noise), both (1, chunk, A), on device.
+        - During warmup collect: BC teacher's Euler output (matches official's
+          warmstart phase that seeds the replay with prior data).
+        - Standard strategy: random noise -> student.get_action.
+        - Other strategies: delegate to student.get_exploration_action."""
         if self.use_teacher_for_collect:
-            # one Euler pass through the frozen FM
+            noise = torch.randn(1, self.chunk_size, self.action_dim, device=self.device)
             self.bc.eval()
             x = noise
             t = torch.zeros(1, device=self.device)
@@ -81,14 +81,22 @@ class DiceCollector:
                 x = x + dt * v
                 t = t + dt
             a_norm = torch.clamp(x, -1, 1)
+            return a_norm, noise
+
+        if self.online_explore_strategy == "standard":
+            noise = torch.randn(1, self.chunk_size, self.action_dim, device=self.device)
+            a_total = self.student.get_action(cond, noise)
         else:
-            a_norm = self.student.get_action(cond, noise)  # already clamped
+            a_total, noise = self.student.get_exploration_action(
+                cond, num_samples=self.num_exploration_samples,
+                exploration_strategy=self.online_explore_strategy,
+                training_step=training_step,
+            )
+        a_norm = torch.clamp(a_total, -1, 1)
         return a_norm, noise
 
     @torch.no_grad()
     def _unnormalize_and_execute_setup(self, a_norm: torch.Tensor, batch: dict) -> list:
-        """Take a (1, chunk, A) normalized action, unnormalize+postprocess, return
-        a list of env-ready np actions of length action_horizon."""
         a = self.bc.normalizer.unnormalize({"actions": a_norm.cpu().numpy()})["actions"]
         batch["actions"] = torch.tensor(a, device=self.device)
         a = self.bc.postprocess_actions(batch)["actions"].cpu().numpy()
@@ -96,9 +104,9 @@ class DiceCollector:
         return list(a[: self.action_horizon])
 
     @torch.no_grad()
-    def rollout_episode(self, task_index: int, init_idx: int, replay):
-        """Run one episode, push each chunk-decision transition into the replay buffer.
-
+    def rollout_episode(self, task_index: int, init_idx: int, replay,
+                        training_step: int = 0):
+        """Run one episode, push the whole trajectory to replay at end.
         Returns: (success: bool, n_decisions: int).
         """
         if self._env is None or self._env_task != task_index:
@@ -109,56 +117,44 @@ class DiceCollector:
         init_states = all_init[np.array([init_idx % all_init.shape[0]])]
         obs, _ = self._env.reset(init_states=init_states)
 
-        # buffer of (cond, noise, action) pending writes -- written when we know s' or done.
-        pending: list = []
+        # Per-chunk-decision trajectory accumulator.
+        traj = []
         success = False
-        first_success = np.inf
 
         queue: list = []
-        step_in_chunk = 0
         for step in range(self.max_episode_length):
             if len(queue) == 0:
                 cond, batch = self._encode_cond(obs, task_index, task_emb)
-                a_norm, noise = self._act(cond)
+                a_norm, noise = self._act(cond, training_step=training_step)
                 queue = self._unnormalize_and_execute_setup(a_norm, batch)
-                step_in_chunk = 0
-                # Stash pending (cond, noise, action) -- s' and reward filled at chunk boundary.
-                pending.append({
-                    "cond": cond.squeeze(0).cpu(),                       # (num_enc, hidden)
-                    "noise": noise.squeeze(0).cpu(),                     # (chunk, A)
-                    "action": a_norm.squeeze(0).cpu(),                   # (chunk, A)
-                    "decision_step": step,
+                traj.append({
+                    "cond": cond.squeeze(0).cpu(),     # (num_enc, hidden)
+                    "noise": noise.squeeze(0).cpu(),   # (chunk, A)
+                    "action": a_norm.squeeze(0).cpu(), # (chunk, A)
+                    "reward": 0.0,                     # set below if this chunk terminates with success
+                    "done": False,
                 })
 
             act = torch.tensor(queue.pop(0))
             act = self.bc.final_postprocess_actions(act).to(torch.float32).cpu().numpy()
             obs, reward, terminated, truncated, info = self._env.step(act)
-            step_in_chunk += 1
 
-            if info[0]["success"] and not success:
-                first_success = step
-            success = success or info[0]["success"]
-            done = success
+            now_success = bool(info[0]["success"])
+            if now_success:
+                success = True
 
-            # Close the current decision either at chunk boundary or on terminal.
-            if (len(queue) == 0 or done) and pending:
-                cur = pending.pop(0)
-                if done:
-                    next_cond = torch.zeros_like(cur["cond"])  # absorbed by (1 - done) anyway
-                    r = 1.0 if success else 0.0
-                    replay.add(cond=cur["cond"], noise=cur["noise"], action=cur["action"],
-                               reward=r, next_cond=next_cond, done=True)
-                else:
-                    # Encode next obs as s'. We compute it once and reuse for the next pending.
-                    next_cond, _ = self._encode_cond(obs, task_index, task_emb)
-                    nc = next_cond.squeeze(0).cpu()
-                    replay.add(cond=cur["cond"], noise=cur["noise"], action=cur["action"],
-                               reward=0.0, next_cond=nc, done=False)
+            chunk_boundary = (len(queue) == 0)
+            episode_done = success  # treat success as terminal (sparse-binary, matches LIBERO)
 
-            if done:
-                # Drop any stale pending records (they correspond to actions not executed).
-                pending.clear()
+            if chunk_boundary or episode_done:
+                # Close the current chunk decision with its terminal flag + reward.
+                traj[-1]["done"] = bool(episode_done)
+                traj[-1]["reward"] = 1.0 if (episode_done and success) else 0.0
+
+            if episode_done:
                 queue.clear()
                 break
 
-        return bool(success), step + 1
+        # Push trajectory to replay (computes n_step + mc_return).
+        replay.add_trajectory(traj, data_source=0)
+        return bool(success), len(traj)

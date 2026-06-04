@@ -7,6 +7,7 @@
 #SBATCH --time=08:00:00
 #SBATCH --mem-per-gpu=48G
 #SBATCH --job-name=libero_bc
+# NOTE: override per-run with `sbatch -J libero_bc_${RUN} ...` (see loop below).
 #SBATCH --qos=embers
 #SBATCH --account=gts-agarg35-ideas_l40s
 # NOTE: `--account=gts-agarg35` + embers routes to V100-16GB regardless of -p,
@@ -22,7 +23,7 @@
 #
 # Submit with:
 #   for r in r1 r2 r3 r4 r5; do
-#       sbatch --export=ALL,RUN=${r} scripts/sbatch_libero_bc_5runs.sbatch
+#       sbatch -J libero_bc_${r} --export=ALL,RUN=${r} scripts/sbatch_libero_bc_5runs.sbatch
 #   done
 #
 # All 5 share: FlowMatchingPolicy + DiT, frame_stack=33, chunk=16,

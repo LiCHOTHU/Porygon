@@ -25,32 +25,78 @@ dice:
   n_iters: 50
   episodes_per_iter: 4         # online rollouts collected per outer iter
   warmup_episodes: 20          # teacher rollouts before any RL update; seeds the replay
-  gradient_steps: 200          # actor/critic/Polyak steps per outer iter
+  gradient_steps: 200          # actor/critic/Polyak steps per outer iter (official: 10/env step, we batch)
   eval_interval: 5
   save_interval: 10
   max_episode_length: ${task.horizon}
 
   # Replay.
-  replay_size: 50000           # CPU-side; per-row ~ cond + noise + action + ... = ~50kB
+  replay_size: 50000           # CPU-side; per-row ~ cond + noise + action + ... ~ 50kB
   batch_size: 256
 
-  # Model.
-  actor_hidden: [512, 512, 512]
-  critic_hidden: [512, 512, 512]
-  ensemble_size: 2
-  q_depends_on_noise: true
-  conservative: min            # min | lcb | mean
+  # Model network sizes.
+  actor_hidden: [1024, 1024, 1024]    # official robomimic config
+  critic_hidden: [1024, 1024, 1024]   # official robomimic config
+  ensemble_size: 10                   # official: 10 for reduced overestimation bias
+  q_depends_on_noise: false           # official default: Q(s, a)
+  conservative: min                   # min | lcb | mean
   lcb_kappa: 0.1
-  td_loss: huber               # huber | mse | bce
+  td_loss: mse                        # official robomimic config: mse (also supports huber|bce)
+  zero_final_layer: true              # LIBERO opt-in: residual exactly 0 at iter 0
 
-  # Optimization.
-  actor_lr: 3.0e-5
-  critic_lr: 3.0e-4
-  bc_loss_weight: 100.0        # matches DICE-RL-Robot README default
-  num_multi_z: 4               # K noise samples per state in actor_loss
+  # Loss coefficients.
+  bc_loss_weight: 100.0        # official README recommends 50-100
+  critic_weight: 1.0
+
+  # Multi-z (actor + optional target).
+  num_multi_z: 16              # official robomimic config uses 16 noise samples in actor_loss
+  multi_sample_next_noise: true
+  num_next_noise_samples: 4    # official default
+
+  # Q-filtering / self-imitation (active after q_filtering_warmup_steps).
+  use_soft_q_filtering: false  # official sets false in robomimic config; we keep the same default
+  q_filtering_warmup_steps: 2000
+  q_underestimation_threshold: -0.5
+  replay_flow_warmup_steps: 4000
+
+  # Q-normalization.
+  use_q_normalization: true    # official: "this has to be true"
+
+  # N-step returns (KEY for sparse-reward credit assignment).
+  use_n_step: true
+  n_step: 3
+
+  # Q-overestimation logging (required for soft Q-filtering, cheap otherwise).
+  log_q_overestimation: true
+
+  # Data-source masks. Off by default until RLPD expert loader is wired.
+  disable_q_loss_for_expert_data: false
+  disable_td_loss_for_expert_data: false
+  always_retain_bc_loss_for_expert_data: false
+
+  # RLPD expert mixing (hook present; loader TODO -- runs online-only for now).
+  use_rlpd: false
+  expert_ratio: 0.3
+  # use_adaptive_expert_ratio: false  # TODO when loader is wired
+
+  # Exploration.
+  online_explore_strategy: "max_q_min"   # official robomimic config
+  num_exploration_samples: 16
+
+  # Optimization (official defaults).
+  actor_lr: 1.0e-4
+  critic_lr: 1.0e-4
+  actor_weight_decay: 1.0e-5
+  critic_weight_decay: 1.0e-5
   grad_clip: 1.0
   gamma: 0.99
-  tau: 0.005                   # Polyak coefficient
+  tau: 0.01                    # official robomimic config
+  clip_action: false           # matches official sim repo: NO internal clamp.
+                               # collector + env-eval wrapper clamp at env boundary.
+
+  # Delayed updates.
+  actor_update_freq: 2         # official robomimic config: actor every 2 steps
+  critic_target_update_freq: 2
 
 # Consumed by env_runner interpolation (used for eval).
 rollout:

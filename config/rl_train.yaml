@@ -31,14 +31,22 @@ rl:
   ppo_epochs: 4          # inner PPO epochs (cut short by KL early-stop)
   minibatch_size: 64     # rows (decision x env) per minibatch
   lr: 1.0e-6             # small: per-step KL ~ lr^2/var, and var=sigma^2*dt is tiny
+  # PPO clip: SimpleVLA-RL uses asymmetric clip (DAPO-style). Their LIBERO example
+  # sets clip_ratio_low=0.20, clip_ratio_high=0.28 (slightly more permissive on
+  # the upside so good rollouts get a larger update). We follow that default.
+  # clip_eps is kept as a back-compat fallback for older runs.
   clip_eps: 0.2
+  clip_ratio_low: 0.20
+  clip_ratio_high: 0.28
   grad_clip: 1.0
   target_kl: 0.03        # KL early-stop threshold (0.5*E[log_ratio^2]); ~matches clip_eps range
-  std_normalize: false   # centered advantage by default; True divides by group std
-  # SimpleVLA-RL "filter_accuracy": drop groups whose 8-rollout mean is outside [low, high]
-  # before the PPO update. With group_size=8 and binary reward, [0.1, 0.9] drops only
-  # all-fail and all-success groups. Concentrates the gradient on prompts with real
-  # within-group variance -- critical when starting from a near-saturated BC checkpoint.
+  # GRPO advantage normalization. SimpleVLA-RL HARDCODES this on (it always
+  # divides centered group reward by group std + eps -- no off switch). Match it.
+  std_normalize: true
+  # SimpleVLA-RL "filter_accuracy": drop groups whose group accuracy is outside
+  # [filter_low, filter_high] (inclusive). With group_size=8 and binary reward,
+  # [0.1, 0.9] drops only all-fail and all-success groups. Concentrates gradient
+  # on prompts with real within-group variance.
   filter_accuracy: false
   filter_low: 0.1
   filter_high: 0.9

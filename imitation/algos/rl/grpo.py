@@ -37,20 +37,34 @@ def compute_grpo_advantages(rewards, group_ids, std_normalize=False, eps=1e-4):
 
 
 def ppo_clip_loss(mu_new, mu_old, x_next, advantages, var,
-                  clip_eps=0.2, log_ratio_clip=20.0, step_mask=None):
+                  clip_eps=0.2, log_ratio_clip=20.0, step_mask=None,
+                  clip_ratio_low=None, clip_ratio_high=None):
     """Per-denoising-step PPO-clipped surrogate loss.
 
+    Matches SimpleVLA-RL's compute_policy_loss (asymmetric clip): the lower bound
+    is ``1 - clip_ratio_low`` and the upper bound is ``1 + clip_ratio_high``.
+    When both are None we fall back to symmetric clipping at ``clip_eps`` (the
+    original behavior, retained for back-compat).
+
     Args:
-      mu_new     : (N, K, chunk, A) means under the current policy (requires grad).
-      mu_old     : (N, K, chunk, A) means under the behavior policy (detached).
-      x_next     : (N, K, chunk, A) realized next states x_{k+1} (detached).
-      advantages : (N,) per-trajectory advantage, broadcast over K steps.
-      var        : float, per-step Gaussian variance sigma^2 * dt.
-      step_mask  : optional (N, K) {0,1} mask (e.g. zero out steps past episode end).
+      mu_new          : (N, K, chunk, A) means under the current policy (requires grad).
+      mu_old          : (N, K, chunk, A) means under the behavior policy (detached).
+      x_next          : (N, K, chunk, A) realized next states x_{k+1} (detached).
+      advantages      : (N,) per-trajectory advantage, broadcast over K steps.
+      var             : float, per-step Gaussian variance sigma^2 * dt.
+      clip_eps        : symmetric clip width (used iff clip_ratio_low/high are None).
+      clip_ratio_low  : lower-side clip width; lower bound = 1 - clip_ratio_low.
+      clip_ratio_high : upper-side clip width; upper bound = 1 + clip_ratio_high.
+      step_mask       : optional (N, K) {0,1} mask (e.g. zero out steps past episode end).
     Returns:
       loss : scalar
       info : dict of diagnostics
     """
+    if clip_ratio_low is None:
+        clip_ratio_low = clip_eps
+    if clip_ratio_high is None:
+        clip_ratio_high = clip_eps
+
     sq_old = ((x_next - mu_old) ** 2).sum(dim=(-1, -2))   # (N, K)
     sq_new = ((x_next - mu_new) ** 2).sum(dim=(-1, -2))   # (N, K)
     log_ratio = (sq_old - sq_new) / (2.0 * var)            # (N, K)
@@ -59,21 +73,23 @@ def ppo_clip_loss(mu_new, mu_old, x_next, advantages, var,
 
     adv = advantages.to(log_ratio.dtype).unsqueeze(1)      # (N, 1) -> broadcast over K
     surr1 = ratio * adv
-    surr2 = torch.clamp(ratio, 1.0 - clip_eps, 1.0 + clip_eps) * adv
+    surr2 = torch.clamp(ratio, 1.0 - clip_ratio_low, 1.0 + clip_ratio_high) * adv
     surrogate = torch.minimum(surr1, surr2)                # (N, K)
 
     # Bounded KL proxy 0.5 * E[log_ratio^2] (>=0), used for early-stopping the update.
     kl_per = 0.5 * log_ratio ** 2
+    # Two-sided clipfrac: ratio fell out of [1-low, 1+high].
+    clipped = (ratio < 1.0 - clip_ratio_low) | (ratio > 1.0 + clip_ratio_high)
     if step_mask is None:
         loss = -surrogate.mean()
-        clipfrac = (torch.abs(ratio - 1.0) > clip_eps).float().mean()
+        clipfrac = clipped.float().mean()
         approx_kl = kl_per.mean()
         ratio_mean = ratio.mean()
     else:
         m = step_mask.to(surrogate.dtype)
         denom = m.sum().clamp(min=1.0)
         loss = -(surrogate * m).sum() / denom
-        clipfrac = (((torch.abs(ratio - 1.0) > clip_eps).float()) * m).sum() / denom
+        clipfrac = (clipped.float() * m).sum() / denom
         approx_kl = (kl_per * m).sum() / denom
         ratio_mean = (ratio * m).sum() / denom
 
