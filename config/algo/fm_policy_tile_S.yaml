@@ -1,0 +1,10 @@
+defaults:
+  - fm_policy_S
+  - override encoder: rgb_tiled
+  - _self_
+
+# Same FM policy as fm_policy_S (DiTNoiseNet, Beta(1.5, 1.0) sigma-sampler,
+# limits normalizer), but with:
+#   - rgb_tiled encoder: agent | wrist tiled into a single (3,H,2W) image,
+#     one shared CNN, no aspect-ratio squeeze.
+# To override chunk_size from the CLI, pass `algo.chunk_size=33` etc.

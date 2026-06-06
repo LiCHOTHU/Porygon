@@ -1,0 +1,22 @@
+defaults:
+  - fm_policy_S
+  - override encoder: rgb_estaury_2x2
+  - _self_
+
+# Estaury-local copy of imitation's fm_policy_S, with:
+#   - policy._target_: river.policy.fm_policy_imitation.FlowMatchingPolicy
+#     (verbatim copy of imitation/algos/fm_policy.py, importing DiTNoiseNet
+#     from river/policy/dit_modules_imitation.py — also a verbatim copy)
+#   - encoder: rgb_estaury_2x2 (single CNN over the pre-tiled image)
+#   - chunk_size: 33 (matches Estaury's canonical chunk length; imitation
+#     default is 16). action_horizon defaults to half the chunk
+#     (predict 33, execute 16, re-plan).
+#
+# Requires PYTHONPATH to include Estaury's repo root so `river.policy.*`
+# resolves at hydra instantiate time.
+
+chunk_size: 33
+action_horizon: 16
+
+policy:
+  _target_: river.policy.fm_policy_imitation.FlowMatchingPolicy

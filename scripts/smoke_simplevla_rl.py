@@ -98,7 +98,7 @@ def test_asymmetric_ppo_clip():
 
     # Now run ppo_clip_loss with asymmetric clip (SimpleVLA-RL defaults).
     advantages = torch.ones(N)  # all +1 so we test the upper clip
-    _, info = grpo.ppo_clip_loss(
+    _, _, info = grpo.ppo_clip_loss(
         mu_new, mu_old, x_next, advantages, var,
         clip_ratio_low=0.20, clip_ratio_high=0.28,
     )
@@ -182,18 +182,20 @@ def test_clip_noop_at_identity():
     advantages = torch.tensor([1.0, -1.0, 2.0, -2.0])
     var = 0.05
 
-    loss, info = grpo.ppo_clip_loss(
+    pg_loss, kl_loss, info = grpo.ppo_clip_loss(
         mu, mu, x_next, advantages, var,
         clip_ratio_low=0.20, clip_ratio_high=0.28,
     )
-    print(f"  loss        = {info['loss']:+.4e}  (expect -mean(adv) = {-advantages.mean().item():+.4e})")
+    print(f"  pg_loss     = {info['pg_loss']:+.4e}  (expect -mean(adv) = {-advantages.mean().item():+.4e})")
     print(f"  ratio_mean  = {info['ratio_mean']:.6f}  (expect 1.0)")
     print(f"  approx_kl   = {info['approx_kl']:.3e}  (expect 0)")
+    print(f"  kl_analytical = {info['kl_analytical']:.3e}  (expect 0)")
     print(f"  clipfrac    = {info['clipfrac']:.3e}  (expect 0)")
     assert abs(info["ratio_mean"] - 1.0) < 1e-5
     assert info["approx_kl"] < 1e-8
+    assert info["kl_analytical"] < 1e-8
     assert info["clipfrac"] < 1e-8
-    assert abs(info["loss"] - (-advantages.mean().item())) < 1e-5
+    assert abs(info["pg_loss"] - (-advantages.mean().item())) < 1e-5
     print("  PASS")
 
 

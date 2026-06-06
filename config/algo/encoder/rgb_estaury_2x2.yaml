@@ -1,0 +1,12 @@
+defaults:
+  - rgb_no_pool
+  - _self_
+
+# Estaury's 2x2-tile RGB encoder: expects a single shape_meta rgb key whose
+# image shape is the FULL pre-tiled (3, 2H, 2W) grid (e.g. (3, 128, 256) for
+# 1x2 agent|wrist, or (3, 512, 512) for 2x2 four-camera RLBench). One CNN
+# pass over the whole tile, no per-camera iteration.
+#
+# This _target_ requires Estaury's repo root on PYTHONPATH:
+#   export PYTHONPATH=/storage/home/hcoda1/8/lwang831/workspace/Estaury:$PYTHONPATH
+_target_: river.policy.rgb_encoder_2x2.RGBEncoder

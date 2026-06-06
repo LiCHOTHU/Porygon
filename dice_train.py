@@ -135,6 +135,10 @@ def main(cfg):
                 f"critic params: {sum(p.numel() for p in student.critic.parameters())/1e6:.2f}M")
 
     # Optional: resume a previously-trained DICE student for eval-only / continued training.
+    # Also picks up the iter/training_step counters so a requeued long job continues from
+    # the last saved checkpoint instead of restarting at iter 1.
+    resume_iter = 0
+    resume_training_step = 0
     dice_resume = cfg.get("dice_resume_checkpoint", None)
     if dice_resume:
         logger.info(f"Loading DICE student from {dice_resume}")
@@ -143,8 +147,10 @@ def main(cfg):
         student.critic.load_state_dict(dice_state["student_critic"])
         if "student_target_critic" in dice_state:
             student.target_critic.load_state_dict(dice_state["student_target_critic"])
-        logger.info(f"Resumed DICE student (saved at iter={dice_state.get('iter','?')}, "
-                    f"training_step={dice_state.get('training_step','?')})")
+        resume_iter = int(dice_state.get("iter", 0))
+        resume_training_step = int(dice_state.get("training_step", 0))
+        logger.info(f"Resumed DICE student (saved at iter={resume_iter}, "
+                    f"training_step={resume_training_step})")
 
     # --- optimizers (official uses Adam, not AdamW; match that) ---
     actor_opt = torch.optim.Adam(
@@ -220,8 +226,8 @@ def main(cfg):
     logger.info(f"[iter 0] BC baseline success rate: {bc_sr:.3f}")
     wandb.log({"eval/bc_baseline_success_rate": bc_sr}, step=0)
 
-    # ---- warm-up: collect teacher rollouts to seed the replay ----
-    if cfg.dice.warmup_episodes > 0:
+    # ---- warm-up: collect teacher rollouts to seed the replay (skip if resuming) ----
+    if cfg.dice.warmup_episodes > 0 and resume_iter == 0:
         logger.info(f"Warm-up: collecting {cfg.dice.warmup_episodes} teacher rollouts...")
         collector.use_teacher_for_collect = True
         rng = np.random.default_rng(cfg.seed)
@@ -231,11 +237,13 @@ def main(cfg):
             collector.rollout_episode(ti, ii, replay)
         collector.use_teacher_for_collect = False
         logger.info(f"Warm-up done; replay size = {len(replay)}")
+    elif resume_iter > 0:
+        logger.info(f"Resume: skipping warmup; will continue from iter {resume_iter + 1}")
 
     # ---- main loop ----
     rng = np.random.default_rng(cfg.seed + 1)
-    training_step = 0
-    for it in range(1, cfg.dice.n_iters + 1):
+    training_step = resume_training_step
+    for it in range(resume_iter + 1, cfg.dice.n_iters + 1):
         # (a) collect (pass training_step so Q-based exploration respects warmup)
         collect_succ = []
         for _ in range(cfg.dice.episodes_per_iter):

@@ -152,17 +152,19 @@ def test_ppo_pre_update(policy, cond, chain_d, mu_old_d, t_grid_d, mu_new):
     N, K, chunk, A = chain_d.shape[0], chain_d.shape[1] - 1, chain_d.shape[2], chain_d.shape[3]
     adv = torch.randn(N, device=DEVICE)
     var = policy.step_var
-    loss, info = grpo.ppo_clip_loss(
+    pg_loss, kl_loss, info = grpo.ppo_clip_loss(
         mu_new, mu_old_d, chain_d[:, 1:].to(DEVICE), adv, var,
         clip_eps=0.2, step_mask=None,
     )
-    print(f"    loss        = {info['loss']:+.4e}")
+    print(f"    pg_loss     = {info['pg_loss']:+.4e}")
     print(f"    ratio_mean  = {info['ratio_mean']:.6f}  (expect ~1)")
     print(f"    approx_kl   = {info['approx_kl']:.3e}  (expect ~0)")
+    print(f"    kl_analytical = {info['kl_analytical']:.3e}  (expect ~0)")
     print(f"    clipfrac    = {info['clipfrac']:.3e}  (expect 0)")
     print(f"    log_ratio|max| = {info['log_ratio_abs_max']:.3e}")
     assert abs(info["ratio_mean"] - 1.0) < 1e-2, f"ratio_mean off: {info['ratio_mean']}"
     assert info["approx_kl"] < 1e-3, f"approx_kl too high: {info['approx_kl']}"
+    assert info["kl_analytical"] < 1e-3, f"kl_analytical too high: {info['kl_analytical']}"
     assert info["clipfrac"] < 1e-3, f"clipfrac nonzero: {info['clipfrac']}"
     print("    PASS")
 

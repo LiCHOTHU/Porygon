@@ -20,7 +20,9 @@
 #   TARGET_EPOCH=30                  # must match N_EPOCHS in the sbatch
 #   SLEEP_INTERVAL_MIN=15
 #   SLEEP_BETWEEN_SUBMITS=2
-#   RUNS="r1 r2 r3 r4 r5"            # subset = e.g. "r1 r3"
+#   RUNS="r1 r3 r4 r5"               # r2 already completed (epoch 30), excluded.
+#                                    # Override with e.g. RUNS="r1 r3" for narrower subset,
+#                                    # or RUNS="r1 r2 r3 r4 r5" to re-include r2.
 #   DRY_RUN=                         # if non-empty, print sbatch cmd instead
 #                                    # of running it (for smoke testing)
 #   ONESHOT=                         # if non-empty, do one pass and exit
@@ -48,7 +50,7 @@ JOB_PREFIX_OLD="libero_bc_"
 TARGET_EPOCH="${TARGET_EPOCH:-30}"
 SLEEP_INTERVAL_MIN="${SLEEP_INTERVAL_MIN:-15}"
 SLEEP_BETWEEN_SUBMITS="${SLEEP_BETWEEN_SUBMITS:-2}"
-RUNS="${RUNS:-r1 r2 r3 r4 r5}"
+RUNS="${RUNS:-r1 r3 r4 r5}"   # r2 already hit epoch 30 — excluded by default
 DRY_RUN="${DRY_RUN:-}"
 ONESHOT="${ONESHOT:-}"
 

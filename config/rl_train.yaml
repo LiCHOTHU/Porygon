@@ -28,7 +28,7 @@ rl:
   n_iters: 100
   group_size: 8          # rollouts per GRPO group (same init state); keep >=8 for mixed outcomes
   inits_per_iter: 4      # number of distinct init states (groups) per iteration
-  ppo_epochs: 4          # inner PPO epochs (cut short by KL early-stop)
+  ppo_epochs: 4          # inner PPO epochs (no hard KL break; KL handled via adaptive penalty)
   minibatch_size: 64     # rows (decision x env) per minibatch
   lr: 1.0e-6             # small: per-step KL ~ lr^2/var, and var=sigma^2*dt is tiny
   # PPO clip: SimpleVLA-RL uses asymmetric clip (DAPO-style). Their LIBERO example
@@ -39,7 +39,21 @@ rl:
   clip_ratio_low: 0.20
   clip_ratio_high: 0.28
   grad_clip: 1.0
-  target_kl: 0.03        # KL early-stop threshold (0.5*E[log_ratio^2]); ~matches clip_eps range
+  # Adaptive-KL controller (verl / RLHF / InstructGPT). REPLACES the hard early-stop
+  # break that the previous version did mid-epoch on a single minibatch (cross-task
+  # veto bug in multi-task). KL = analytical Gaussian KL ||mu_new - mu_old||^2/(2 var),
+  # added to the loss as beta*KL. beta is updated each iter from the empirical mean KL.
+  target_kl: 0.03        # controller target (the mean KL we want to hold)
+  init_kl_coef: 1.0e-3   # initial KL penalty coefficient beta_0
+  kl_horizon: 10000.0    # verl's default horizon for the proportional update rule
+  # Entropy bonus (verl: pg_loss - entropy_coeff * entropy). Our fixed-sigma noised-Euler
+  # chain has constant per-step entropy w.r.t. theta, so this contributes no gradient
+  # unless sigma is trainable. Kept for verl parity / future use.
+  entropy_coeff: 0.0
+  # Multi-task: build round-robin minibatches across tasks so successful tasks
+  # (which contribute fewer valid rows due to truncated-at-first-success) don't
+  # dominate the gradient. No-op for single task.
+  task_balanced_minibatches: true
   # GRPO advantage normalization. SimpleVLA-RL HARDCODES this on (it always
   # divides centered group reward by group std + eps -- no off switch). Match it.
   std_normalize: true

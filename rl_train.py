@@ -77,8 +77,10 @@ def main(cfg):
 
     def collect_iter(it, rng):
         """One iter of collection. Multi-task: loop tasks, offset group_ids so the
-        GRPO baseline is computed within (task, init), never across tasks."""
-        merged = {k: [] for k in ("cond", "chain", "mu_old", "valid", "rewards", "group_ids")}
+        GRPO baseline is computed within (task, init), never across tasks. Each row
+        is also tagged with its source task index so the PPO update can build
+        task-balanced minibatches (verl/SimpleVLA-RL parity)."""
+        merged = {k: [] for k in ("cond", "chain", "mu_old", "valid", "rewards", "group_ids", "task_ids")}
         t_grid = None
         per_task_succ = {}
         gid_offset = 0
@@ -90,6 +92,7 @@ def main(cfg):
             if buf["group_ids"].numel() > 0:
                 buf["group_ids"] = buf["group_ids"] + gid_offset
                 gid_offset = int(buf["group_ids"].max().item()) + 1
+            buf["task_ids"] = torch.full_like(buf["group_ids"], int(ti))
             for k in merged:
                 merged[k].append(buf[k])
             if t_grid is None:
@@ -105,7 +108,43 @@ def main(cfg):
         }
         return out, stats
 
+    # --- adaptive KL controller (verl / RLHF style; replaces the hard early-stop break) ---
+    kl_ctrl = grpo.AdaptiveKLController(
+        init_kl_coef=cfg.rl.get("init_kl_coef", 0.001),
+        target_kl=cfg.rl.target_kl,
+        horizon=cfg.rl.get("kl_horizon", 10000.0),
+    )
+    entropy_coeff = float(cfg.rl.get("entropy_coeff", 0.0))
+    # Per-step Gaussian entropy of the noised-Euler sampler. Constant w.r.t. theta because
+    # sigma is fixed -- gradient is zero. Reported for parity with verl's loss assembly;
+    # only contributes a (constant) shift to the loss unless sigma is made trainable.
+    entropy_const = grpo.gaussian_entropy_per_step(
+        var=float(var), chunk_size=policy.chunk_size, action_dim=policy.network_action_dim)
+
+    def balanced_perm(task_ids_tensor, rng_torch):
+        """Round-robin task-balanced permutation: shuffle within each task, then interleave
+        so any contiguous slice of size B contains ~B/T rows per task. Matches verl's
+        spirit (verl gets balance for free because each prompt contributes equal responses).
+        """
+        unique = task_ids_tensor.unique().tolist()
+        if len(unique) <= 1:
+            return torch.randperm(task_ids_tensor.shape[0], generator=rng_torch)
+        per_task = []
+        max_len = 0
+        for t in unique:
+            idx = (task_ids_tensor == t).nonzero(as_tuple=False).flatten()
+            idx = idx[torch.randperm(idx.shape[0], generator=rng_torch)]
+            per_task.append(idx)
+            max_len = max(max_len, idx.shape[0])
+        out = []
+        for j in range(max_len):
+            for idx in per_task:
+                if j < idx.shape[0]:
+                    out.append(idx[j])
+        return torch.stack(out)
+
     rng = np.random.default_rng(cfg.seed)
+    rng_torch = torch.Generator(device="cpu").manual_seed(int(cfg.seed))
     for it in range(1, cfg.rl.n_iters + 1):
         buf, stats = collect_iter(it, rng)
         advantages = grpo.compute_grpo_advantages(
@@ -142,7 +181,7 @@ def main(cfg):
             wandb.log({"filter/groups_kept": kept,
                        "filter/groups_total": n_total,
                        "filter/frac_kept": kept / max(1, n_total)}, step=it)
-            for k in ("cond", "chain", "mu_old", "valid", "rewards", "group_ids"):
+            for k in ("cond", "chain", "mu_old", "valid", "rewards", "group_ids", "task_ids"):
                 buf[k] = buf[k][keep_mask]
             advantages = advantages[keep_mask]
 
@@ -151,11 +190,15 @@ def main(cfg):
         else:
             N = buf["chain"].shape[0]
             t_grid = buf["t_grid"]
-            last_info, n_updates, stop = None, 0, False
+            task_ids_cpu = buf["task_ids"]
+            kl_running = []     # collect per-minibatch analytical KL for adaptive controller
+            n_updates = 0
+            last_info = None
+            beta = float(kl_ctrl.value)
+            balance = bool(cfg.rl.get("task_balanced_minibatches", True))
             for _ in range(cfg.rl.ppo_epochs):
-                if stop:
-                    break
-                perm = torch.randperm(N)
+                perm = balanced_perm(task_ids_cpu, rng_torch) if balance \
+                       else torch.randperm(N, generator=rng_torch)
                 for s in range(0, N, cfg.rl.minibatch_size):
                     idx = perm[s:s + cfg.rl.minibatch_size]
                     cond_mb = buf["cond"][idx].to(device)
@@ -165,23 +208,31 @@ def main(cfg):
                     adv_mb = advantages[idx].to(device)
                     logp_new, mu_new = policy.chain_logprob(cond_mb, chain_mb, t_grid)
                     step_mask = valid_mb[:, None].expand(-1, K)
-                    loss, info = grpo.ppo_clip_loss(
+                    pg_loss, kl_loss, info = grpo.ppo_clip_loss(
                         mu_new, mu_old_mb, chain_mb[:, 1:], adv_mb, var,
                         clip_eps=cfg.rl.clip_eps,
                         clip_ratio_low=cfg.rl.get("clip_ratio_low", None),
                         clip_ratio_high=cfg.rl.get("clip_ratio_high", None),
                         step_mask=step_mask)
-                    # KL early-stop: skip the overshooting step and end the update for this iter
-                    if info["approx_kl"] > cfg.rl.target_kl:
-                        stop = True
-                        break
+                    # verl-style loss composition: pg - c_ent*H + beta*KL.
+                    # H is constant for our fixed-sigma chain so the entropy term contributes
+                    # no gradient; we still add it for parity with verl's loss assembly.
+                    total_loss = pg_loss - entropy_coeff * entropy_const + beta * kl_loss
                     optimizer.zero_grad()
-                    loss.backward()
+                    total_loss.backward()
                     torch.nn.utils.clip_grad_norm_(policy.velocity_net.parameters(), cfg.rl.grad_clip)
                     optimizer.step()
                     n_updates += 1
+                    kl_running.append(info["kl_analytical"])
+                    info["total_loss"] = float(total_loss.detach())
+                    info["kl_coef"] = beta
                     last_info = info
+            # Update the KL controller from the empirical mean KL this iter.
+            mean_kl = float(np.mean(kl_running)) if kl_running else 0.0
+            beta_new = kl_ctrl.update(mean_kl, n_steps=n_updates)
             last_info = last_info or info
+            last_info["kl_mean"] = mean_kl
+            last_info["kl_coef_next"] = beta_new
             logger.info(f"[iter {it}] update ({n_updates} steps): {last_info}")
             wandb.log({f"ppo/{k}": v for k, v in last_info.items()}, step=it)
 

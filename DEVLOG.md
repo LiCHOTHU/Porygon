@@ -308,6 +308,88 @@ requeue doesn't lose progress. Currently `PENDING (Resources)`.
   for eval-only / continued training (added 2026-06-04). Pair with `dice.n_iters=0` and
   `dice.warmup_episodes=0` for a clean eval-only invocation.
 
+## 2026-06-06 — Long hard-8 RL + LIBERO-Long BC baselines (high precision)
+
+### LIBERO-Long (libero_10) BC baselines — 500-roll deterministic eval
+
+50 rollouts/task × 10 tasks → SE ≈ 2.2 pp overall, ≈ 7 pp per-task. Sbatches:
+`scripts/eval_multitask_bc_lib10_500roll{,_drift}.sbatch` (jobs 9464235 FM, 9464237 drift).
+Drift completed cleanly (1h39m, L40S); FM hit the 2h30m wall *after* writing the eval line
+(value is good, post-eval cleanup hung).
+
+| policy | overall | per-task highlights |
+|---|---|---|
+| **FM (K=10)** | **0.722** | STUDY1=0.98, K3 stove+moka=0.92, K4 bowl+drawer=0.90, LR2 cream+butter=0.90; **K8 both-moka=0.00** |
+| **Drift (K=1)** | **0.660** | STUDY1=0.92, K3=0.82, K4=0.76; **K8 both-moka=0.00** |
+
+FM beats Drift by **+6.2 pp**; gap concentrated on multi-object pick-and-place (LR2 cream+butter
++18, K4 bowl +14, LR5 two-mug +10). KITCHEN_SCENE8 (both moka pots → stove) is **0/50 for
+both** — same intractable task for both policies, not a policy artifact.
+
+### Hard-8 long RL — re-launches after the `filter_accuracy × task_ids` bug fix (#57)
+
+Same 8 LIBERO-90 task indices `[8, 21, 32, 53, 65, 73, 75, 81]`, 20 GRPO iters (SimpleVLA) /
+40 DICE iters, eval every 5. Three of four show real lift; one is structurally broken.
+
+| run | status | eval trajectory (deterministic) | Δ peak |
+|---|---|---|---|
+| **fm_dice** | COMPLETED 40/40 | 0.719 → 0.738 → 0.731 → **0.794** → 0.787 → 0.769 → 0.744 → 0.738 | **+7.5 pp** |
+| **drift_simplevla** | COMPLETED 20/20 | 0.675 (BC) → 0.713 → 0.675 → 0.688 → **0.738** → 0.688 | **+6.3 pp** |
+| **fm_simplevla** | preempted iter 5/20 | 0.688 (BC) → **0.750** | **+6.2 pp** (early) |
+| **drift_dice** | preempted iter 26/40 | 0.719 → 0.669 → 0.619 → 0.675 → 0.650 | **−7 pp (declining)** |
+
+So the story isn't "RL doesn't work" — three of four runs improved 6–7.5 pp at peak. Two
+qualifiers: (a) hard-8's BC baseline is already 68–72 %, so headroom is small; (b) both
+finishers (fm_dice, drift_simplevla) overshoot then decay 4–5 pp by the end — the verl-style
+adaptive-KL controller isn't anchoring hard enough at target KL ≈ 0.005–0.008.
+
+### Why drift_dice fails (structural — recorded as feedback memory)
+
+Same code as fm_dice, same hard-8 config, *only* difference is the K=1 teacher. Three pieces
+of evidence:
+
+1. **Eval is monotonically downward from iter 5.** fm_dice climbs to 0.794 on the same critic
+   architecture; drift_dice drifts down 7 pp over 25 iters.
+2. **Critic & actor never reach fm_dice's floor:** at iter 21, fm_dice actor=−0.83 / Q=0.54 /
+   critic_loss=0.05; drift_dice actor=−0.69 / Q=0.34 / critic_loss=0.08. The critic sees
+   ~35 % less value-headroom for the drift student.
+3. **Collect success has no trend** (bounces 0.375–1.000, mean ~0.6 for 25 iters). The
+   `max_q_std` explorer can't find better noises.
+
+**Root cause:** DICE's `get_action` is `a_teacher(state, noise) + residual(state, noise)`, and
+its exploration is `max_q_std` over 10 sampled noises. This scheme needs the teacher's
+noise→action map to be **rich** — different noises must yield meaningfully different teacher
+actions for the Q ensemble to have anything to rank.
+
+- **K=10 FM teacher:** noise integrates through 10 Euler steps; different noises traverse
+  different ODE trajectories and land at distinct actions on the demo manifold. `max_q_std`
+  ranking has signal; residual MLP has slack.
+- **K=1 drift teacher:** `a = clamp(noise + v(noise, t=0))`. A *single* velocity step. With
+  dropout off at eval, `v(·, t=0)` dominates and is only mildly noise-sensitive → different
+  noises collapse to nearly the same teacher action. `max_q_std` is degenerate; the residual
+  must do all the work but is BC-anchored back via `bc_weight · ‖residual‖²`, so it can't.
+
+Critic locks onto Q-values for "essentially the teacher action"; the actor exploits those
+Q-values into off-distribution states; estimates go stale → eval drifts down. This is also
+why **drift + GRPO worked** (+6.3 pp peak) on the same teacher — GRPO injects σ-Gaussian
+noise into the executed action at the single K=1 step, so the policy itself is stochastic and
+PPO clipping has real signal.
+
+**Cheap-to-bold fixes to try:** (1) swap `max_q_std` → `max_q_min` (pessimistic ranking
+doesn't degenerate); (2) inject explicit σ ≈ 0.05–0.1 Gaussian noise into `a_teacher` for
+K=1 so noise diversity exists somewhere; (3) increase residual head capacity and lower
+`bc_weight`; (4) just skip DICE for K=1 — use GRPO as the drift-policy RL and reserve DICE
+for K≥10.
+
+### Bug fix that unblocked the relaunches
+
+`filter_accuracy` keep-mask buffer-key loop didn't include `"task_ids"`, so after a filter
+activation `task_ids` stayed full-length while `cond/chain/...` shrank. Next iter's
+`balanced_perm(task_ids_full)` returned indices ≥ filtered N → `IndexError` at
+`cond_mb = buf["cond"][idx]` (rl_train.py:204). Killed both SimpleVLA hard-8 runs yesterday
+(9434006 at iter 1, 9434007 at iter 2). One-line fix: add `"task_ids"` to the tuple. Regression
+test in `scripts/smoke_simplevla_verl_parity.py` (test [D]).
+
 ## Open threads
 
 - **Single-task RL on t75 (job 9431681, PENDING):** confirm whether dedicated single-task RL

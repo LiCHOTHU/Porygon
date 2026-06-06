@@ -1,0 +1,9 @@
+defaults:
+  - rgb_no_pool
+  - _self_
+
+# Tiled-view variant: agent + wrist concatenated along width inside the
+# encoder's forward, then a SINGLE CNN sees a (3, H, 2W) image. Builds on
+# rgb_no_pool (no spatial-pool head, no final projection) so the encoder
+# emits per-patch tokens.
+_target_: imitation.algos.encoders.rgb_tiled.RGBTiledEncoder

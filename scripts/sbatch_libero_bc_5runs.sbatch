@@ -62,9 +62,14 @@ nvidia-smi || true
 EXP_NAME="libero_bc_${RUN}"
 N_EPOCHS=30
 
-# Wan-VAE latent cache (per-task .h5). r1/r3/r4/r5 use it; r2 doesn't touch
-# Wan-VAE so we skip the cache to avoid wasted I/O.
-WAN_CACHE_DIR="${SCR_ROOT}/libero_bc_wan_cache"
+# Wan-VAE latent cache. r1/r3/r4/r5 use it; r2 doesn't touch Wan-VAE so we skip
+# the cache to avoid wasted I/O.
+#
+# Two backends supported (transparent to the dataset patch — it picks .npy first
+# if present in the dir, else .h5):
+#   libero_bc_wan_cache/      .h5 chunked (h5py reads at ~6 ms/sample on scratch)
+#   libero_bc_wan_cache_npy/  np.memmap  (~0.001 ms/sample once OS page cache is warm)
+WAN_CACHE_DIR="${SCR_ROOT}/libero_bc_wan_cache_npy"
 WAN_OVERRIDE=""
 case "${RUN}" in
     r1|r3|r4|r5) WAN_OVERRIDE="algo.encoder.wan_cache_dir=${WAN_CACHE_DIR}" ;;
