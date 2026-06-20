@@ -390,6 +390,130 @@ activation `task_ids` stayed full-length while `cond/chain/...` shrank. Next ite
 (9434006 at iter 1, 9434007 at iter 2). One-line fix: add `"task_ids"` to the tuple. Regression
 test in `scripts/smoke_simplevla_verl_parity.py` (test [D]).
 
+## 2026-06-06 PM — Corrected K=1 diagnosis + LIBERO-Long RL grid
+
+The 2026-06-04/AM `drift_dice` failure analysis above is partially superseded by three
+measurements run later in the day. Keeping the original text intact for the audit trail; the
+corrected story is here.
+
+### Phase 0 — `phase0_noise_diversity.json` (job 9489842)
+
+Measured per-state noise→action diversity of FM K=10 vs drift K=1 on hard-8. Result inverts
+the original hypothesis: drift K=1 σ = **0.043**, FM K=10 σ = **0.021** → drift has **~2×
+more** spread, on all 8 tasks. The K=1 teacher is *over*-dispersed, not noise-starved.
+
+### Step 1b — z-cond critic (`rl_hard8_long_drift_dice_zcond`)
+
+Single-variable flip `dice.q_depends_on_noise=true`. With z-cond, critic fits Q(s,z,a) on the
+narrow per-(s,z) action neighborhood instead of one loose marginalized surface. Verified
+mechanism:
+- critic_loss drops **28×** in 10 iters (1.38 → 0.05) — clean and attributable.
+- eval trajectory (BC = 0.606): [0.637, 0.700, 0.631, 0.656, 0.637, 0.656, 0.600, 0.662, 0.588].
+  Mean **+3.5pp** over BC. Looks peak-then-decay; see the noise discussion below.
+
+### Discriminator probe — `probe_iter10_vs_iter40.json`
+
+Built to distinguish (1) residual-direction drift from (2) Q-level inflation as causes of the
+apparent decay. 200 (state, noise) pairs collected via iter-10 rollouts on hard-8. Result
+**rejected both hypotheses**:
+- Action RMS diff iter-10 vs iter-40 = **0.00040** — actions are essentially unchanged.
+- Q drift on identical teacher action (Q_40 − Q_10) = **−0.158** — Q *dropped* on held-out
+  failure states, not inflated. The train-log Q(s,a_student) climb was replay-batch credit
+  accumulation (replay is success-dominated by iter 40), not overestimation.
+- So the executed policy is essentially unchanged between iter 10 and iter 40, yet eval moved
+  from 0.700 to 0.588. **The decay is mostly eval noise.**
+
+Direct supporting evidence: drift × SimpleVLA-RL evaluated the same iter-20 ckpt twice and got
+`0.800` → `0.740` (6pp of pure eval lottery on identical policy). Hard-8 noise band run
+in flight (`scripts/noise_band_hard8_zcond.sbatch`, job 9509085) — 3 fresh evals each on
+BC / iter 10 / iter 40 to nail down the band.
+
+### LIBERO-Long (libero_10) RL grid — 4 cells
+
+| algo × policy | BC | best eval | trajectory | net Δ vs BC | status |
+|---|---|---|---|---|---|
+| FM × DICE | 0.722 | **0.775** (iter 35) | 0.725 → 0.750 → 0.740 → 0.750 → 0.755 → 0.750 → 0.775 | +5.3 pp | TIMEOUT @ 39, resume in flight (job 9509086) |
+| Drift × DICE-zcond | 0.660 | **0.745** (iter 5) | 0.745 → 0.675 → 0.720 → 0.690 → 0.675 → 0.640 → 0.695 → 0.700 → 0.660 | +0.0 end / +8.5 peak | DONE |
+| FM × SimpleVLA | 0.722 | **0.790** (iter 10) | 0.740 → 0.790 → 0.730 | +6.8 peak / +0.8 (iter 15) | TIMEOUT @ 15 (8h wall too tight for 20 iters at ~30 min/iter) |
+| **Drift × SimpleVLA** | 0.660 | **0.800** (iter 20) | 0.670 → 0.670 → 0.700 → **0.800** / 0.740 | **+8.0 end / +14 peak** | DONE — **headline** |
+
+Same-ckpt iter-20 eval noise observed at **6pp** (0.800 vs 0.740). Apply that band to every
+comparison above.
+
+### Claim discipline — what's earned vs hedged vs conjectured
+
+The probe finding (decay was mostly eval noise) reset what we can defensibly assert. Layering
+the writeup claims by evidence type:
+
+| Claim | Status | Evidence |
+|---|---|---|
+| z-cond fixes the marginalized-critic failure | **ASSERTED** | critic_loss 28× drop (1.38 → 0.05) is a training metric, noise-free |
+| K=1 drift has 2× the per-state action dispersion of FM K=10 | **ASSERTED** | Phase 0 measured σ_drift/σ_FM = 2.05 on all 8 hard tasks |
+| z-cond produces a reliable eval gain | **PENDING noise band** | +3.5pp mean is at-or-below the per-eval band; same-ckpt double-eval already showed 6pp natural variance |
+| GRPO outperforms DICE on K=1 drift | **ASSERTED (cautious)** | drift × GRPO iter-20 **end** = 0.770 mean (0.800/0.740) vs drift × DICE-zcond iter-20 = 0.690; gap +8pp **end** exceeds 6pp noise band — peak (+14pp) demoted to supporting detail |
+| Step-count is the governing axis | **CONJECTURED** | mechanism + N=2; K-sweep in flight (job 9509719) to turn N=2 into a within-policy trend |
+
+The two-layer reading of the z-cond result is the most important reframe: **the critic
+pathology is real and is fixed by z-cond; the fix does not translate into a reliable eval
+gain.** That is more interesting than "modest improvement" — it says z-cond solves the wrong
+problem, and the real ceiling for residual-on-frozen-prior RL is somewhere else (probably the
+critic's inability to point a residual cleanly under a high-dispersion prior, which is
+exactly what GRPO sidesteps).
+
+### Headline (disciplined)
+
+> For one-step generative policies, **the residual-on-frozen-prior + value-critic recipe (DICE)
+> hits a ceiling that z-conditioning the critic does NOT lift in eval**, while critic-free
+> group-relative RL (GRPO) clears the same ceiling by +8pp end on the lib10 grid (±6pp eval
+> band). The Phase 0 dispersion measurement (σ_drift = 2× σ_FM) and the z-cond mechanism win
+> (28× critic_loss drop with no eval gain) jointly point at the prior's per-state action
+> dispersion as the underlying mechanism; an FM-at-K sweep is in flight to test whether step
+> count is the governing axis.
+
+### Grid plan (post-disciplining)
+
+**Headline figure (lib10, 2×2 algo × policy, fair to iter 20):**
+- All four cells annotated with their per-eval 95% CI from the noise band measurement.
+- FM × DICE: 0.750 (iter 20), resumed run will overwrite once iter 40 lands.
+- FM × SimpleVLA: **restart in flight** at 12h budget on h100-only (job 9509725) — original
+  iter-15 result (0.730) does not go in the headline grid; iter-20 from restart will.
+- Drift × DICE-zcond: 0.690 (iter 20).
+- Drift × SimpleVLA: 0.770 (iter-20 mean of 0.800/0.740 same-ckpt double eval).
+
+**Supporting figure (hard-8 ablation column):**
+- BC drift / drift × DICE / drift × DICE-zcond — shows the z-cond critic mechanism win
+  decoupled from the noise floor. Hard-8, *not* fused with the lib10 grid.
+
+**Mechanism row:**
+- Phase 0 σ(drift, K=1) = 0.043 vs σ(FM, K=10) = 0.021 (2.05× ratio).
+- FM-at-K dispersion sweep: σ(FM, K ∈ {1, 2, 4, 10}) — pending job 9509719.
+- z-cond critic_loss 28× drop (training metric).
+- Probe rejection: action diff = 0.0004, Q drift on identical action = −0.158.
+
+### Open follow-ups
+
+- **Noise band** (job 9509085 in flight) — quantifies σ_eval to put error bars on every cell.
+- **FM × DICE resume** (job 9509086 in flight) — lands iter 40 for the full FM × DICE
+  trajectory.
+- **FM × SimpleVLA restart** (job 9509725 pending) — iter 20 for fair grid.
+- **Dispersion vs K** (job 9509719 running) — turns step-count from N=2 to within-policy trend.
+- (Future, if dispersion-vs-K is monotonic) — one drift-RL run at K=4 to close the loop.
+
+### Code/scripts that landed this PM
+
+- `imitation/algos/dice/distill_rl.py` — z-cond critic flag (already existed) + CQL conservative
+  penalty `dice.cql_weight` (added; OFF by default; **not used** — probe rejected the leak it
+  targets, kept in the codebase for future use if needed).
+- `dice_train.py` / `config/dice_train.yaml` — plumbing for CQL kwarg + per-iter
+  `cql / q_pol / q_data` logging when on.
+- `scripts/phase0_noise_diversity.{py,sbatch}` — noise diversity gating measurement (used).
+- `scripts/probe_iter10_vs_iter40.{py,sbatch}` — discriminator probe (used).
+- `scripts/noise_band_hard8_zcond.{py,sbatch}` — noise-band measurement on hard-8 z-cond (in
+  flight, job 9509085).
+- `scripts/rl_hard8_long_drift_dice_zcond_cql.sbatch` — staged CQL relaunch, **never submitted**
+  per the probe verdict. Kept in tree for reproducibility.
+- `scripts/rl_lib10_{fm,drift}_{dice,simplevla}.sbatch` — lib10 RL × 4 grid cells.
+
 ## Open threads
 
 - **Single-task RL on t75 (job 9431681, PENDING):** confirm whether dedicated single-task RL
@@ -441,3 +565,78 @@ test in `scripts/smoke_simplevla_verl_parity.py` (test [D]).
 | Single-task t75 sbatch | `scripts/rl_single_t75_all4.sbatch` (job 9431681) |
 | Single-task t75 results | `/storage/scratch1/8/lwang831/rl_single_t75_all4_results.txt` (pending) |
 | Plan | `~/.claude/plans/sequential-gliding-salamander.md` |
+
+## 2026-06-11 — FM-DICE flatline root-caused against real-stanford/dice-rl; RLPD + scaled rerun
+
+Compared our DICE port line-by-line against the official repo (cloned to /tmp/dice-rl-ref).
+**The loss/model port is faithful** (actor multi-z, q-normalization, BC anchor, critic
+ensemble/min/n-step, max_q_min exploration, all official hyperparams incl. bcw=100).
+Three real divergences explain the iter-40 flatline (0.756 -> 0.762, residual_norm ~1e-4):
+
+1. **RLPD never wired**: official always runs use_rlpd=true with 50 expert demos at
+   adaptive ratio 0.5->0.1 + disable_q_loss_for_expert_data. Ours had
+   `expert_dataset=None  # TODO`.
+2. **~20-100x less training**: official converges at ~100-200k grad updates (README:
+   24-48h at ~1s/batch); ours ran 8k.
+3. **Warmup units**: replay_flow_warmup_steps=4000 is env-steps in official (~2% of
+   run); we pass grad-steps where 4000 = half the run, so max_q_min exploration was
+   off for iters 1-20 of 40.
+
+Fixes landed:
+- `imitation/algos/dice/expert_loader.py` (NEW): encodes LIBERO demos through the
+  frozen BC encoder into a frozen expert ReplayBuffer (chunk cadence = action_horizon,
+  reward 1/done at demo end, mirrors official ph_finetune semantics).
+- `replay_buffer.py`: RLPD symmetric sampling (expert_ratio*B expert rows per batch).
+- `dice_train.py`: builds expert buffer when use_rlpd=true; adaptive expert ratio
+  (0.5->0.1 over adaptive_expert_ratio_steps grad steps), logged as train/expert_ratio.
+- `config/dice_train.yaml`: adaptive_expert_ratio_* knobs.
+
+Relaunched FM-DICE hard-8 at faithful budget (rl_hard8_long_fm_dice_rlpd):
+32 eps/iter x 800 grad steps x 100 iters = 80k updates, RLPD on,
+disable_q_loss_for_expert_data=true, always_retain_bc_loss_for_expert_data=true,
+replay_flow_warmup=600 (~iter 3). Jobs: smoke 9818824 -> train chain
+9818825-9818829 (5x8h, resume via dice_latest.pth; NOTE online replay restarts
+empty each segment) -> powered eval 9818830 (BC + iter50 + iter100, n=200x3).
+
+Caveat for the writeup: prior "DICE structurally fails" claims are budget-confounded;
+GRPO-vs-DICE comparisons at 8k steps are sample-efficiency claims, not correctness.
+
+## 2026-06-14 — Literature review: residual / GRPO / flow-matching RL on robotics
+
+Ran a verified deep-research sweep (25/25 claims confirmed 3-0 adversarial) on whether
+anyone does **residual + GRPO-style (critic-free, group-relative) + flow-matching** RL on
+LIBERO. Verdict: **the exact triple is unoccupied** — every related work covers at most two
+of the three axes. Closest neighbors: LP-DS (residual+flow but Lagrangian+Q-critic);
+SimpleVLA-RL / TGRPO / RLinf-VLA (GRPO but token-VLA full-policy); π-RL / ReinFlow
+(flow but PPO+critic full-policy); ResFiT/ResiP/DSRL/IBRL/RPL (residual but off-policy
+actor-critic).
+
+| Work | residual? | GRPO? | flow? | objective | Major novelty / contribution |
+|---|:--:|:--:|:--:|---|---|
+| **LP-DS** (ICML'26) | ✅ | ❌ | ✅ | Lagrangian + Q-critic | RL-steers a **frozen** diffusion/flow policy via a state-conditioned **latent-noise residual** `w=ε+Δθ(s)`; exact BC recovery at Δθ=0; constrained (Lagrangian) safety formulation |
+| **SimpleVLA-RL** (ICLR'26) | ❌ full | ✅ | ❌ token | modified GRPO | Showed **plain GRPO + sparse binary success** fine-tunes token VLAs (OpenVLA-OFT) on LIBERO from *minimal* demos with large gains; "1-shot"-style data efficiency; scales to real robots |
+| **TGRPO** (2025) | ❌ full | ✅ | ❌ token | trajectory GRPO | **Trajectory-level** GRPO — fuses step-wise and trajectory-wise advantages to stabilize VLA fine-tuning |
+| **RLinf-VLA** (2025) | ❌ full | ✅/PPO | ❌ token | GRPO or PPO | A **unified, efficient training system/infra** for RL of VLAs across algorithms (GRPO/PPO) and simulators — the engineering substrate, not a new objective |
+| **π-RL** (2025) | ❌ full | ❌ | ✅ (π0/π0.5) | PPO + GAE critic | RL fine-tuning of **large flow-matching VLAs at scale** (π0/π0.5 action expert) with a value critic — flow-policy RL pushed to billion-param VLAs |
+| **ReinFlow** (NeurIPS'25) | ❌ full | ❌ | ✅ | PPO + GAE critic | The **noise-injection trick**: makes a deterministic flow sampler stochastic to get tractable per-step log-probs, enabling PPO on flow-matching policies (the enabling idea this repo's sampler also uses) |
+| **ResFiT / ResiP / DSRL / IBRL / RPL** | ✅ | ❌ | diffusion/MLP | TD3 / SAC / DDPG / PPO | The **residual-policy-learning family**: learn a corrective action over a frozen base controller/IL policy with **off-policy actor-critic**; DSRL = residual in diffusion *noise/latent* space; IBRL = imitation-bootstrapped RL; RPL = the original residual formulation |
+
+**Why the GRPO + residual cell is empty (opposing inductive biases, not oversight):**
+1. GRPO forms advantages from intra-group reward variance; a residual is a *small* correction
+   around a frozen base, so grouped rollouts collapse together → variance signal vanishes.
+   (Matches our own finding: FM dispersion 0.021 vs drift 0.043 — lower dispersion starves GRPO.)
+2. Residual RL targets sample efficiency → off-policy value methods; GRPO is deliberately
+   on-policy and critic-free. Opposite design centers.
+3. GRPO's trajectory-level scalar return is a poor instrument for the per-step credit
+   assignment a small local correction wants.
+4. GRPO entered robotics via token-VLAs (LLM transplant → full-policy fine-tuning); residual RL
+   comes from the classical control lineage. The communities have not crossed.
+
+Relevance to our 2×2: our GRPO cells are *full-policy* flow GRPO (≈ SimpleVLA-RL's stated future
+work); our DICE cells are *residual but Q/distribution-correction* (≈ LP-DS/DSRL family). The
+genuinely novel cell — GRPO on a residual head over a frozen flow policy, with injected noise to
+restore group variance — is one we have NOT built. That is the clean novelty target if we want it.
+
+Caveat: LP-DS (`2606.01151` / "ICML 2026") and one intersection source (`2602.01789`) have
+forward-dated-looking arXiv ids; content was verified against fetched HTML but verify the
+metadata before formal citation.

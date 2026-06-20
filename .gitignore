@@ -126,3 +126,58 @@ uv.lock
 # Claude Code session state
 .claude/
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Research experiment scripts (eval / vis / diagnostics — not part of the framework)
+# One-off SLURM launchers, sweeps, probes, and smoke tests from the RL fine-tuning
+# study. Kept local; the reusable trainers/algos live in imitation/ + *_train.py.
+# (Run `git add -f <file>` if one ever needs to be tracked.)
+# ──────────────────────────────────────────────────────────────────────────────
+/eval_task9.py
+/eval_libero_wan_v2a_hybrid.py
+/eval_libero_wan_v2a_hybrid_record.py
+/eval_libero_wan_video_oracle.py
+scripts/_gen_*.sh
+scripts/run_task32_*.sh
+scripts/powered_eval*
+scripts/ceiling_*.sbatch
+scripts/grpo_cont.sbatch
+scripts/dice_drift_*
+scripts/rl_task*.sbatch
+scripts/rl_lib10_*.sbatch
+scripts/rl_hard8_*_bcw*.sbatch
+scripts/rl_hard8_*_kl*.sbatch
+scripts/rl_hard8_long_*_rlpd.sbatch
+scripts/rl_hard8_long_*_zcond*.sbatch
+scripts/rl_hard8_long_*_phase1.sbatch
+scripts/rl_hard8_long_fm_dice_cedar.sbatch
+scripts/dispersion_vs_K.*
+scripts/noise_band_*.*
+scripts/phase0_*.*
+scripts/probe_*.*
+scripts/q_grad_*.*
+scripts/three_seed_reeval_*.*
+scripts/eval_dice_selection.*
+scripts/smoke_grd.py
+scripts/smoke_rlpd_loader.*
+scripts/grd_*.py
+scripts/grd_*.sbatch
+scripts/dice_grd_repel_smoke.py
+scripts/train_wan_*.sbatch
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Work-in-progress / unproven — kept local until validated, not released
+# Wan-VAE video-conditioned encoders (need an external diffusers Wan-VAE; results
+# inconclusive) and the GRD RL variant (underperformed GRPO in our runs).
+# ──────────────────────────────────────────────────────────────────────────────
+imitation/algos/encoders/wan_v2a.py
+imitation/algos/encoders/wan_video.py
+imitation/algos/encoders/wan_tile.py
+config/algo/encoder/wan_v2a.yaml
+config/algo/encoder/wan_video.yaml
+config/algo/encoder/wan_tile.yaml
+config/algo/fm_policy_wan_v2a.yaml
+config/algo/fm_policy_wan_video.yaml
+config/algo/fm_policy_wan_tile.yaml
+imitation/algos/rl/grd.py
+grd_train.py
+

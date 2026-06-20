@@ -167,17 +167,30 @@ class ReplayBuffer:
 
     def sample(self, batch_size: int, expert_ratio: Optional[float] = None) -> dict:
         """Online-only when expert_dataset is None or use_rlpd=False; otherwise
-        symmetric-sample (expert_ratio * B from expert, rest from online).
-        For now, expert_dataset wiring is a TODO -- expert_ratio is accepted but
-        ignored unless self.expert_dataset is hooked up by the caller."""
-        if not self.use_rlpd or self.expert_dataset is None:
+        RLPD symmetric sampling: expert_ratio * B rows from the (frozen) expert
+        buffer, the rest from online. expert_dataset is another ReplayBuffer
+        (see expert_loader.build_expert_buffer); its rows carry data_source=1."""
+        if (not self.use_rlpd or self.expert_dataset is None
+                or len(self.expert_dataset) == 0):
             idx = np.random.randint(0, self.size, size=batch_size)
             return self._gather(idx)
 
-        # TODO: wire an expert_dataset.sample(n_exp) that returns the same dict shape.
-        # Until then, fall back to online-only.
-        idx = np.random.randint(0, self.size, size=batch_size)
-        return self._gather(idx)
+        ratio = self.expert_ratio if expert_ratio is None else float(expert_ratio)
+        ratio = min(max(ratio, 0.0), 1.0)
+        n_exp = int(round(batch_size * ratio))
+        if self.size == 0:
+            n_exp = batch_size  # nothing online yet -- pure expert batch
+        n_onl = batch_size - n_exp
+
+        parts = []
+        if n_onl > 0:
+            parts.append(self._gather(np.random.randint(0, self.size, size=n_onl)))
+        if n_exp > 0:
+            exp_idx = np.random.randint(0, self.expert_dataset.size, size=n_exp)
+            parts.append(self.expert_dataset._gather(exp_idx))
+        if len(parts) == 1:
+            return parts[0]
+        return {k: torch.cat([p[k] for p in parts], dim=0) for k in parts[0]}
 
     def get_total_transitions(self) -> int:
         return self.size

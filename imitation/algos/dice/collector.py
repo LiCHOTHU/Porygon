@@ -23,7 +23,8 @@ class DiceCollector:
                  max_episode_length=None,
                  use_teacher_for_collect: bool = False,
                  online_explore_strategy: str = "standard",
-                 num_exploration_samples: int = 10):
+                 num_exploration_samples: int = 10,
+                 use_noise_head: bool = False):
         self.runner = env_runner
         self.bc = bc_policy
         self.student = student_model
@@ -43,6 +44,12 @@ class DiceCollector:
         self.use_teacher_for_collect = bool(use_teacher_for_collect)
         self.online_explore_strategy = str(online_explore_strategy)
         self.num_exploration_samples = int(num_exploration_samples)
+        self.use_noise_head = bool(use_noise_head)
+        if self.use_noise_head:
+            assert getattr(student_model, "use_noise_head", False), (
+                "DiceCollector(use_noise_head=True) requires the student model to be built "
+                "with DistilledRLModel(use_noise_head=True)."
+            )
 
     def _build_env(self, task_index: int):
         env_fn = lambda: lw.LiberoFrameStack(
@@ -64,11 +71,15 @@ class DiceCollector:
 
     @torch.no_grad()
     def _act(self, cond: torch.Tensor, training_step: int = 0):
-        """Returns (a_norm, noise), both (1, chunk, A), on device.
+        """Returns (a_exec, noise), both (1, chunk, A), on device.
         - During warmup collect: BC teacher's Euler output (matches official's
           warmstart phase that seeds the replay with prior data).
-        - Standard strategy: random noise -> student.get_action.
-        - Other strategies: delegate to student.get_exploration_action."""
+        - When `use_noise_head=True`: deterministic mu + bounded learnable
+          per-state Gaussian noise (ReinFlow-style) over a single random `noise`.
+          This is the Phase 1 fix for K=1 teacher collapse — re-introduces
+          per-state action diversity so the critic sees an action neighborhood.
+        - Standard strategy (no noise head): random noise -> student.get_action.
+        - Other strategies (max_q_min etc.): delegate to get_exploration_action."""
         if self.use_teacher_for_collect:
             noise = torch.randn(1, self.chunk_size, self.action_dim, device=self.device)
             self.bc.eval()
@@ -80,8 +91,15 @@ class DiceCollector:
                 v = self.bc.velocity_net.forward_dec(x, t, enc_cache)
                 x = x + dt * v
                 t = t + dt
-            a_norm = torch.clamp(x, -1, 1)
-            return a_norm, noise
+            a_exec = torch.clamp(x, -1, 1)
+            return a_exec, noise
+
+        if self.use_noise_head:
+            # Phase 1: noisy single-action collection. The `noise` z is still a
+            # random draw (drives the K=1 teacher); the executed action gets an
+            # additional bounded Gaussian eps with state-conditioned sigma_s.
+            out = self.student.get_collection_action(cond)
+            return out["a_exec"], out["noise"]
 
         if self.online_explore_strategy == "standard":
             noise = torch.randn(1, self.chunk_size, self.action_dim, device=self.device)
@@ -92,8 +110,8 @@ class DiceCollector:
                 exploration_strategy=self.online_explore_strategy,
                 training_step=training_step,
             )
-        a_norm = torch.clamp(a_total, -1, 1)
-        return a_norm, noise
+        a_exec = torch.clamp(a_total, -1, 1)
+        return a_exec, noise
 
     @torch.no_grad()
     def _unnormalize_and_execute_setup(self, a_norm: torch.Tensor, batch: dict) -> list:

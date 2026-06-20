@@ -141,6 +141,60 @@ class DistilledCritic(nn.Module):
         raise ValueError(f"Unknown conservative method: {self.conservative}")
 
 
+class NoiseHead(nn.Module):
+    """ReinFlow-style learnable, state-conditioned, bounded output noise.
+
+    Maps state -> per-(chunk_step, action_dim) noise scale `sigma_s`, squashed
+    into `[sigma_min, sigma_max]` so it cannot diverge. Used by
+    `DistilledRLModel.get_collection_action` to inject calibrated exploration
+    noise *on top of* the deterministic K=1 student action, restoring the
+    per-state action diversity that the K=1 teacher's noise->action map fails
+    to produce.
+
+    Init: the final Linear is zero'd so the initial pre-sigmoid logit is the
+    bias only; with bias=`initial_logit` (default 0.0), `sigma_s` starts at the
+    midpoint of [sigma_min, sigma_max]. Pass `initial_logit > 0` to start near
+    `sigma_max` (more exploration) or `< 0` to start near `sigma_min`.
+
+    NOT trained in Phase 1 (kept out of the actor optimizer) so the head acts
+    as a state-conditioned but effectively constant noise floor; Phase 2 adds
+    it to the optimizer with -Q + magnitude regularization.
+    """
+
+    def __init__(self, state_dim: int, action_dim: int, horizon_steps: int,
+                 hidden_dim: int = 256, sigma_min: float = 0.01,
+                 sigma_max: float = 0.1, initial_logit: float = 0.0):
+        super().__init__()
+        assert sigma_min > 0 and sigma_max > sigma_min, \
+            f"need 0 < sigma_min < sigma_max, got [{sigma_min}, {sigma_max}]"
+        self.action_dim = action_dim
+        self.horizon_steps = horizon_steps
+        self.sigma_min = float(sigma_min)
+        self.sigma_max = float(sigma_max)
+        out_dim = horizon_steps * action_dim
+        self.mlp = nn.Sequential(
+            nn.Linear(state_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.Mish(),
+            nn.Linear(hidden_dim, out_dim),
+        )
+        # Zero final layer, set bias = initial_logit -> sigma_s starts at
+        # sigma_min + (sigma_max - sigma_min) * sigmoid(initial_logit).
+        last = self.mlp[-1]
+        nn.init.zeros_(last.weight)
+        nn.init.constant_(last.bias, float(initial_logit))
+
+    def forward(self, state: torch.Tensor) -> torch.Tensor:
+        """state: (B, num_enc, hidden) or (B, state_dim). Returns sigma_s
+        of shape (B, horizon_steps, action_dim)."""
+        B = state.shape[0]
+        x = state.reshape(B, -1)
+        logit = self.mlp(x)
+        span = self.sigma_max - self.sigma_min
+        sigma_flat = self.sigma_min + span * torch.sigmoid(logit)
+        return sigma_flat.view(B, self.horizon_steps, self.action_dim)
+
+
 class DistilledRLModel(nn.Module):
     """Residual-RL student that adds an MLP delta on top of a frozen teacher.
 
@@ -180,6 +234,33 @@ class DistilledRLModel(nn.Module):
                  disable_q_loss_for_expert_data: bool = False,
                  disable_td_loss_for_expert_data: bool = False,
                  always_retain_bc_loss_for_expert_data: bool = False,
+                 # ReinFlow-style learnable noise head (Phase 1+).
+                 # When True, get_collection_action samples a_exec = clamp(mu + sigma_s * eps)
+                 # using a state-conditioned bounded sigma_s. The collector stores a_exec into
+                 # replay so the critic learns Q around the noisy action.
+                 use_noise_head: bool = False,
+                 noise_sigma_min: float = 0.01,
+                 noise_sigma_max: float = 0.1,
+                 noise_head_hidden: int = 256,
+                 noise_head_initial_logit: float = 0.0,
+                 # CQL-style conservative penalty on the critic. When > 0, adds
+                 #   cql_weight * ( mean Q(s,z,a_student) - mean Q(s,z,a_data) )
+                 # to critic_loss. Pushes Q DOWN at the policy's own actions, UP at
+                 # data actions; suppresses the monotonic Q-level inflation seen on
+                 # long-horizon DICE runs (hard-8 z-cond probe: Q drifts -0.81->+0.41
+                 # while ||residual||~3e-4). Default 0 -> off.
+                 cql_weight: float = 0.0,
+                 # GRD-style coverage repulsion across the K multi-z action samples.
+                 # DICE's -Q term collapses all K samples onto the Q-argmax (the thin
+                 # noise->action map that kills the max_q gain channel on K=1 drift).
+                 # This adds an isolated SVGD/GRD repulsion kernel that pushes the K
+                 # per-state samples apart; together with -Q it reconstructs an SVGD
+                 # drift update with the LEARNED Q as the energy. repel_weight=0 -> off
+                 # (exact original behaviour). bandwidth = median pairwise distance *
+                 # repel_bandwidth_scale (classic SVGD median heuristic, recomputed per
+                 # step so it self-limits once particles are ~1 bandwidth apart).
+                 repel_weight: float = 0.0,
+                 repel_bandwidth_scale: float = 1.0,
                  # Misc
                  clip_action: bool = False,    # official sim does NOT clamp inside get_action
                  zero_final_layer: bool = False,
@@ -212,6 +293,11 @@ class DistilledRLModel(nn.Module):
         self.disable_q_loss_for_expert_data = disable_q_loss_for_expert_data
         self.disable_td_loss_for_expert_data = disable_td_loss_for_expert_data
         self.always_retain_bc_loss_for_expert_data = always_retain_bc_loss_for_expert_data
+        # CQL conservative penalty weight
+        self.cql_weight = float(cql_weight)
+        # GRD coverage repulsion across multi-z action samples
+        self.repel_weight = float(repel_weight)
+        self.repel_bandwidth_scale = float(repel_bandwidth_scale)
 
         self.actor = DistilledActor(
             state_dim=state_dim, action_dim=action_dim, horizon_steps=horizon_steps,
@@ -235,6 +321,20 @@ class DistilledRLModel(nn.Module):
         self.target_critic.load_state_dict(self.critic.state_dict())
         for p in self.target_critic.parameters():
             p.requires_grad = False
+
+        # ReinFlow-style learnable bounded noise head (collection-side stochasticity).
+        # When `use_noise_head=False` (default) the head is None and the model behaves
+        # exactly as before — protects FM K=10 runs from accidental drift.
+        self.use_noise_head = bool(use_noise_head)
+        if self.use_noise_head:
+            self.noise_head = NoiseHead(
+                state_dim=state_dim, action_dim=action_dim, horizon_steps=horizon_steps,
+                hidden_dim=int(noise_head_hidden),
+                sigma_min=float(noise_sigma_min), sigma_max=float(noise_sigma_max),
+                initial_logit=float(noise_head_initial_logit),
+            ).to(device)
+        else:
+            self.noise_head = None
 
         # teacher_fn(state_unflat (B,num_enc,hidden), noise (B,H,A)) -> a_teacher (B,H,A)
         # Returns the BC FM's deterministic Euler output (already clamped to [-1, 1]).
@@ -266,6 +366,50 @@ class DistilledRLModel(nn.Module):
         if return_pretrained_actions:
             return a_total, a_teacher
         return a_total
+
+    def get_collection_action(self, state: torch.Tensor,
+                              noise: Optional[torch.Tensor] = None):
+        """ReinFlow-style noisy rollout action for the K=1 collapse case.
+
+        Computes mu = a_teacher + residual (the deterministic 1-step action),
+        sigma_s = NoiseHead(state) (bounded in [sigma_min, sigma_max]), and
+        returns the EXECUTED action a_exec = clamp(mu + sigma_s * eps, -1, 1)
+        along with the auxiliaries needed by the collector to fill replay:
+
+            returns dict {
+                "a_exec":  (B, H, A)  -- executed, clamped, what hits the env
+                "mu":      (B, H, A)  -- deterministic action (pre-noise, pre-clamp)
+                "sigma_s": (B, H, A)  -- per-dim noise scale
+                "eps":     (B, H, A)  -- standard-normal draw used
+                "noise":   (B, H, A)  -- input noise z (so the buffer can recompute
+                                       a_teacher + residual later for the actor pass)
+            }
+
+        Requires `use_noise_head=True`; raises otherwise. Runs no_grad — Phase 1
+        does not train the head (it's a per-state bounded floor); Phase 2 will
+        include `self.noise_head.parameters()` in an optimizer and train against
+        -Q(s, a_exec) + magnitude regularizer.
+        """
+        assert self.use_noise_head, "get_collection_action requires use_noise_head=True"
+        assert self._teacher_fn is not None, "call attach_teacher(teacher_fn) first."
+        B = state.shape[0]
+        H, A = self.horizon_steps, self.action_dim
+        if noise is None:
+            noise = torch.randn(B, H, A, device=state.device, dtype=state.dtype)
+        with torch.no_grad():
+            a_teacher = self._teacher_fn(state, noise)
+            residual = self.actor(state, noise)
+            mu = a_teacher + residual
+            sigma_s = self.noise_head(state)
+            eps = torch.randn(B, H, A, device=state.device, dtype=mu.dtype)
+            a_exec = torch.clamp(mu + sigma_s * eps, -1.0, 1.0)
+        return {
+            "a_exec": a_exec,
+            "mu": mu,
+            "sigma_s": sigma_s,
+            "eps": eps,
+            "noise": noise,
+        }
 
     # ------------------------------------------------------------------
     # Q-based exploration (matches official get_exploration_action)
@@ -342,6 +486,40 @@ class DistilledRLModel(nn.Module):
         if q_abs_mean > 1e-8:
             return 1.0 / q_abs_mean
         return None
+
+    @staticmethod
+    def _dispersion_repulsion(actions_samples: torch.Tensor,
+                              bandwidth_scale: float = 1.0, eps: float = 1e-12):
+        """Isolated SVGD/GRD repulsion across the K per-state action samples.
+
+        actions_samples : (B, K, H, A) grad-bearing student actions (K multi-z draws
+                          at the SAME state). Returns (repel_loss, dispersion):
+          repel_loss  : mean off-diagonal RBF kernel overlap in [0,1]; MINIMIZING it
+                        pushes the K samples apart (the SVGD repulsion gradient). The
+                        RBF bandwidth is the per-state median pairwise distance (times
+                        bandwidth_scale), detached and recomputed each call, so the
+                        term self-limits once particles are ~1 bandwidth apart.
+          dispersion  : (no-grad) RMS pairwise distance among the K samples -- the
+                        metric we watch to confirm the noise->action map fattens.
+        """
+        B, K = actions_samples.shape[0], actions_samples.shape[1]
+        a = actions_samples.reshape(B, K, -1)                      # (B, K, D)
+        zero = a.new_zeros(())
+        if K < 2:
+            return zero, zero
+        diff = a.unsqueeze(2) - a.unsqueeze(1)                     # (B, K, K, D)
+        d2 = diff.pow(2).sum(-1)                                   # (B, K, K)
+        eye = torch.eye(K, device=a.device, dtype=a.dtype).unsqueeze(0)
+        offmask = 1.0 - eye
+        denom = B * K * (K - 1)
+        with torch.no_grad():
+            big = d2 + eye * 1e12                                  # mask diagonal for median
+            med = big.reshape(B, -1).median(dim=1).values         # (B,) median pairwise d^2
+            h = (bandwidth_scale * med).clamp_min(eps).view(B, 1, 1)
+            dispersion = ((d2 * offmask).sum() / denom).clamp_min(0).sqrt()
+        k = torch.exp(-d2 / h)                                     # (B, K, K), diag=1
+        repel_loss = (k * offmask).sum() / denom
+        return repel_loss, dispersion
 
     def actor_loss(self, state: torch.Tensor,
                    training_step: int = 0,
@@ -454,6 +632,15 @@ class DistilledRLModel(nn.Module):
 
         total_loss = q_loss + self.bc_loss_weight * filtered_bc_loss
 
+        # ---- GRD coverage repulsion across the K multi-z samples ----
+        # Counteracts the -Q collapse that thins the noise->action map. Always
+        # measure dispersion (cheap, no-grad); only add the gradient term when
+        # repel_weight > 0 so repel_weight=0 is byte-identical to the original.
+        repel_loss, action_dispersion = self._dispersion_repulsion(
+            actions_samples, bandwidth_scale=self.repel_bandwidth_scale)
+        if self.repel_weight > 0.0:
+            total_loss = total_loss + self.repel_weight * repel_loss
+
         with torch.no_grad():
             residual_norm = ((actions_samples - pretrained_actions_samples) ** 2).mean().sqrt()
             avg_q_curr_log = q_current_samples.mean(dim=1, keepdim=True)
@@ -470,6 +657,8 @@ class DistilledRLModel(nn.Module):
             "current_q_mean": avg_q_curr_log.mean(),
             "residual_norm": residual_norm,
             "q_filtering_active": bc_filter.mean() if not in_warmup else torch.tensor(1.0, device=self.device),
+            "repel_loss": repel_loss.detach(),
+            "action_dispersion": action_dispersion.detach(),
         }
 
     def _critic_td_loss(self, q_pred: torch.Tensor, target_q: torch.Tensor,
@@ -502,12 +691,37 @@ class DistilledRLModel(nn.Module):
         if self.disable_td_loss_for_expert_data and data_source is not None:
             online_mask = (data_source == 0).float()  # (B, 1)
         per_q = [self._critic_td_loss(q, target_q, online_mask) for q in qs]
-        total = sum(per_q)
-        out = {"critic_loss": total}
+        td_total = sum(per_q)
+
+        out = {}
         for i, q in enumerate(qs):
             if i < 3:
                 out[f"q{i+1}_loss"] = per_q[i]
             out[f"q{i}_mean"] = q.mean().detach()
+        out["critic_td_loss"] = td_total.detach()
+
+        # CQL-style conservative penalty.
+        # Discriminator probe on hard-8 z-cond run (iter 10 vs iter 40): residual
+        # barely moves (~3e-4) but Q on the same (s,z,a) drifts up by ~1.2; eval
+        # decays from 0.700 -> 0.588. The leak is Q-level inflation, not residual.
+        # Penalty: push Q DOWN at the policy's current action, UP at the data
+        # action. Policy action is computed under no_grad so this term only
+        # gradients into critic params (the actor still gets its -Q signal in
+        # actor_loss). Off when cql_weight == 0.
+        if self.cql_weight > 0.0:
+            with torch.no_grad():
+                a_policy = self.get_action(state, noise)
+            qs_at_policy = self.critic(state, noise, a_policy, return_all=True)
+            q_policy_mean = sum(q.mean() for q in qs_at_policy) / len(qs_at_policy)
+            q_data_mean = sum(q.mean() for q in qs) / len(qs)
+            cql_term = self.cql_weight * (q_policy_mean - q_data_mean)
+            total = td_total + cql_term
+            out["critic_cql_term"] = cql_term.detach()
+            out["critic_q_at_policy"] = q_policy_mean.detach()
+            out["critic_q_at_data"] = q_data_mean.detach()
+        else:
+            total = td_total
+        out["critic_loss"] = total
         return out
 
     # ------------------------------------------------------------------

@@ -97,6 +97,7 @@ class FlowRLCollector:
                     records.append({
                         "cond": rec["cond"], "chain": rec["chain"], "mu_old": rec["mu_old"],
                         "valid": torch.tensor([valid], dtype=torch.float32),
+                        "dec_step": torch.tensor([int(rec["decision_step"])], dtype=torch.long),
                     })
                     group_ids.append(gi)
                     rewards.append(R)
@@ -119,7 +120,8 @@ class FlowRLCollector:
         chain = torch.cat([r["chain"] for r in records], dim=0)
         mu_old = torch.cat([r["mu_old"] for r in records], dim=0)
         valid = torch.cat([r["valid"] for r in records], dim=0)
+        dec_step = torch.cat([r["dec_step"] for r in records], dim=0)
         rewards = torch.cat(rewards, dim=0)
         group_ids = torch.tensor(group_ids, dtype=torch.long)
         return {"cond": cond, "chain": chain, "mu_old": mu_old,
-                "valid": valid, "rewards": rewards, "group_ids": group_ids}
+                "valid": valid, "dec_step": dec_step, "rewards": rewards, "group_ids": group_ids}

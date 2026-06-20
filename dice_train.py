@@ -32,9 +32,19 @@ from imitation.algos.dice.collector import DiceCollector
 OmegaConf.register_new_resolver("eval", eval, replace=True)
 
 
-def _make_student_sample_actions(bc_policy, student_model):
+def _make_student_sample_actions(bc_policy, student_model,
+                                 eval_strategy="single", eval_num_samples=10):
     """Returns a sample_actions(data)->np closure to monkey-patch onto the BC policy so
-    env_runner's existing get_action / _get_action_no_agg path drives the student."""
+    env_runner's existing get_action / _get_action_no_agg path drives the student.
+
+    eval_strategy:
+      "single"  -> one noise draw (original behaviour; residual~0 => ~BC). NOTE: with
+                   a thin noise->action map this CANNOT exploit dispersion.
+      "max_q_min" / "max_q_std" / "max_q_std_filtered_by_min" -> the gain channel:
+                   draw eval_num_samples noise vectors and pick the best by the
+                   Q-ensemble criterion. This is what turns fattened dispersion
+                   (GRD repulsion) into eval success; without it the repulsion fix
+                   is invisible (see project_dice_eval_selection)."""
     @torch.no_grad()
     def sample_actions(data):
         was_training = bc_policy.training
@@ -42,11 +52,18 @@ def _make_student_sample_actions(bc_policy, student_model):
         data = bc_policy.preprocess_input(data, train_mode=False)
         cond = bc_policy.get_cond(data)
         B = cond.shape[0]
-        noise = torch.randn(B, bc_policy.chunk_size, bc_policy.network_action_dim,
-                            device=cond.device, dtype=cond.dtype)
-        # student.get_action returns a_teacher + residual (UNCLAMPED). The env path
-        # needs actions in [-1, 1] so clamp here, at the env boundary.
-        a = torch.clamp(student_model.get_action(cond, noise), -1, 1)
+        if eval_strategy == "single":
+            noise = torch.randn(B, bc_policy.chunk_size, bc_policy.network_action_dim,
+                                device=cond.device, dtype=cond.dtype)
+            a = student_model.get_action(cond, noise)
+        else:
+            # Pass a huge training_step so get_exploration_action skips its warmup
+            # single-sample shortcut and actually runs the max_q selection.
+            a, _ = student_model.get_exploration_action(
+                cond, num_samples=eval_num_samples,
+                exploration_strategy=eval_strategy, training_step=10**9)
+        # student actions are UNCLAMPED; the env path needs [-1, 1] so clamp here.
+        a = torch.clamp(a, -1, 1)
         if was_training:
             bc_policy.train()
         return a.to(torch.float32).cpu().numpy()
@@ -127,6 +144,17 @@ def main(cfg):
         always_retain_bc_loss_for_expert_data=cfg.dice.get("always_retain_bc_loss_for_expert_data", False),
         clip_action=cfg.dice.get("clip_action", True),
         zero_final_layer=cfg.dice.get("zero_final_layer", False),
+        # ReinFlow-style learnable bounded noise head (Phase 1+, opt-in).
+        use_noise_head=cfg.dice.get("use_noise_head", False),
+        noise_sigma_min=cfg.dice.get("noise_sigma_min", 0.01),
+        noise_sigma_max=cfg.dice.get("noise_sigma_max", 0.1),
+        noise_head_hidden=cfg.dice.get("noise_head_hidden", 256),
+        noise_head_initial_logit=cfg.dice.get("noise_head_initial_logit", 0.0),
+        # CQL conservative critic penalty (Step 2): 0 -> off (default).
+        cql_weight=cfg.dice.get("cql_weight", 0.0),
+        # GRD coverage repulsion across multi-z samples (fix thin K=1 drift map): 0 -> off.
+        repel_weight=cfg.dice.get("repel_weight", 0.0),
+        repel_bandwidth_scale=cfg.dice.get("repel_bandwidth_scale", 1.0),
         device=device,
     ).to(device)
     teacher = FMTeacher(bc_policy)
@@ -147,6 +175,8 @@ def main(cfg):
         student.critic.load_state_dict(dice_state["student_critic"])
         if "student_target_critic" in dice_state:
             student.target_critic.load_state_dict(dice_state["student_target_critic"])
+        if student.use_noise_head and "student_noise_head" in dice_state:
+            student.noise_head.load_state_dict(dice_state["student_noise_head"])
         resume_iter = int(dice_state.get("iter", 0))
         resume_training_step = int(dice_state.get("training_step", 0))
         logger.info(f"Resumed DICE student (saved at iter={resume_iter}, "
@@ -177,14 +207,34 @@ def main(cfg):
         n_step=cfg.dice.get("n_step", 1),
         use_rlpd=cfg.dice.get("use_rlpd", False),
         expert_ratio=cfg.dice.get("expert_ratio", 0.5),
-        expert_dataset=None,  # RLPD demo loader hook -- TODO wiring
+        expert_dataset=None,  # attached below when use_rlpd=true
     )
+    # --- RLPD: frozen expert buffer from the BC demos (official always runs this) ---
+    if cfg.dice.get("use_rlpd", False):
+        from imitation.algos.dice.expert_loader import build_expert_buffer
+        replay.expert_dataset = build_expert_buffer(
+            cfg, bc_policy, task_indices, (num_enc, hidden), device, logger=logger)
+
+    # Adaptive expert ratio (official: linear 0.5 -> 0.1 over a fixed step budget).
+    # Counted in OUR gradient steps; pick adaptive_expert_ratio_steps relative to
+    # the run length (official decays over ~7% of its schedule).
+    def expert_ratio_at(step: int) -> float:
+        if not cfg.dice.get("use_rlpd", False):
+            return 0.0
+        if not cfg.dice.get("use_adaptive_expert_ratio", True):
+            return float(cfg.dice.get("expert_ratio", 0.5))
+        start = float(cfg.dice.get("adaptive_expert_ratio_start", 0.5))
+        end = float(cfg.dice.get("adaptive_expert_ratio_end", 0.1))
+        decay = int(cfg.dice.get("adaptive_expert_ratio_steps", 16000))
+        frac = min(1.0, max(0.0, step / max(1, decay)))
+        return start - (start - end) * frac
     collector = DiceCollector(
         env_runner, bc_policy, student, device,
         max_episode_length=cfg.dice.max_episode_length,
         use_teacher_for_collect=False,
         online_explore_strategy=cfg.dice.get("online_explore_strategy", "standard"),
         num_exploration_samples=cfg.dice.get("num_exploration_samples", 10),
+        use_noise_head=cfg.dice.get("use_noise_head", False),
     )
 
     # --- wandb ---
@@ -200,7 +250,10 @@ def main(cfg):
     def evaluate(it):
         student.eval()
         orig_sample = bc_policy.sample_actions
-        bc_policy.sample_actions = _make_student_sample_actions(bc_policy, student)
+        bc_policy.sample_actions = _make_student_sample_actions(
+            bc_policy, student,
+            eval_strategy=cfg.dice.get("eval_strategy", "single"),
+            eval_num_samples=cfg.dice.get("eval_num_samples", 10))
         try:
             res = env_runner.run(bc_policy, n_video=0, do_tqdm=cfg.training.use_tqdm,
                                  env_names=task_names)
@@ -258,8 +311,12 @@ def main(cfg):
         # (b) update -- official-style joint actor+critic loss, with delayed updates
         if len(replay) >= cfg.dice.batch_size:
             actor_losses, critic_losses, bc_losses, q_means, qfilt_active = [], [], [], [], []
+            residual_norms = []
+            dispersions, repel_losses = [], []
+            cql_terms, q_at_policy_list, q_at_data_list = [], [], []
             for gs in range(cfg.dice.gradient_steps):
-                batch = replay.sample(cfg.dice.batch_size)
+                batch = replay.sample(cfg.dice.batch_size,
+                                      expert_ratio=expert_ratio_at(training_step))
 
                 # Q-overestimation = predicted_q - mc_return  (for soft Q-filtering).
                 q_over = None
@@ -314,17 +371,50 @@ def main(cfg):
                 bc_losses.append(float(d["actor_bc_loss"].detach()))
                 q_means.append(float(d["current_q_mean"].detach()))
                 qfilt_active.append(float(d["q_filtering_active"].detach()))
+                residual_norms.append(float(d["residual_norm"].detach()))
+                if "action_dispersion" in d:
+                    dispersions.append(float(d["action_dispersion"].detach()))
+                    repel_losses.append(float(d["repel_loss"].detach()))
+                if "critic_cql_term" in d:
+                    cql_terms.append(float(d["critic_cql_term"]))
+                    q_at_policy_list.append(float(d["critic_q_at_policy"]))
+                    q_at_data_list.append(float(d["critic_q_at_data"]))
 
-            logger.info(f"[iter {it}] update steps={cfg.dice.gradient_steps} "
-                        f"actor={np.mean(actor_losses):.4f} critic={np.mean(critic_losses):.4f} "
-                        f"residual_mse={np.mean(bc_losses):.4f} Q(s,a_student)={np.mean(q_means):.4f} "
-                        f"qfilt_keep={np.mean(qfilt_active):.3f}")
-            wandb.log({"train/actor_loss": float(np.mean(actor_losses)),
-                       "train/critic_loss": float(np.mean(critic_losses)),
-                       "train/residual_mse": float(np.mean(bc_losses)),
-                       "train/q_actor_mean": float(np.mean(q_means)),
-                       "train/q_filtering_active": float(np.mean(qfilt_active)),
-                       "train/training_step": training_step}, step=it)
+            # Step 4 mechanism check: residual_norm RMSE was logged at .4f, which
+            # printed as 0.0000 on un-fixed drift_dice and hid the climb. Bump
+            # precision so we can actually see it, and surface residual_norm next
+            # to critic_loss for the per-iter trend check.
+            log_msg = (f"[iter {it}] update steps={cfg.dice.gradient_steps} "
+                       f"actor={np.mean(actor_losses):.4f} critic={np.mean(critic_losses):.6f} "
+                       f"residual_mse={np.mean(bc_losses):.6f} "
+                       f"residual_norm={np.mean(residual_norms):.4f} "
+                       f"Q(s,a_student)={np.mean(q_means):.4f} "
+                       f"qfilt_keep={np.mean(qfilt_active):.3f}"
+                       + (f" dispersion={np.mean(dispersions):.4f}"
+                          f" repel={np.mean(repel_losses):.4f}" if dispersions else ""))
+            wlog = {"train/actor_loss": float(np.mean(actor_losses)),
+                    "train/critic_loss": float(np.mean(critic_losses)),
+                    "train/residual_mse": float(np.mean(bc_losses)),
+                    "train/residual_norm": float(np.mean(residual_norms)),
+                    "train/q_actor_mean": float(np.mean(q_means)),
+                    "train/q_filtering_active": float(np.mean(qfilt_active)),
+                    "train/expert_ratio": expert_ratio_at(training_step),
+                    "train/training_step": training_step}
+            if dispersions:
+                wlog["train/action_dispersion"] = float(np.mean(dispersions))
+                wlog["train/repel_loss"] = float(np.mean(repel_losses))
+            if cql_terms:
+                # Step 2 mechanism check: surface Q at policy vs Q at data, and the
+                # CQL term itself, so we can see the conservative push working.
+                cql_mean = float(np.mean(cql_terms))
+                qpol_mean = float(np.mean(q_at_policy_list))
+                qdat_mean = float(np.mean(q_at_data_list))
+                log_msg += (f" cql={cql_mean:.6f} q_pol={qpol_mean:.4f} q_data={qdat_mean:.4f}")
+                wlog["train/critic_cql_term"] = cql_mean
+                wlog["train/q_at_policy"] = qpol_mean
+                wlog["train/q_at_data"] = qdat_mean
+            logger.info(log_msg)
+            wandb.log(wlog, step=it)
         else:
             logger.info(f"[iter {it}] skipping update -- replay {len(replay)} < batch_size {cfg.dice.batch_size}")
 
@@ -340,6 +430,8 @@ def main(cfg):
                     "norm_stats": norm_stats,
                     "config": OmegaConf.to_container(cfg, resolve=True),
                     "iter": it, "training_step": training_step}
+            if student.use_noise_head:
+                ckpt["student_noise_head"] = student.noise_head.state_dict()
             utils.save_state(ckpt, os.path.join(save_dir, f"dice_iter_{it:04d}.pth"))
             utils.save_state(ckpt, os.path.join(save_dir, "dice_latest.pth"))
 
