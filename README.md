@@ -1,168 +1,166 @@
-# Imitation
+# RL Fine-Tuning of Flow-Matching Policies on LIBERO
 
-A modular imitation-learning framework and a jumping-off point for IL/RL research.
-It pairs swappable observation encoders with action decoders (ACT, diffusion,
-flow-matching, …) and adds RL fine-tuning of a pretrained flow-matching policy on
-LIBERO.
+A small-policy analog of [SimpleVLA-RL](https://arxiv.org/abs/2509.09674): fine-tune a
+pretrained **flow-matching** (or 1-step **drift**) behavior-cloning policy on LIBERO with
+sparse-reward RL. The base policy is ~18M params and runs on a single GPU, so the RL loop is
+cheap enough to iterate on. Two fine-tuners are provided:
+
+- **DICE-RL** — residual `a = a_teacher + actor(s, z)` over a frozen base, with an ensemble
+  critic, n-step returns, Q-normalization, RLPD expert replay, and a BC trust-region anchor.
+- **GRPO** (SimpleVLA-RL flavor) — critic-free, group-relative advantage from rollouts that
+  share an init state, with per-denoising-step PPO clipping.
+
+Built on the [`imitation`](#framework) IL framework (ACT / DP / flow-matching / BAKU encoders,
+Hydra-configured). See [`DEVLOG.md`](DEVLOG.md) for experiment notes and results.
+
+## Quickstart
+
+```bash
+# install (uv) + LIBERO; see Setup for details
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync
+
+# fine-tune a flow-matching BC checkpoint on LIBERO task 32 with DICE-RL
+uv run dice_train.py cold_start_checkpoint=/path/to/bc.pth 'task_indices=[32]'
+
+# ...or with GRPO
+uv run rl_train.py cold_start_checkpoint=/path/to/bc.pth 'task_indices=[32]'
+```
+
+Both load a frozen-encoder BC checkpoint (`cold_start_checkpoint`) — train one with the base
+framework (see [Framework](#framework)) or supply your own. The reward is LIBERO's sparse binary
+terminal success.
+
+## Method
+
+Both fine-tuners start from a frozen-encoder BC policy and update only the action decoder.
+
+**Stochastic sampler (for GRPO).** A deterministic flow sampler has no log-prob, so the Euler
+integrator is made stochastic (ReinFlow/DPPO style): at each of the `K` denoising steps,
+`x_{k+1} = μ_k + σ·√dt·ε`, giving a tractable per-step Gaussian log-prob. The per-step PPO
+log-ratio uses the squared-error difference `(‖x_{k+1}−μ_old‖² − ‖x_{k+1}−μ_new‖²)/(2σ²dt)`
+(the Gaussian constant cancels), clipped for stability.
+
+**GRPO advantage.** A *group* is `G ≥ 8` rollouts from the **same** init state; the advantage is
+the centered (optionally std-normalized) binary return — so an all-success or all-fail group
+contributes no signal, and mixed groups drive the update. Critic-free.
+
+**DICE-RL.** A zero-initialized residual head (exact BC recovery at init) is added to the frozen
+teacher action; an ensemble critic with n-step returns and Q-normalization scores actions, a soft
+Q-filter gates self-imitation, and a `bc_loss_weight` anchor keeps the residual on-manifold.
+Optional RLPD mixes the run's BC demos into replay. (Ported from
+[real-stanford/dice-rl](https://github.com/real-stanford/dice-rl).)
+
+**Drift = 1-step flow.** The drifting policy is the `num_inference_steps=1` case of the
+flow-matching policy; pass `algo.num_inference_steps=1` to either trainer to fine-tune it.
+
+## RL fine-tuning
+
+| | DICE-RL | GRPO |
+|---|---|---|
+| entrypoint | `dice_train.py` | `rl_train.py` |
+| config | `config/dice_train.yaml` | `config/rl_train.yaml` |
+| algo | `imitation/algos/dice/` | `imitation/algos/rl/` |
+| critic | ensemble Q | none (group-relative) |
+
+Common overrides (Hydra):
+
+```bash
+uv run dice_train.py \
+  cold_start_checkpoint=/path/to/bc.pth \
+  'task_indices=[32]' \            # one or more LIBERO-90 task indices
+  algo.num_inference_steps=1 \     # 1 = drift policy, 10 = flow-matching
+  dice.use_rlpd=true \             # mix this run's BC demos into replay
+  dice.bc_loss_weight=10 \         # residual trust-region anchor
+  dice.n_iters=50
+
+uv run rl_train.py \
+  cold_start_checkpoint=/path/to/bc.pth \
+  'task_indices=[32]' \
+  rl.group_size=8 rl.inits_per_iter=4 \  # GRPO group / #groups per iter
+  rl.target_kl=0.03 rl.lr=1e-6 \
+  rl.n_iters=100
+```
+
+Checkpoints from both trainers share the BC checkpoint schema (config baked in), so they load
+back through the standard eval path with no extra flags.
 
 ## Setup
 
-This project uses [uv](https://github.com/astral-sh/uv) for dependency management.
+Uses [uv](https://github.com/astral-sh/uv) for dependency management.
 
 ```bash
-# 1. install uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# 2. clone + sync the environment
-git clone https://github.com/yourusername/imitation.git
-cd imitation
+git clone https://github.com/yourusername/imitation.git && cd imitation
 uv sync
 ```
 
-Point-cloud support additionally needs DGL (see the [DGL install guide](https://www.dgl.ai/pages/start.html)):
-
-```bash
-uv pip install dgl -f https://data.dgl.ai/wheels/torch-2.4/cu124/repo.html
-```
-
-### Optional simulators
-
-<details>
-<summary><b>LIBERO</b> (required for the RL experiments below)</summary>
+LIBERO is required for the RL experiments (it predates `pyproject.toml`, so copy ours in):
 
 ```bash
 cd .. && git clone https://github.com/Lifelong-Robot-Learning/LIBERO.git && cd imitation
-cp imitation/envs/libero/pyproject.toml ../LIBERO/   # LIBERO predates pyproject
+cp imitation/envs/libero/pyproject.toml ../LIBERO/
 uv pip install -e ../LIBERO
 ```
-</details>
 
 <details>
-<summary><b>MimicGen</b></summary>
+<summary>Optional: point clouds (DGL), MimicGen, DexMimicGen</summary>
 
 ```bash
+# point-cloud encoders (DP3 / iDP3)
+uv pip install dgl -f https://data.dgl.ai/wheels/torch-2.4/cu124/repo.html
+
+# MimicGen
 cd .. && git clone https://github.com/NVlabs/mimicgen.git && cd imitation
-cp imitation/envs/mimicgen/pyproject.toml ../mimicgen/
-uv pip install -e ../mimicgen
+cp imitation/envs/mimicgen/pyproject.toml ../mimicgen/ && uv pip install -e ../mimicgen
 ```
+
+DexMimicGen needs a separate conda env (incompatible robosuite); comment out every line in its
+`requirements.txt` first, then install robosuite v1.5.1 / robosuite_models / dexmimicgen from
+source plus `mink==0.0.10` and `qpsolvers[quadprog]`.
 </details>
-
-<details>
-<summary><b>DexMimicGen</b> (separate conda env — incompatible robosuite version)</summary>
-
-DexMimicGen needs a different robosuite, so install it in its own env. First comment out
-every line in the cloned repo's `requirements.txt` (do not skip this), then:
-
-```bash
-cd .. && git clone https://github.com/NVlabs/dexmimicgen.git
-conda create -n imitation-dmg python=3.10 -y && conda activate imitation-dmg
-git clone -b v1.5.1 https://github.com/ARISE-Initiative/robosuite.git && pip install -e robosuite/
-git clone https://github.com/ARISE-Initiative/robosuite_models.git && pip install -e robosuite_models/
-pip install -e dexmimicgen/
-pip install mink==0.0.10 'qpsolvers[quadprog]'
-```
-</details>
-
-## Hydra
-
-This repo leans heavily on [Hydra](https://hydra.cc/docs/intro/). Every object is built
-through `hydra.utils.instantiate`, so a checkpoint stores the full config needed to rebuild
-the policy — read the Hydra docs before making substantial changes.
 
 ## Data
-
-### LIBERO
 
 ```bash
 uv run scripts/download_libero.py                          # → data/libero/libero_90_unprocessed
 uv run scripts/process_libero_data.py task=libero_90_data  # → repo training format
 ```
 
-The code assumes data lives under `data/` in the repo root; symlink if you store it elsewhere.
+Data is assumed to live under `data/` in the repo root; symlink if you store it elsewhere.
 
-### MimicGen
+## Results
 
-Download per the [MimicGen instructions](https://mimicgen.github.io/docs/datasets/mimicgen_corl_2023.html)
-into `data/mimicgen/core`, then add absolute actions / depth / calibration (slow, hours):
+See [`DEVLOG.md`](DEVLOG.md) for the full experiment log. Headlines:
 
-```bash
-uv run scripts/process_mimicgen.py \
-  --hdf5_path data/mimicgen/core/task_dx.hdf5 \
-  --output_dir data/mimicgen/core_depth/task_dx.hdf5 --depth
-```
+- **RL gain is inverted-U in demo count** — it peaks in the partial-success band (BC ≈ 30–60%)
+  and vanishes at both the few-demo extreme (no successful groups → no GRPO signal) and the
+  saturated extreme. "RL replaces demos" does not hold uniformly.
+- **GRPO beats DICE-RL on the 1-step drift policy**, which is over-dispersed per state; DICE-RL
+  is the stronger choice on the multi-step (K=10) flow-matching policy.
+- Multi-task BC on LIBERO-90 saturates near **~91%** for both policies, so the hard-task subset
+  is where the RL methods actually separate.
 
-## Training (BC)
+These are directional unless stated as powered evals (≥100 rollouts × 3 seeds); see the log.
 
-```bash
-uv run train.py --config-name=train.yaml \
-  task=libero algo=diffusion_policy algo/encoder=rgb algo.chunk_size=8
-```
+## Framework
 
-Swap `algo` (`act`, `baku`, `fm_policy`, …) and `algo/encoder` (`rgb`, `rgbd`, `dp3`, `idp3`, …)
-to change the policy / observation stack. Use `--config-name=train_debug.yaml` for a debug run
-(TQDM on, WandB off, unique run dir).
-
-`exp_name` / `variant_name` organize runs: `exp_name` groups an experiment, `variant_name`
-identifies one parameter configuration (e.g. group seeds of one config under a shared
-`variant_name`). Training auto-checkpoints each epoch (resume by rerunning the same command)
-and keeps a non-overwritten checkpoint every 10 epochs.
-
-## Evaluation
-
-Policy build params are saved in the checkpoint, so eval only needs the task and the path:
+This repo extends a modular IL framework: a policy = swappable observation encoder + action
+decoder, all built through Hydra `instantiate` (so a checkpoint stores everything needed to
+rebuild and evaluate it). Train a BC base policy and evaluate it with:
 
 ```bash
-uv run evaluate.py task=mimicgen task.task_name=coffee_d1 checkpoint_path=[path]
+# train a flow-matching BC policy (the RL cold-start)
+uv run train.py --config-name=train.yaml task=libero algo=fm_policy_S algo.chunk_size=16
+
+# evaluate any checkpoint (build params are restored from the .pth)
+uv run evaluate.py task=libero checkpoint_path=/path/to/ckpt.pth
 ```
 
-Use `export_videos.py` instead of `evaluate.py` to dump rollout videos. Override saved params
-with `+overrides.<key>=<val>` (e.g. `+overrides.temporal_agg=false`). For generalization tests:
-`task.robot={UR5e,Kinova3,IIWA}` (unseen embodiment) or `task.cam_shift={small,medium,large}`
-(unseen viewpoint).
-
-## RL fine-tuning
-
-Two trainers fine-tune a frozen-encoder flow-matching (or 1-step drift) BC checkpoint on
-LIBERO's sparse binary success reward. Both load a BC `cold_start_checkpoint` and freeze the
-encoder. The drifting policy is treated as a 1-step flow (`algo.num_inference_steps=1`).
-
-**DICE-RL** — residual `a = a_teacher + actor(s, z)` with an ensemble critic, n-step returns,
-Q-normalization, optional RLPD expert replay, and a BC trust-region anchor:
-
-```bash
-uv run dice_train.py cold_start_checkpoint=[bc.pth] 'task_indices=[32]'
-```
-
-**GRPO / SimpleVLA-RL** — critic-free, group-relative advantage over G rollouts from a shared
-init state, with per-denoising-step PPO clipping (a stochastic noised-Euler sampler supplies the
-log-probs):
-
-```bash
-uv run rl_train.py cold_start_checkpoint=[bc.pth] 'task_indices=[32]'
-```
-
-Configs: `config/dice_train.yaml`, `config/rl_train.yaml`. See `DEVLOG.md` for experiment notes.
-
-## Design notes
-
-**Hydra everywhere.** `instantiate` makes every object rebuildable from a dict: all params show
-up in WandB, and eval only needs the checkpoint path.
-
-**Modular policies.** A policy = observation encoder + action decoder. The encoder turns
-observations into perception/proprioception tokens (declaring count and dim); any decoder
-(ACT, DP, FM, …) conditions on arbitrary token sequences, so encoders and decoders mix freely.
-
-**Action representations.** Action keys and dims are declared in the shape meta (unimanual
-order: pos, rot, gripper). A `preprocess_actions` hook runs *before* normalization-statistic
-computation, so arbitrary action transforms get correct stats for free. Postprocessing is split
-into pre- and post-temporal-aggregation stages (e.g. EECF→world before aggregation; axis-angle
-conversion after) to keep aggregation in a consistent, continuous frame.
-
-## TODOs
-
-- [ ] Better logging
-- [ ] Unify HDF5 loading across LIBERO, MimicGen, DexMimicGen
-- [ ] Zarr datasets
+Swap `algo` (`act`, `baku`, `diffusion_policy`, `fm_policy`, …) and `algo/encoder`
+(`rgb`, `rgbd`, `dp3`, `idp3`, …) to change the policy / observation stack; use
+`export_videos.py` for rollout videos and `--config-name=train_debug.yaml` for a debug run.
+Read the [Hydra docs](https://hydra.cc/docs/intro/) before making substantial changes.
 
 ## License
 
