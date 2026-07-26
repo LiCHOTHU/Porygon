@@ -5,16 +5,17 @@ is structurally awkward: their likelihoods are intractable, ruling out
 policy-gradient ratios, and backpropagating a learned critic through the
 policy ties the size of every update to the magnitude of the critic's
 action-gradient --- a channel through which an overfit critic drives the
-policy off the data manifold. We show in a controlled two-regime experiment
-that this failure is catastrophic precisely when critic data is scarce
-relative to action dimension, that behavior-cloning penalties do not
-prevent it, and that it disappears when the update is expressed as bounded
-particle transport instead of a backpropagated loss. Building on this, we
+policy off the data manifold. In a controlled two-regime experiment, we show that this failure is
+catastrophic precisely when critic data is scarce relative to the action
+dimension, and that behavior-cloning penalties do not prevent it. It
+disappears when the update is instead expressed as bounded particle
+transport. Building on this, we
 propose \method{}: reinforcement fine-tuning of a one-step drifting policy
-with the same field-target regression primitive that pretrained it. A
-frozen base proposes action particles; a residual head is regressed onto
-targets displaced by a clipped critic-gradient reward field and a
-restoring anchor field, yielding a pointwise trust region in action space.
+with the same field-target regression primitive that pretrained it. A frozen base proposes action
+particles; a residual head is regressed onto targets displaced by two
+velocity fields --- a clipped critic-gradient reward field and a restoring
+anchor. The clip acts pointwise in action space, so the policy can move
+only a bounded distance per update no matter how wrong the critic is.
 On robomimic, \method{} lifts a drifting base from $0.877$ to $0.99$ (can,
 surpassing the flow-matching + DICE-RL pipeline at $0.957$) and to
 $0.92$--$0.94$ (square), and ablations over lower-resolution reward fields (top-$k$,

@@ -64,7 +64,20 @@ T: tilted field           & 0.961 & 0.952 & 0.945 & 0.596 & 0.593 & 0.568 \\
 \end{tabular}
 \end{table}
 
-\Cref{tab:robomimic} gives the per-seed results. On can, \method{} reaches
+\begin{figure}[t]
+  \centering
+  \figplaceholder{4.2cm}{\textbf{[Figure reserved: robomimic training
+  curves.]} Success rate vs.\ training steps on square (left) and can
+  (right), mean $\pm$ range over 3 seeds: \method{} climbs past $0.9$ on
+  square while A plateaus and C/T flatline near $0.6$; 300-episode
+  evaluations every 1K steps. Data logged; plot to be generated from the
+  harness eval logs once the matched-budget baselines finish.}
+  \caption{robomimic learning curves. \todo{generate from eval logs}}
+  \label{fig:curves}
+\end{figure}
+
+\Cref{tab:robomimic} gives the per-seed results, and \cref{fig:curves}
+the corresponding learning curves. On can, \method{} reaches
 $0.97$--$0.99$ from a base at $0.877$, above both the backpropagated control
 on the same base ($0.950$) and the flow-matching pipeline ($0.957$) --- a
 weaker base plus a safer update overtakes a stronger base plus the standard
@@ -115,14 +128,40 @@ hard-8 mean & --- & --- & --- & --- \\
 \end{tabular}
 \end{table}
 
-\todo{Fill \cref{tab:libero} and write the compression analysis when the
-chains reach iteration 100 and powered evals complete. Include the guarded
-BC-filter interaction.}
+\begin{figure}[t]
+  \centering
+  \figplaceholder{3.6cm}{\textbf{[Figure reserved: hard-8 per-task
+  breakdown.]} Grouped bars, one group per LIBERO task, one bar per method
+  (BC base / A / FM+DICE / \method{} / C / T), powered evaluations with
+  95\% intervals --- shows \emph{where} the dial compresses, not just the
+  mean.}
+  \caption{LIBERO hard-8 per-task results. \todo{runs in progress}}
+  \label{fig:libero-pertask}
+\end{figure}
+
+\todo{Fill \cref{tab:libero}, \cref{fig:libero-pertask}, and the
+compression analysis when the chains reach iteration 100 and powered evals
+complete. Include the guarded BC-filter interaction.}
 
 \subsection{Ablations: which component pays where}
 \label{sec:exp-ablation}
 
-\todo{Four ablations, one table each once runs complete:
+\begin{figure}[t]
+  \centering
+  \figplaceholder{3.6cm}{\textbf{[Figure reserved: two ablation panels.]}
+  Left --- \emph{stability window}: final square success vs.\ reward step
+  $\eta_Q$ for \method{} and for the backpropagated control (A + gradient
+  clipping); the claim is a wide flat optimum for the field form vs.\ a
+  narrow peak for backpropagation. Right --- \emph{dispersion retention}:
+  action dispersion and best-of-$N$ curve before/after fine-tuning for
+  \method{} vs.\ A.}
+  \caption{Ablations: where the trust region and update form pay.
+  \todo{runs in progress}}
+  \label{fig:ablations}
+\end{figure}
+
+\todo{Four ablations (plots reserved in \cref{fig:ablations}), one table
+each once runs complete:
 (i) \textbf{trust-region locus} --- control A + parameter-space gradient
 clipping vs.\ B's action-space clip at equal effective step (isolates the
 central claim);

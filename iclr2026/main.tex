@@ -18,6 +18,8 @@
 
 % --- draft convenience macros ---
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+% Reserved space for a figure/plot not yet generated: \figplaceholder{height}{description}
+\newcommand{\figplaceholder}[2]{\fbox{\parbox[c][#1][c]{0.96\linewidth}{\centering\small\color{gray}#2}}}
 \newcommand{\method}{Porygon}  % working method name; rename in one place
 
 % Title alternatives:

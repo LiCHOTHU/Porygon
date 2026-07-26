@@ -9,12 +9,27 @@ Reward shaping, trust region, and anchoring are all expressed as fields
 in action space; no likelihood is ever required, and no critic gradient
 is ever backpropagated into the actor.
 
+\begin{figure}[t]
+  \centering
+  \figplaceholder{4.5cm}{\textbf{[Figure reserved: method overview.]}
+  Left: the frozen base $\pi_0$ maps noise particles $z_i$ to a cloud of
+  actions; the residual $r_\theta$ shifts them. Middle: the three velocity
+  fields at each particle --- clipped critic gradient $V_Q$ (with the top-$k$
+  / tilted alternatives inset), dead-zone anchor $V_{\mathrm{anc}}$ --- and
+  the total-motion clip $\delta_{\mathrm{tot}}$. Right: the regression of
+  $r_\theta$ onto the displaced targets; the same schematic as drifting
+  pretraining with one extra field. To be drawn (TikZ or Figma).}
+  \caption{\method{} overview: reinforcement fine-tuning as one more velocity
+  field in the pretraining transport. \todo{draw}}
+  \label{fig:method}
+\end{figure}
+
 \subsection{The field-target update}
 \label{sec:field-update}
 
-At each update, for a state batch we draw $K$ noise particles per state
-and form the current actions $a_i = \pi_0(s, z_i) + r_\theta(s, z_i)$
-(detached). Each particle is displaced by a combined velocity,
+One update works as follows. For each state in the batch we draw $K$
+noise samples and form the current action particles
+$a_i = \pi_0(s, z_i) + r_\theta(s, z_i)$, treated as constants (detached). Each particle is displaced by a combined velocity,
 \begin{equation}
   \tilde{r}_i \;=\; \mathrm{sg}\!\left[\, r_i
      \;+\; \operatorname{clip}_{\delta_Q}\!\big(V_Q(s, z_i, a_i)\big)

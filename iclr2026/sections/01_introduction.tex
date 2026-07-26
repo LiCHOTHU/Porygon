@@ -13,11 +13,11 @@ their demonstrations, and the natural next step is reinforcement-learning
 fine-tuning with sparse task reward. That step, however, is structurally
 awkward for exactly this policy class.
 
-The two standard fine-tuning routes both break. Likelihood-ratio methods
-(PPO/GRPO-style) require $\log\pi(a\mid s)$, which a one-step noise-to-action
-map does not expose; the chain-MDP reformulations that rescue multi-step
-diffusion policies \citep{ren2024dppo} have no analog when there is only
-one step. The remaining route --- learn a critic and backpropagate $-Q$
+The two standard fine-tuning routes both break on this policy class.
+Likelihood-ratio methods (PPO/GRPO-style) need $\log\pi(a\mid s)$, and a
+one-step noise-to-action map simply does not expose it; the chain-MDP
+reformulations that rescue multi-step diffusion policies
+\citep{ren2024dppo} have no analog when there is only one step. The remaining route --- learn a critic and backpropagate $-Q$
 through the actor, as the state-of-the-art residual fine-tuner DICE-RL
 \citep{dicerl2026} does --- silently ties the size of every policy update
 to the magnitude of the critic's action-gradient. A learned critic is
@@ -25,9 +25,9 @@ trained to rank actions near its data; its gradient field off-manifold is
 unconstrained \citep{fujimoto2018td3,savo2025}. In a controlled toy
 (\cref{sec:toy}), this failure is total: with high-dimensional actions and
 scarce critic data, the backpropagated update drives true reward to zero
-while its internal $Q$-estimate rises by four orders of magnitude --- and a
-BC penalty does not save it, because a loss-space penalty must out-shout an
-unbounded gradient. Yet in the complementary regime, where the critic
+while its internal $Q$-estimate rises by four orders of magnitude. Adding a
+BC penalty does not save it --- a penalty in the loss must out-shout an
+unbounded gradient, and loses. Yet in the complementary regime, where the critic
 generalizes, the same gradient is the \emph{best} available signal and
 value-only alternatives waste it. A useful update rule must be safe in the
 first regime without discarding the gradient in the second.

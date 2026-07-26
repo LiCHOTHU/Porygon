@@ -52,13 +52,13 @@ standard update --- backpropagate $-Q$ through the actor, as in DDPG
 lineage methods and in DICE-RL's residual actor \citep{dicerl2026} ---
 couples the \emph{size} of the policy update to the \emph{magnitude} of
 the critic's action-gradient: $\nabla_\theta \mathbb{E}[-Q] =
--\nabla_a Q \cdot \partial a / \partial \theta$. A learned critic is
-only trained to \emph{rank} actions near the data manifold; nothing
-constrains its gradient field off-manifold, where it can be both steep
-and wrong \citep{fujimoto2018td3,fujimoto2019bcq,savo2025}. A
-steep-but-wrong gradient therefore marches the policy off the data
-manifold at maximum speed --- the better the critic looks to the
-optimizer, the worse the true policy becomes.
+-\nabla_a Q \cdot \partial a / \partial \theta$. But a learned critic is
+trained only to \emph{rank} actions near its data. Off-manifold, its
+gradient field is unconstrained --- and can be steep and wrong at the same
+time \citep{fujimoto2018td3,fujimoto2019bcq,savo2025}. A steep, wrong
+gradient marches the policy off the data manifold at maximum speed: the
+better the critic looks to the optimizer, the worse the true policy
+becomes.
 
 \subsection{A two-regime toy experiment}
 \label{sec:toy}
