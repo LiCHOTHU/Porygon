@@ -33,7 +33,8 @@ OmegaConf.register_new_resolver("eval", eval, replace=True)
 
 
 def _make_student_sample_actions(bc_policy, student_model,
-                                 eval_strategy="single", eval_num_samples=10):
+                                 eval_strategy="single", eval_num_samples=10,
+                                 det_base=False, base_seed=0):
     """Returns a sample_actions(data)->np closure to monkey-patch onto the BC policy so
     env_runner's existing get_action / _get_action_no_agg path drives the student.
 
@@ -44,7 +45,24 @@ def _make_student_sample_actions(bc_policy, student_model,
                    draw eval_num_samples noise vectors and pick the best by the
                    Q-ensemble criterion. This is what turns fattened dispersion
                    (GRD repulsion) into eval success; without it the repulsion fix
-                   is invisible (see project_dice_eval_selection)."""
+                   is invisible (see project_dice_eval_selection).
+
+    det_base (for eval_strategy="single" only): integrate the FM base from a FIXED
+      seeded noise (same draw every decision and every episode) instead of resampling
+      torch.randn each step. Mirrors act_sim's FrozenImitationBase._fixed_noise. Since
+      the learned residual is inert (~0.003), the base trajectory IS the policy, so a
+      consistent good base beats re-rolling the noise lottery each chunk. This is the
+      deploy fix that lifts DICE to act_sim parity at K=1 (see
+      project_residual_inert_critic_blind). No effect on max_q_* strategies."""
+    _fixed = {}  # cache: (device,dtype) -> (1, chunk, A) fixed base noise
+    def _fixed_noise(B, device, dtype):
+        key = (str(device), str(dtype))
+        if key not in _fixed:
+            g = torch.Generator(device="cpu").manual_seed(int(base_seed))
+            n = torch.randn(1, bc_policy.chunk_size, bc_policy.network_action_dim,
+                            generator=g)
+            _fixed[key] = n.to(device=device, dtype=dtype)
+        return _fixed[key].expand(B, -1, -1).clone()
     @torch.no_grad()
     def sample_actions(data):
         was_training = bc_policy.training
@@ -53,8 +71,11 @@ def _make_student_sample_actions(bc_policy, student_model,
         cond = bc_policy.get_cond(data)
         B = cond.shape[0]
         if eval_strategy == "single":
-            noise = torch.randn(B, bc_policy.chunk_size, bc_policy.network_action_dim,
-                                device=cond.device, dtype=cond.dtype)
+            if det_base:
+                noise = _fixed_noise(B, cond.device, cond.dtype)
+            else:
+                noise = torch.randn(B, bc_policy.chunk_size, bc_policy.network_action_dim,
+                                    device=cond.device, dtype=cond.dtype)
             a = student_model.get_action(cond, noise)
         else:
             # Pass a huge training_step so get_exploration_action skips its warmup
@@ -144,6 +165,9 @@ def main(cfg):
         always_retain_bc_loss_for_expert_data=cfg.dice.get("always_retain_bc_loss_for_expert_data", False),
         clip_action=cfg.dice.get("clip_action", True),
         zero_final_layer=cfg.dice.get("zero_final_layer", False),
+        # DAWN layernorm knobs (defaults = historical behaviour, LN on everywhere).
+        actor_layernorm=cfg.dice.get("actor_layernorm", True),
+        critic_layernorm=cfg.dice.get("critic_layernorm", True),
         # ReinFlow-style learnable bounded noise head (Phase 1+, opt-in).
         use_noise_head=cfg.dice.get("use_noise_head", False),
         noise_sigma_min=cfg.dice.get("noise_sigma_min", 0.01),
@@ -155,6 +179,17 @@ def main(cfg):
         # GRD coverage repulsion across multi-z samples (fix thin K=1 drift map): 0 -> off.
         repel_weight=cfg.dice.get("repel_weight", 0.0),
         repel_bandwidth_scale=cfg.dice.get("repel_bandwidth_scale", 1.0),
+        # DFP actor mode (critic-ranked top-K drift). actor_mode="residual" -> original DICE.
+        actor_mode=cfg.dice.get("actor_mode", "residual"),
+        dfp_n_samples=cfg.dice.get("dfp_n_samples", 32),
+        dfp_top_k=cfg.dice.get("dfp_top_k", 4),
+        dfp_gen=cfg.dice.get("dfp_gen", 8),
+        dfp_alpha_target=cfg.dice.get("dfp_alpha_target", 1.0),
+        dfp_q_weight=cfg.dice.get("dfp_q_weight", 1.0),
+        dfp_lam_rep=cfg.dice.get("dfp_lam_rep", 1.0),
+        # Two-field residual actor (actor_mode in {field_pointwise, field_distributional}).
+        field_cfg=(OmegaConf.to_container(cfg.dice.field, resolve=True)
+                   if cfg.dice.get("field", None) is not None else None),
         device=device,
     ).to(device)
     teacher = FMTeacher(bc_policy)
@@ -253,7 +288,9 @@ def main(cfg):
         bc_policy.sample_actions = _make_student_sample_actions(
             bc_policy, student,
             eval_strategy=cfg.dice.get("eval_strategy", "single"),
-            eval_num_samples=cfg.dice.get("eval_num_samples", 10))
+            eval_num_samples=cfg.dice.get("eval_num_samples", 10),
+            det_base=cfg.dice.get("det_base", False),
+            base_seed=cfg.dice.get("base_seed", 0))
         try:
             res = env_runner.run(bc_policy, n_video=0, do_tqdm=cfg.training.use_tqdm,
                                  env_names=task_names)

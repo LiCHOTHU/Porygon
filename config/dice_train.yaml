@@ -43,6 +43,10 @@ dice:
   lcb_kappa: 0.1
   td_loss: mse                        # official robomimic config: mse (also supports huber|bce)
   zero_final_layer: true              # LIBERO opt-in: residual exactly 0 at iter 0
+  # DAWN (arXiv 2602.10539) layernorm knobs; true/true = historical behaviour.
+  # DAWN: critic LN is the scale-mismatch fix (keep true); actor LN can degrade (try false).
+  actor_layernorm: true
+  critic_layernorm: true
 
   # Loss coefficients.
   bc_loss_weight: 100.0        # official README recommends 50-100
@@ -140,12 +144,56 @@ dice:
   repel_weight: 0.0
   repel_bandwidth_scale: 1.0   # RBF bandwidth = median pairwise dist * this
 
+  # ---- DFP actor mode (Drifting Field Policy, github.com/KAIST-Visual-AI-Group/DFP) ----
+  # actor_mode="dfp" replaces DICE's residual (-Q + bc-anchor) actor with DFP's
+  # critic-RANKED top-K drift: sample dfp_n_samples candidate actions from the current
+  # policy, score with the critic, keep the top dfp_top_k by Q, then drift the policy's
+  # particles toward those top-K (improvement) + the per-noise teacher action (trust
+  # region, weight dfp_alpha_target), plus a direct -Q term (weight dfp_q_weight). The
+  # ranking improvement signal is robust to the loose K=1-drift Q surface that pinned the
+  # gradient-based residual. Reuses the multi-scale drift_loss from algos/rl/grd.py.
+  # The critic/replay/RLPD/eval path is unchanged. actor_mode="residual" -> original DICE.
+  actor_mode: residual         # residual | dfp | field_pointwise | field_distributional
+  dfp_n_samples: 32            # N candidates sampled & critic-ranked per state
+  dfp_top_k: 4                 # a: keep top-K by Q as drift attractors (improvement)
+  dfp_gen: 8                   # b: grad-bearing particles drifted per state
+  dfp_alpha_target: 1.0        # weight on the teacher/BC drift anchor (trust region)
+  dfp_q_weight: 1.0            # weight on the direct -Q term on fresh particles
+  dfp_lam_rep: 1.0             # own-particle coverage repulsion inside drift_loss
+
+  # Two-field residual actor update (actor_mode=field_pointwise | field_distributional).
+  # target r_i = sg[ r_i + q_step*V_Q + bc_step*V_BC ];  L = ||r_theta - target||^2.
+  #   V_Q : q_source="grad" -> grad_a of the matched conservative q-normalized scalar;
+  #         q_source="zeroth" -> drift toward top-K-by-Q candidates (survives flat critic).
+  #   V_BC: field_distributional -> raw (un-normalized) restoring drift toward frozen-BC
+  #         particles (vanishes at BC); field_pointwise -> -r (reproduces lambda||r||^2).
+  # Replaces -Q + BC anchor in these modes (do NOT double-apply). Validate with
+  #   scripts/test_field_equivalence.py (cos==1) before training.
+  field:
+    q_source: grad             # grad | zeroth
+    num_particles: 16          # K particles per state (default num_multi_z)
+    num_bc_particles: 16       # independent frozen-BC particles for V_BC
+    q_step_size: 0.01          # eta_Q
+    bc_step_size: 0.01         # eta_BC
+    q_max_norm: 1.0            # per-particle clip on V_Q
+    total_max_norm: 1.0        # per-particle clip on (q_delta + bc_delta)
+    radii: [0.02, 0.05, 0.2]   # drift multi-scale (matches the BC drift base)
+    topk: 4                    # top-K-by-Q for q_source=zeroth
+
   # In-loop eval action selection. "single" = one noise draw (~BC; CANNOT exploit
   # dispersion). A max_q_* strategy draws eval_num_samples noise vectors and keeps
   # the best by the Q-ensemble -- the gain channel that turns fattened dispersion
   # into eval success. Use max_q_min when testing the repulsion fix.
   eval_strategy: single        # single | max_q_min | max_q_std | max_q_std_filtered_by_min
   eval_num_samples: 10
+  # Deterministic base noise for eval_strategy="single": integrate the FM base from one
+  # FIXED seeded draw every decision (mirrors act_sim's FrozenImitationBase). The learned
+  # residual is inert (~0.003) so the base IS the policy; a consistent good base beats
+  # re-rolling noise each chunk. THIS is the deploy fix for act_sim parity at K=1
+  # (worst-3 FM: 0.667 random -> 0.810 det-base, > act_sim 0.780). No effect on max_q_*.
+  # See project_residual_inert_critic_blind.
+  det_base: true               # true = fixed seeded base (the fix); false = legacy resample
+  base_seed: 0                 # seed for the fixed base draw (act_sim uses 0)
 
 # Consumed by env_runner interpolation (used for eval).
 rollout:

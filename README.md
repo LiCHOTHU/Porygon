@@ -129,6 +129,33 @@ uv run scripts/process_libero_data.py task=libero_90_data  # → repo training f
 
 Data is assumed to live under `data/` in the repo root; symlink if you store it elsewhere.
 
+## Experiment plan — hard-8 baseline comparison
+
+Full comparison on the 8 hardest LIBERO-90 tasks `[8,21,32,53,65,73,75,81]`, multitask bases
+(FM BC 0.744 / drift BC 0.637), official DICE budget (100 iters × 32 ep × 800 grad steps),
+scored by powered eval (100 rollouts × 3 eval seeds). Launcher:
+`scripts/rl_hard8_dice_tier1.sbatch <FM|DRIFT> <hard|guarded> <SEED>`.
+
+Note on filter naming: the paper's Eq. 6 filter (**guarded**: drop the BC anchor where the
+critic endorses the edit *and* is not overestimating vs. the MC return) maps to
+`use_soft_q_filtering=true`; our **hard** variant keeps only the advantage condition; the
+officially *released* configs ship the filter disabled entirely — which is the no-filter
+baseline row, and the setting all pre-2026-07 runs unknowingly used.
+
+**Tier 1 — method arms (running):**
+
+| arm | base × seeds | status |
+|---|---|---|
+| DICE, hard filter | FM+drift × {10000,10001,10002} | seed 10000 mid-run; +2 seeds launched 2026-07-06 |
+| DICE, guarded filter (paper Eq. 6) | FM+drift × {10000,10001,10002} | launched 2026-07-06 |
+
+**Tier 2 — baselines:** BC (done); no-filter DICE = released-default (pre-fix RLPD runs, needs
+matched re-eval); GRPO FM+drift (checkpoints exist, matched re-eval); plain residual RL
+(ResFit/act_sim-style, to launch); DSRL (not implemented — decide vs. citing their LIBERO curve).
+
+**Tier 3 — analysis:** K ∈ {1,4,16} on drift; best-of-N off; finetunability metrics
+(GoodCov/BadCov/BadEnt) for FM vs drift bases (local GPU).
+
 ## Results
 
 See [`DEVLOG.md`](DEVLOG.md) for the full experiment log. Headlines:
@@ -161,6 +188,25 @@ Swap `algo` (`act`, `baku`, `diffusion_policy`, `fm_policy`, …) and `algo/enco
 (`rgb`, `rgbd`, `dp3`, `idp3`, …) to change the policy / observation stack; use
 `export_videos.py` for rollout videos and `--config-name=train_debug.yaml` for a debug run.
 Read the [Hydra docs](https://hydra.cc/docs/intro/) before making substantial changes.
+
+### Repository layout
+
+```
+train.py / dice_train.py / rl_train.py   entry points: BC pretraining, DICE/field RL, GRPO RL
+evaluate.py / eval_libero_bc.py          checkpoint evaluation (robomimic-style / LIBERO BC)
+imitation/                               the framework: algos (dice/, rl/), encoders, envs, datasets
+  algos/dice/distill_rl.py              residual DICE-RL trainer (actor modes: residual, dfp, field_*)
+  algos/dice/drift_field.py             V_Q / V_BC field construction for the field actor update
+config/                                  Hydra configs (config/dice_train.yaml = RL fine-tuning)
+scripts/                                 active launchers, evals, tests, and utilities
+  field_hard8_drift.sbatch              ABCT hard-8 chains (resume-capable)
+  eval_hard8_tier1.sbatch + powered_eval.py   powered evaluation
+  test_*.py, smoke_*.py, verify_*.py    field/trainer unit and smoke tests
+  toy_field_vs_gradient*.py             two-regime toy demo (paper Fig. 1)
+  archive/                              one-off scripts from concluded studies (untracked)
+```
+
+Data, checkpoints, and logs live outside the repo (scratch/cedar); `data/` holds symlinks only.
 
 ## License
 

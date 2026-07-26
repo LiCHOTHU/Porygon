@@ -640,3 +640,115 @@ restore group variance — is one we have NOT built. That is the clean novelty t
 Caveat: LP-DS (`2606.01151` / "ICML 2026") and one intersection source (`2602.01789`) have
 forward-dated-looking arXiv ids; content was verified against fetched HTML but verify the
 metadata before formal citation.
+
+## 2026-07-24 — Toy flaw→fix demo: critic-as-compass vs drift-field update
+
+Context: first fair Porygon runs (field update vs plain-residual control on the same
+drift base) show the control ahead on robomimic (can 0.950 vs C 0.906; square 0.740
+vs C 0.527, B 0.651; 300-ep evals at matched steps) and no separation yet on hard-8
+at ~half budget. To sharpen the motivation ("what flaw forces the field update?"),
+ran a verified 3-agent literature sweep (notes in memory: reference_motivation_citations)
+and built a toy that tests the central claim directly.
+
+### Toy setup (`scripts/toy_field_vs_gradient{,2}.py` + sbatch; jobs 11436183/11436429)
+2-mode bandit (modes at ±e1, true reward 1.0 / 0.6, ~0 off-manifold); critic = MLP
+regressed on true reward at ON-MANIFOLD samples only (extrapolation error is real,
+per BCQ); base = one-step z→a generator pretrained with the kernel-drift operator
+(miniature drifting model). Same base, same critic, same 1500 updates for every arm:
+- GRAD_free: maximize Q(g(z)) by backprop through the critic (DDPG-style compass)
+- GRAD_bc:   + ||g−g_base||² anchor (control-A in miniature)
+- FIELD_tilted / FIELD_topk: faithful Porygon-C update — V_Q (softmax(adv/τ)-tilted
+  self-attraction, or top-4-of-64) + V_BC (attraction to frozen-base samples) +
+  λ=1 restore, total clip; critic only EVALUATED at sampled actions.
+Two regimes: EASY (2-D actions, 200 critic pts) and HARD (16-D actions, 60 critic
+pts, overfit critic; real chunked actions are 28-D). 3 seeds. Outputs in
+`$CEDAR/toy_field_demo2/` (toy2_results.json, curve pngs).
+
+### Results (3-seed means; true = actual reward of policy samples)
+EASY: GRAD_free 0.793, GRAD_bc 0.770 > FIELD_tilted 0.530 > base 0.496; FIELD_topk
+0.414. Critic generalizes ⇒ no flaw ⇒ compass legitimately wins (mirrors robomimic).
+HARD: GRAD_free true 0.000, Q→28,892 (gap +28,892), 100% off-manifold, dispersion
+8112. **GRAD_bc ALSO 0.000** (gap +6.4, 99% off-manifold) — the BC anchor rescales
+the poison but the direction still comes from the hallucinated gradient.
+FIELD_tilted holds 0.614 (base 0.647), 0% off-manifold, gap −0.09, dispersion and
+best-of-16 channel preserved (0.767). FIELD_topk safe too (0.487).
+
+### Reading
+1. The critic-exploitation flaw (TD3 feedback loop / BCQ extrapolation error) is
+   real and regime-dependent: it detonates with high-dim actions + scarce critic
+   data, and the standard BC-anchor fix does NOT save the gradient update there.
+2. The field update is structurally immune (no-destroy): it only moves toward
+   actions it has sampled and evaluated, so off-manifold hallucinations cannot
+   attract it. Caveat: in the hard regime it held base performance but did not
+   improve it — the toy proves safety, not superiority.
+3. v1 negative result (kept, `toy_field_demo/`): without V_BC the field itself
+   inflates off-manifold (41%) via kernel self-repulsion — V_BC + restore are the
+   method's stability contract, not hyperparameters (miniature of the robomimic
+   residual-runaway we fixed with restore_step_size).
+4. tilted > topk in both regimes — supports the T_tilted arms in the square sweep
+   (jobs 11434848-51) and the "reward-tilted self-drift = MPO/AWR tilt executed by
+   the pretraining operator" framing.
+
+Paper use: Figure-1 candidate ("when the critic can only judge, don't hand it a
+compass"). Open obligation: show a real-task instance of the hard-critic regime
+(K=1 drift on hard-8, where ∇ₐQ measured degenerate, is the candidate) — otherwise
+the field update is insurance the easy-critic benchmarks don't need.
+
+## 2026-07-25 — Porygon field-update: can target HIT, square lead at matched budget, tilted leads hard-8
+
+Winner recipe from the 21-arm square sweep (Jul-24): `actor_mode=field_pointwise
+q_source=grad q_step_size=0.5 total_max_norm=0.15 restore_step_size=1.0` on the
+one-step drifting base ("Porygon-B"). All numbers 300-ep evals, last-3 averages.
+
+### robomimic can — TARGET HIT (goal: reach FM-DICE 0.957)
+| arm | success |
+|---|---|
+| drift base (no RL) | 0.877 |
+| control A (plain residual DICE) | 0.950 |
+| FM + DICE-RL (baseline-to-beat) | 0.957 |
+| **Porygon-B s42** | **0.988** (@20K) |
+| **Porygon-B s44** | **0.966** (@18K) |
+| Porygon-B s43 | 0.913 @6K (preempted mid-climb, rerunning) |
+| Porygon-B gentle (q0.3) | 0.943 @9K |
+
+### robomimic square — leads at matched 18-20K budget
+Porygon-B s42 0.905 avg / 0.923 final @20K vs matched-budget control A s44
+**0.839 @18K (plateaued)** and FM best 0.857 @11K. FM never approaches 0.9 in
+any seed/budget observed. Seed confirms: s43 0.810@11K tracking s42's curve
+(s42 was 0.810@9K → 0.923@20K); s44 restarted after preemption. Cgrad hybrid
+(distributional + grad) climbing 0.740@7K. wide256 base: 20-ep pretrain evals
+(0.65) were noise — 300-ep step-1K readout ≈ original base; RL curve 0.793@9K.
+
+### LIBERO hard-8 — tilted (soft-Q) arm takes first-ever field lead
+Ported `q_source=tilted` (softmax(adv/τ)-weighted self-attraction, τ=1) into
+imitation repo; V100 smoke: tilted ||V_Q||=0.089 = 26× grad (0.0034), 3× zeroth
+on the real action-blind critic. First results (20-ep evals, ±11pp, ~iter 50):
+T_gf_s10000 **0.781** vs FM-DICE 0.757, control A ~0.69, B/C/Cgf 0.65-0.72.
+Noisy but the first time any field arm leads on hard-8 — and it is exactly the
+weak-critic regime where the toy predicts soft-Q transport should win.
+
+### Emerging paper story
+One method (field update on the drifting base) with a Q-source dial set by
+critic quality: analytic grad where the critic generalizes (robomimic), tilted
+where it can only rank (hard-8). Toy two-regime demo = Fig-1 mechanism.
+Embers preemption storm Fri night killed 15 jobs; all relaunched Sat morning
+(hard-8 resumes via dice_latest.pth; official-repo runs restart fresh).
+
+## 2026-07-25 (afternoon) — Local H100 tuning of the tilted (T) update
+
+Ran the ASAP local tuning on the login-node H100 against the REAL mid-training
+hard-8 tilted checkpoint (`tune_tilted_local.py` field-stats sweep +
+`tune_tilted_local2.py` 300-step mini-trains, family recipe q_step 0.5 / clip 0.15).
+
+- **q_temp**: ESS of the softmax attractors — 0.1→1.3 (top-1 collapse), 0.3→2.0,
+  1.0→7.1/16 (informative band), ≥3→uniform (field vanishes, ‖V_Q‖ 0.31→0.05).
+  Mini-train τ=0.5 vs 1.0 within noise → **keep q_temp=1.0** everywhere.
+- **restore (decisive)**: full restore 1.0 without dead-zone ERASES the learned
+  residual on hard-8 (ΔQ<0, res_rms 0.006→0.002) — weak hard-8 Q-fields can't
+  outpull it, unlike robomimic ∇Q. restore 1.0 + **dead-zone radius 0.05** →
+  ΔQ>0 with residual bounded at healthy size. restore 0.1 gives max ΔQ but 4×
+  residual growth = critic-exploitation channel → rejected on principle.
+- Ported `restore_step_size`/`restore_radius` into imitation `field_actor_loss`
+  (was official-repo-only); smoke OK. Tuned hard-8 arms B2/C2/T2 relaunched with
+  `restore_radius=0.05` as jobs 11477990-99. Robomimic tab jobs stay at radius 0
+  (B's winning validated recipe there; per-benchmark uniformity preserved).

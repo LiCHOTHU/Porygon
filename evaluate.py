@@ -12,7 +12,10 @@ import torch
 import torch.nn as nn
 import imitation.utils.utils as utils
 from pyinstrument import Profiler
-from moviepy import ImageSequenceClip
+try:
+    from moviepy import ImageSequenceClip  # moviepy >= 2.x
+except ImportError:
+    from moviepy.editor import ImageSequenceClip  # moviepy 1.x
 import json
 from PIL import Image
 import numpy as np

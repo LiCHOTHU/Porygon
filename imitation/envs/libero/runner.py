@@ -28,6 +28,7 @@ class LiberoRunner():
                  debug=False,
                  task_embedding_format='clip',
                  test_inference_time=False,
+                 init_offset=0,
                  ):
         self.env_factory = env_factory
         self.benchmark = benchmark
@@ -47,8 +48,11 @@ class LiberoRunner():
                 multiprocessing.set_start_method("spawn", force=True)
         self.max_episode_length = max_episode_length
         self.fps = fps
-        
-    def run(self, 
+        # offset into the init-state pool: lets disjoint eval windows be carved
+        # out (e.g. search inits [0,R) vs held-out validation inits [R,2R)).
+        self.init_offset = int(init_offset)
+
+    def run(self,
             policy, 
             n_video=0, 
             do_tqdm=False, 
@@ -147,7 +151,8 @@ class LiberoRunner():
         eval_loop_num = (self.rollouts_per_env+self.num_parallel_envs - 1) // self.num_parallel_envs
 
         while count < eval_loop_num:
-            indices = np.arange(count * env_num, (count + 1) * env_num) % all_init_states.shape[0]
+            indices = (np.arange(count * env_num, (count + 1) * env_num)
+                       + self.init_offset) % all_init_states.shape[0]
             init_states_ = all_init_states[indices]
             # breakpoint()
             try:
