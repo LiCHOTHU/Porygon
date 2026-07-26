@@ -1,10 +1,22 @@
-% ~150-200 words. Claim structure (pending final framing decision):
-% one-step drifting policies are trained by field-target regression; existing RL
-% fine-tuners abandon that primitive (likelihood-based PG is inapplicable;
-% backprop-through-critic invites critic exploitation). We fine-tune with the SAME
-% primitive: residual update r <- sg[r + eta_Q V_Q + eta_BC V_BC], with a native
-% action-space trust region. V_Q is a dial: analytic grad-Q where the critic
-% generalizes; value-only (top-k / exp-tilted) transport where it can only rank.
-% Results: robomimic can 0.99 / square 0.92-0.94 (> FM+DICE-RL baseline), LIBERO
-% hard-8 competitive; ablations map when each Q-source wins.
-\todo{Write abstract after framing decision (B-as-method vs.\ hybrid-anchor version).}
+% Keep to one paragraph, ~180 words. Refresh numbers when final endpoints land.
+One-step generative policies distill multimodal demonstration data into a
+single network evaluation, but fine-tuning them with reinforcement learning
+is structurally awkward: their likelihoods are intractable, ruling out
+policy-gradient ratios, and backpropagating a learned critic through the
+policy ties the size of every update to the magnitude of the critic's
+action-gradient --- a channel through which an overfit critic drives the
+policy off the data manifold. We show in a controlled two-regime experiment
+that this failure is catastrophic precisely when critic data is scarce
+relative to action dimension, that behavior-cloning penalties do not
+prevent it, and that it disappears when the update is expressed as bounded
+particle transport instead of a backpropagated loss. Building on this, we
+propose \method{}: reinforcement fine-tuning of a one-step drifting policy
+with the same field-target regression primitive that pretrained it. A
+frozen base proposes action particles; a residual head is regressed onto
+targets displaced by a clipped critic-gradient reward field and a
+restoring anchor field, yielding a pointwise trust region in action space.
+On robomimic, \method{} lifts a drifting base from $0.877$ to $0.99$ (can)
+and to $0.92$--$0.94$ (square), surpassing the flow-matching + DICE-RL
+pipeline, and ablations over lower-resolution reward fields (top-$k$,
+exponentially tilted) map exactly when the critic's gradient --- versus
+only its ranking --- should be trusted.

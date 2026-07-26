@@ -1,11 +1,59 @@
-% Buckets (citation map verified 2026-07; see reference_motivation_citations):
-% 1. RL fine-tuning of generative policies: DICE-RL (arXiv 2603.10263), SimpleVLA-RL,
-%    DSRL, DPPO-style diffusion PG; likelihood intractability for one-step models.
-% 2. Drifting / one-step generative policies; DFP (arXiv 2605.07727) = RL on a
-%    drifting base — differentiate: DFP ranks with the critic inside a drift loss;
-%    we unify BOTH reward and anchor as velocity fields with an explicit trust region.
-% 3. Residual RL: ResFit/act_sim, DAWN (warmup buffer + critic LayerNorm) — DAWN is
-%    the strong residual baseline.
-% 4. Critic exploitation / conservatism: CQL etc.; diversity collapse in RL-finetuned
-%    generators; tilted-distribution transport precedents (AWR-style exp weighting).
-\todo{Related work.}
+% Citation map verified 2026-07-24 (all arXiv IDs resolve); keys in iclr2026_conference.bib.
+
+\paragraph{RL fine-tuning of generative robot policies.}
+Policy-gradient fine-tuning of vision-language-action models with sparse task
+reward is now standard for autoregressive token policies
+\citep{simplevlarl}, but transfers poorly to continuous generative heads:
+likelihood ratios are intractable for diffusion and flow policies, and
+workarounds either reformulate the denoising chain as an MDP
+\citep{ren2024dppo,black2023ddpo} --- a construction with no analog for
+one-step generators --- or avoid likelihoods entirely
+\citep{park2025fql,reinflow2025,parl2024}. Closest to our setting, DICE-RL
+\citep{dicerl2026} fine-tunes a frozen one-step distillation of a
+flow-matching policy by training a residual head with a backpropagated
+critic and a filtered BC anchor; it is our primary baseline and the
+\emph{control} for our actor-update ablation, since we keep its critic,
+residual parameterization, and data pipeline unchanged.
+
+\paragraph{Critic-as-compass versus critic-as-judge.}
+That a learned $Q$-function's action-gradient cannot be trusted is a
+recurring diagnosis: overestimation and narrow spurious peaks in TD3
+\citep{fujimoto2018td3}, extrapolation error in BCQ
+\citep{fujimoto2019bcq}, and spurious local optima that make
+sample-and-select beat gradient ascent \citep{savo2025}. One response
+treats the critic only as a \emph{judge}: weighted regression and
+sample-based improvement (AWR, CRR, MPO, IDQL, QT-Opt)
+\citep{peng2019awr,wang2020crr,abdolmaleki2018mpo,hansenestruch2023idql,kalashnikov2018qtopt}
+tilt the policy toward $\pi \cdot \exp(Q/\tau)$ using only $Q$-values.
+Our method spans this spectrum rather than picking a side: the update
+\emph{form} is judge-safe (bounded transport toward targets), while the
+reward field inside it can still be the analytic gradient where it is
+trustworthy --- and our ablations map exactly when each choice wins.
+
+\paragraph{Particle transport as a policy update.}
+Regressing a sampler onto displaced particles is the amortized-SVGD idea
+of Soft Q-Learning \citep{haarnoja2017sql}, with kernel repulsion
+preserving diversity as in SVPG \citep{liu2017svpg}; drifting models
+\citep{deng2026drifting} make the same operator the \emph{pretraining}
+objective of a one-step generator. Drifting Field Policy
+\citep{dfp2026} is the closest prior method: it also performs RL on a
+drifting backbone by drifting fresh policy samples toward
+critic-ranked top-$K$ candidates. \method{} differs in three ways: we
+update a \emph{residual on a frozen base} rather than the full policy,
+we transport with an explicit pointwise trust region and a restoring
+anchor field (the stability contract our toy shows is load-bearing),
+and our reward field is a dial --- including the analytic
+$\nabla_a Q$ source that dominates when the critic generalizes ---
+rather than a fixed ranking surrogate.
+
+\paragraph{Residual RL and staying on-manifold.}
+Learning a residual on a frozen base is a long-standing recipe for
+sample-efficient robot RL; DAWN \citep{dawn2026} identifies the value
+cold-start and scale pathologies of residual critics that we also
+observe. The off-manifold drift our toy exhibits is the mechanism
+behind over-optimization and mode collapse in RL-finetuned generators
+\citep{black2023ddpo,fan2023dpok,nakamoto2023calql}, and forgetting in
+RL-finetuned language models is likewise governed by divergence from
+the base \citep{rlrazor2025} --- which cannot even be measured without
+likelihoods, reinforcing update rules whose step size is bounded in
+\emph{action} space by construction.

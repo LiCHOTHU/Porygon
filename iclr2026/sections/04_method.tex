@@ -1,16 +1,131 @@
-% 4.1 Field-target actor update (the primitive):
-%     r <- sg[ r + eta_Q * clip(V_Q) + eta_BC * V_BC ],  L = ||r_theta - target||^2
-%     - clipping = pointwise trust region in action space (policy moves <= delta
-%       per update regardless of critic gradient magnitude); Q-normalized step.
-%     - restore anchor with dead-zone radius (no damping inside trust radius).
-% 4.2 The Q-source dial (this is the ABCT ablation axis):
-%     grad:   V_Q = grad_a Q / q_scale (first-order; needs trustworthy gradients)
-%     zeroth: kernel drift toward top-k-by-Q particles (needs only ranking)
-%     tilted: all particles attract with softmax(adv/tau)*K weights (soft version)
-% 4.3 Anchor field V_BC: pointwise (-r) vs distributional (kernel drift toward
-%     frozen-BC particle cloud). [Hybrid distributional+grad cell pending.]
-% 4.4 Equivalence & mechanism: small-step unclipped limit recovers the DICE actor
-%     direction; the difference IS the action-space trust region + target form.
-%     Two-regime toy analysis -> when value-only transport is necessary.
-% Algorithm box: one update of actor/critic (critic unchanged from DICE).
-\todo{Method. Pull the math from our derivation notes; keep V_Q source-agnostic.}
+% Method = arm B (field_pointwise + q_source=grad) as the headline;
+% zeroth/tilted presented as dial instantiations evaluated in the ablation.
+% Code refs: imitation/algos/dice/drift_field.py, distill_rl.py:field_actor_loss.
+
+\method{} fine-tunes the residual head of \cref{eq:residual} with the
+same primitive that pretrained the base: \emph{move samples along a
+velocity field, then regress the network onto the moved targets}.
+Reward shaping, trust region, and anchoring are all expressed as fields
+in action space; no likelihood is ever required, and no critic gradient
+is ever backpropagated into the actor.
+
+\subsection{The field-target update}
+\label{sec:field-update}
+
+At each update, for a state batch we draw $K$ noise particles per state
+and form the current actions $a_i = \pi_0(s, z_i) + r_\theta(s, z_i)$
+(detached). Each particle is displaced by a combined velocity,
+\begin{equation}
+  \tilde{r}_i \;=\; \mathrm{sg}\!\left[\, r_i
+     \;+\; \operatorname{clip}_{\delta_Q}\!\big(V_Q(s, z_i, a_i)\big)
+     \;+\; V_{\mathrm{anc}}(r_i) \,\right],
+  \qquad
+  \mathcal{L}_{\mathrm{actor}}
+  = \frac{1}{K}\sum_i \big\| r_\theta(s, z_i) - \tilde{r}_i \big\|^2 ,
+  \label{eq:update}
+\end{equation}
+where $\mathrm{sg}[\cdot]$ is stop-gradient and
+$\operatorname{clip}_{\delta}(v) = v \cdot \min(1, \delta / \|v\|)$
+rescales a field vector to norm at most $\delta$. The total
+displacement applied to any particle is additionally clipped to
+$\delta_{\mathrm{tot}}$. Because the target is built from detached
+quantities, \cref{eq:update} trains only the residual head; the critic
+(\cref{sec:critic}) is trained independently.
+
+\paragraph{A pointwise trust region in action space.}
+The clip in \cref{eq:update} is the load-bearing difference from
+backpropagation. Under $\mathcal{L} = \mathbb{E}[-Q]$, the actor's step
+scales with $\|\nabla_a Q\|$ --- the critic-exploitation channel of
+\cref{sec:failure-modes}. Under \cref{eq:update}, the \emph{policy}
+(not the parameters) provably moves at most
+$\delta_{\mathrm{tot}}$ per update at every particle, regardless of how
+steep or pathological the critic is. Gradient clipping in parameter
+space provides no such guarantee. This is what allows \method{} to run
+aggressive reward steps ($\eta_Q = 0.5$) that destabilize the
+backpropagated control (\cref{sec:experiments}).
+
+\subsection{The reward field $V_Q$}
+\label{sec:reward-field}
+
+The default (and headline) reward field is the normalized critic
+gradient evaluated at each particle,
+\begin{equation}
+  V_Q^{\mathrm{grad}}(s, z, a)
+  \;=\; \eta_Q \, \frac{\nabla_a \bar{Q}_\phi(s, z, a)}{q_{\mathrm{scale}}},
+  \qquad q_{\mathrm{scale}} = \mathbb{E}\big[\,|\bar{Q}_\phi|\,\big],
+  \label{eq:vq-grad}
+\end{equation}
+where $\bar{Q}_\phi$ is the conservative ensemble aggregate. This is
+deliberately the \emph{same scalar} the DICE-RL actor optimizes: in the
+small-step, unclipped limit, minimizing \cref{eq:update} recovers the
+backpropagated update direction exactly (\cref{prop:equiv}), so any
+performance difference is attributable to the update form --- the
+action-space trust region and target regression --- not to a different
+reward signal.
+
+Because $V_Q$ enters \cref{eq:update} only as a velocity, the critic
+can be consumed at \emph{lower resolution} when its gradients are not
+trustworthy, using only $Q$-values:
+\begin{itemize}
+  \item \textbf{zeroth-order (top-$k$):} rank the $K$ particles by
+  $Q$ and set $V_Q = \mathcal{V}(a \mid \text{top-}k \text{ particles},
+  \text{all particles})$ --- the pretraining kernel transport toward
+  the critic's preferred candidates;
+  \item \textbf{tilted:} let every particle attract with weight
+  $K\cdot\mathrm{softmax}_i(\mathrm{adv}_i/\tau)$, transporting the
+  cloud toward its own $\exp(Q/\tau)$-tilted density, the canonical
+  improvement target of \citet{peng2019awr,abdolmaleki2018mpo}.
+\end{itemize}
+These are not competing methods but settings of a dial --- how much of
+the critic's local structure the update trusts: full first-order
+information, ranking only, or soft value weights. \Cref{sec:experiments}
+maps the regimes: the gradient source dominates wherever the critic
+generalizes, while the value-only sources close the gap precisely in
+the weak-critic regime predicted by \cref{sec:toy}.
+
+\subsection{The anchor field}
+\label{sec:anchor}
+
+The kernel reward fields vanish beyond their largest radius and the
+gradient field carries no notion of the data manifold, so
+\cref{eq:update} alone would let the residual random-walk. The anchor
+is a \emph{restoring} field with a dead zone,
+\begin{equation}
+  V_{\mathrm{anc}}(r) \;=\; -\,\eta_{\mathrm{anc}}
+  \left(1 - \frac{\rho}{\|r\|}\right)_{\!+} r ,
+  \label{eq:anchor}
+\end{equation}
+which is inert inside the trust radius $\rho$ and pulls back only the
+excess residual norm beyond it. Unlike a $\lambda\|r\|^2$ penalty ---
+which competes with an unbounded gradient and loses
+(\cref{sec:toy}) --- \cref{eq:anchor} composes with the clipped reward
+field as a velocity, so the equilibrium residual scale is set
+geometrically ($\|r\| \approx \rho + \delta_Q/\eta_{\mathrm{anc}}$)
+rather than by a loss-weight arms race. Setting $\rho = 0$ recovers the
+pointwise pull $-\eta_{\mathrm{anc}} r$, whose fixed point reproduces
+the DICE-RL anchor; the dead zone matters exactly when the reward field
+is weak (\cref{sec:experiments}, LIBERO).
+
+\subsection{Relation to the backpropagated actor; critic}
+\label{sec:critic}
+
+\begin{proposition}[Small-step equivalence]
+\label{prop:equiv}
+At the current parameters, the gradient of \cref{eq:update} is
+$\nabla_\theta \mathcal{L}_{\mathrm{actor}} \propto
+-\big(\operatorname{clip}_{\delta_Q}(V_Q) + V_{\mathrm{anc}}\big)^{\!\top}
+\partial r_\theta / \partial \theta$. With
+$V_Q = V_Q^{\mathrm{grad}}$, no clipping
+($\delta_Q, \delta_{\mathrm{tot}} \to \infty$) and $\rho = 0$, this is
+the DICE-RL residual actor gradient with anchor weight
+$\eta_{\mathrm{anc}}$.
+\end{proposition}
+
+\method{} is therefore a strict generalization of its control: the new
+degrees of freedom are the pointwise action-space clip, the dead-zone
+anchor, and the resolution dial on $V_Q$ --- each of which we ablate.
+The critic is unchanged from DICE-RL: ensemble TD with a CQL-style
+penalty pushing $Q$ down at policy actions and up at data actions;
+field construction never leaks gradients into the critic
+(gradients w.r.t.\ actions only). \todo{Algorithm box: one joint update
+(sample particles, build fields, regress actor, TD step critic).}

@@ -1,3 +1,17 @@
-\todo{Conclusion + limitations (hard-8 not yet ahead of FM-DICE; single-embodiment
-sim benchmarks; critic quality diagnosis is post-hoc — future work: choose the
-Q-source online from critic trust signals).}
+We showed that the natural update primitives for RL fine-tuning of one-step
+generative policies --- likelihood ratios and backpropagated critics --- are
+respectively unavailable and unsafe, and that the policy class's own
+pretraining primitive, field-target regression, provides the missing update
+rule. \method{} expresses reward, trust region, and anchoring as composable
+velocity fields over action particles, provably bounds policy movement
+pointwise in action space, and recovers the backpropagated direction in the
+small-step limit. On robomimic it lifts a drifting base past the stronger
+flow-matching + DICE-RL pipeline; a controlled toy and a weak-critic
+benchmark map when the critic's gradient, ranking, or soft values should
+drive the field.
+
+\textbf{Limitations.} On the weak-critic benchmark \method{} is competitive
+with, but not yet ahead of, the flow-matching pipeline \todo{update when
+final}; our critic-trust diagnosis is post hoc --- choosing the reward-field
+resolution online from critic trust signals is the natural next step; and
+all results are state-based simulation benchmarks on a single embodiment.

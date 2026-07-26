@@ -1,14 +1,78 @@
-% Outline:
-% P1  One-step generative policies (drifting models) for control: fast, multimodal.
-% P2  The fine-tuning gap: PG needs log-likelihoods (intractable for one-step
-%     generators); DICE-style backprop-through-critic couples step size to critic
-%     gradient magnitude -> critic exploitation (cite surveys; our toy Fig.1).
-% P3  Key idea: reuse the pretraining primitive. Drifting pretraining = regress
-%     onto field-transported targets; RL = add a reward velocity field V_Q to the
-%     anchor field V_BC. Trust region lives in ACTION space, not parameter space.
-% P4  The Q-source dial: grad / top-k / tilted; when each wins (two-regime story).
-% P5  Contributions (3 bullets): (i) unified field-target RL update for one-step
-%     policies, (ii) Q-source ablation + diagnosis of critic-trust regimes,
-%     (iii) SOTA-level robomimic results from a drifting base + hard-8 study.
-% Fig 1: toy two-regime demo (compass dies under hard critic; field survives).
-\todo{Introduction.}
+% P1 one-step policies -> P2 the fine-tuning gap -> P3 toy/flaw -> P4 key idea
+% -> P5 dial + results -> contributions.
+
+One-step generative policies are an appealing endpoint for imitation
+learning: a drifting model \citep{deng2026drifting} distills a
+multimodal demonstration distribution into a single network evaluation,
+giving diffusion-quality action distributions at deployment-friendly
+cost. Like any behavior-cloned policy, they plateau at the quality of
+their demonstrations, and the natural next step is reinforcement-learning
+fine-tuning with sparse task reward. That step, however, is structurally
+awkward for exactly this policy class.
+
+The two standard fine-tuning routes both break. Likelihood-ratio methods
+(PPO/GRPO-style) require $\log\pi(a\mid s)$, which a one-step noise-to-action
+map does not expose; the chain-MDP reformulations that rescue multi-step
+diffusion policies \citep{ren2024dppo} have no analog when there is only
+one step. The remaining route --- learn a critic and backpropagate $-Q$
+through the actor, as the state-of-the-art residual fine-tuner DICE-RL
+\citep{dicerl2026} does --- silently ties the size of every policy update
+to the magnitude of the critic's action-gradient. A learned critic is
+trained to rank actions near its data; its gradient field off-manifold is
+unconstrained \citep{fujimoto2018td3,savo2025}. In a controlled toy
+(\cref{sec:toy}), this failure is total: with high-dimensional actions and
+scarce critic data, the backpropagated update drives true reward to zero
+while its internal $Q$-estimate rises by four orders of magnitude --- and a
+BC penalty does not save it, because a loss-space penalty must out-shout an
+unbounded gradient. Yet in the complementary regime, where the critic
+generalizes, the same gradient is the \emph{best} available signal and
+value-only alternatives waste it. A useful update rule must be safe in the
+first regime without discarding the gradient in the second.
+
+Our observation is that the policy class itself already contains the right
+update primitive. A drifting model is \emph{pretrained} by field-target
+regression: transport samples along a velocity field, regress the network
+onto the transported targets. \method{} fine-tunes with the very same
+primitive. A frozen base proposes action particles through a residual head;
+reward enters as a velocity field $V_Q$ --- by default the normalized critic
+gradient --- which is \emph{clipped pointwise in action space} and combined
+with a restoring anchor field before the residual is regressed onto the
+displaced targets. The trust region thus lives where the damage occurs: the
+policy provably moves at most $\delta$ per update at every particle,
+regardless of critic pathology, a guarantee parameter-space gradient
+clipping cannot give. No likelihood is ever needed, and in the small-step
+limit the update provably recovers the backpropagated direction
+(\cref{prop:equiv}) --- the safety is free.
+
+Because reward enters only as a field, the critic can also be consumed at
+lower resolution when its gradients cannot be trusted: transport toward
+critic-ranked top-$k$ particles, or toward the cloud's own
+$\exp(Q/\tau)$-tilted density. Our experiments treat this as an explicit
+dial and map its regimes. On robomimic, where the critic generalizes, the
+gradient-field method dominates: from a drifting base at $0.877$ (can) /
+$\sim\!0.60$ (square), \method{} reaches $0.99$ on can and $0.92$--$0.94$
+on square across seeds --- above the flow-matching + DICE-RL
+state-of-the-art pipeline ($0.957$ / $0.86$--$0.90$) --- while the
+value-only sources trail far behind ($\sim\!0.6$ on square). On the eight
+hardest LIBERO-90 tasks, where the critic is weaker, the ordering
+compresses exactly as the toy predicts, with ranking-based transport
+matching the gradient source. \todo{finalize hard-8 sentence once chains
+complete.}
+
+Our contributions:
+\begin{itemize}
+  \item \textbf{A field-target RL update for one-step policies}
+  (\cref{sec:method}): reward, trust region, and anchoring expressed as
+  composable velocity fields, with a pointwise action-space movement bound
+  and a dead-zone restoring anchor; likelihood-free by construction and a
+  strict generalization of the backpropagated residual actor.
+  \item \textbf{A controlled diagnosis of critic exploitation}
+  (\cref{sec:toy}): a two-regime toy showing the failure is real,
+  regime-dependent, and \emph{not} fixed by BC penalties --- motivating
+  trust regions in action space rather than loss space.
+  \item \textbf{State-of-the-art robomimic results from a drifting base and
+  a regime map} (\cref{sec:experiments}): matched-budget,
+  family-shared-hyperparameter comparisons isolating the update rule;
+  ablations over the $V_Q$ resolution dial, the clip, and the anchor
+  geometry showing which component pays where.
+\end{itemize}

@@ -1,21 +1,114 @@
-% Problem statement + the toy experiment that motivates the method.
-% 3.1 Setup & notation: MDP with sparse success reward; one-step drifting base
-%     a0(s,z) (brief recap: pretrained by kernel-field target regression);
-%     residual fine-tuning a = a0(s,z) + r_theta(s,z), frozen base;
-%     critic Q(s,z,a) trained TD+CQL (unchanged across all methods — Sec. 4).
-% 3.2 Why existing updates fail on one-step generative policies:
-%     (a) likelihood-based PG (GRPO/PPO): log pi intractable for one-step
-%         generators — no likelihood to ratio.
-%     (b) backprop-through-critic (DICE-style): actor step size proportional to
-%         ||grad_a Q||; a steep-but-wrong critic marches the policy off the data
-%         manifold at maximum speed (critic exploitation).
-% 3.3 TOY TWO-REGIME EXPERIMENT (Fig. 1, from scripts/toy_field_vs_gradient*.py):
-%     - easy-critic regime: smooth Q, correct gradients -> compass (gradient)
-%       updates win, matching robomimic intuition.
-%     - hard-critic regime: Q ranks correctly but gradients are adversarial ->
-%       compass updates collapse to 0.000 success EVEN WITH a BC anchor, while
-%       field-target updates hold the base policy's performance.
-%     Punchline: the update rule must (i) bound policy movement in action space
-%     and (ii) be able to consume the critic at variable resolution (gradient vs
-%     ranking) — which is exactly the method dial of Sec. 4.
-\todo{Problem statement + toy experiment writeup.}
+% =====================================================================
+% Problem statement + toy experiment (Fig. 1).
+% Numbers from toy_field_vs_gradient2.py runs of 2026-07-24 (3 seeds),
+% results in $CEDAR/toy_field_demo2/toy2_results.json.
+% =====================================================================
+
+\subsection{Setup}
+\label{sec:setup}
+
+We consider an episodic decision process with states $s$, action chunks
+$a \in \mathbb{R}^{H \times d}$ ($H$ control steps of a $d$-dimensional
+action, treated as a single vector of dimension $S = Hd$), and sparse
+task-success reward. A \emph{one-step generative policy} maps a state
+and a noise sample to an action in a single network evaluation,
+\begin{equation}
+  a = \pi_0(s, z), \qquad z \sim \mathcal{N}(0, I),
+\end{equation}
+and is pretrained on demonstrations with a drifting-model objective
+\citep{deng2026drifting}: at each step, a population of policy samples
+is transported by a kernel velocity field toward the data distribution,
+and the network is regressed onto the transported targets. We write
+$\mathcal{V}(x \mid p^{+}, p^{-})$ for this transport field acting on
+query particles $x$, attracted to particles of $p^{+}$ and repelled from
+particles of $p^{-}$ (\cref{sec:method} recalls its exact form).
+
+Following residual fine-tuning practice \citep{dawn2026,dicerl2026}, we
+freeze the base and learn a residual head on top of it,
+\begin{equation}
+  a = \pi_0(s,z) + r_\theta(s,z),
+  \label{eq:residual}
+\end{equation}
+together with an ensemble critic $Q_\phi(s, z, a)$ trained by temporal
+difference with a conservative (CQL-style) penalty
+\citep{kumar2020cql}. The critic training is standard and identical for
+every method compared in this paper; \emph{the object of study is
+solely the actor update} --- how the policy consumes the critic.
+
+\subsection{Two structural failure modes}
+\label{sec:failure-modes}
+
+\paragraph{No likelihoods.} Policy-gradient fine-tuners
+(PPO/GRPO-style, e.g.\ SimpleVLA-RL \citep{simplevlarl}) require
+$\log \pi(a \mid s)$. A one-step generator defines its action
+distribution implicitly through the noise map \cref{eq:residual}; its
+likelihood is intractable, and unlike multi-step diffusion policies
+there is no chain-MDP reformulation to fall back on
+\citep{ren2024dppo,park2025fql,reinflow2025}. The ratio-based toolbox
+is structurally unavailable.
+
+\paragraph{Critic exploitation through backpropagation.} The remaining
+standard update --- backpropagate $-Q$ through the actor, as in DDPG
+lineage methods and in DICE-RL's residual actor \citep{dicerl2026} ---
+couples the \emph{size} of the policy update to the \emph{magnitude} of
+the critic's action-gradient: $\nabla_\theta \mathbb{E}[-Q] =
+-\nabla_a Q \cdot \partial a / \partial \theta$. A learned critic is
+only trained to \emph{rank} actions near the data manifold; nothing
+constrains its gradient field off-manifold, where it can be both steep
+and wrong \citep{fujimoto2018td3,fujimoto2019bcq,savo2025}. A
+steep-but-wrong gradient therefore marches the policy off the data
+manifold at maximum speed --- the better the critic looks to the
+optimizer, the worse the true policy becomes.
+
+\subsection{A two-regime toy experiment}
+\label{sec:toy}
+
+We isolate the second failure mode in a bandit with a bimodal expert
+distribution, a one-step base pretrained with the drift operator, and a
+critic fit \emph{only} on on-manifold data. We compare the standard
+backpropagation update without and with a BC anchor
+($-Q$ and $-Q + \lambda \|r\|^2$, the DICE-RL residual actor) against
+the field-target update of \cref{sec:method}, in two regimes
+(\cref{fig:toy}; 3 seeds).
+
+\textbf{Easy regime} (2-D actions, dense critic data): the critic
+generalizes, its gradient field is trustworthy, and backpropagation
+wins --- true reward $0.793$ ($-Q$) and $0.770$ ($-Q$ + anchor) versus
+$0.530$ for a value-only field update and $0.496$ for the base. When
+the critic is a good compass, following its gradient is the right thing
+to do.
+
+\textbf{Hard regime} (16-D actions, 60 critic training points ---
+mimicking high-dimensional chunked control with scarce coverage): the
+same backpropagation update collapses to $0.000$ true reward while its
+internal estimate soars ($Q$ rises by $2.9\times 10^{4}$; 100\% of
+actions off-manifold). Critically, \emph{the BC anchor does not save
+it}: $-Q + \lambda\|r\|^2$ also reaches $0.000$ (99\% off-manifold).
+Penalty terms compete with an unbounded gradient and lose. The
+field-target update, whose displacement is clipped in action space and
+anchored by a restoring field, stays entirely on-manifold and holds the
+base's performance ($0.614$ vs.\ base $0.647$) while preserving action
+dispersion (best-of-16 sampling reaches $0.767$).
+
+Two conclusions set up the method. First, the failure is
+\emph{regime-dependent}: gradient-following is optimal exactly when the
+critic's gradients generalize, and catastrophic when the critic can only
+rank. Any fix must retain the first-order signal where it is good.
+Second, what protects the field update in the hard regime is not the
+choice of reward signal but the \emph{form} of the update: displacement
+bounded pointwise in action space, plus a restoring anchor field ---
+properties a backpropagated loss cannot express, since gradient
+clipping in parameter space bounds neither. This motivates a method
+that keeps the safe update form and plugs in the strongest reward field
+the critic supports.
+
+\begin{figure}[t]
+  \centering
+  % \includegraphics[width=\linewidth]{figures/toy_two_regime.pdf}
+  \fbox{\parbox[c][4cm][c]{0.9\linewidth}{\centering \todo{Fig 1: two-regime
+  toy. Left: easy regime, compass wins. Right: hard regime, compass (with and
+  without BC anchor) collapses to 0 while the field update holds the base.
+  Regenerate from \texttt{scripts/toy\_field\_vs\_gradient2.py} outputs.}}}
+  \caption{\todo{caption}}
+  \label{fig:toy}
+\end{figure}

@@ -1,20 +1,92 @@
-% 5.1 Setup: robomimic can/square (official DICE-RL harness, 300-ep evals, 20K+
-%     steps, 3 seeds); LIBERO-90 hard-8 multitask (100 iters, powered evals).
-%     Family-shared hyperparameters across all arms (q_step 0.5, clip 0.15,
-%     restore 1.0 [+radius 0.05 where noted]) so comparisons isolate the update rule.
-% 5.2 Main table (fill from DEVLOG 2026-07-26; refresh with final endpoints):
-%     rows: drift base / A (DICE on drift) / B grad-field / C zeroth / T tilted /
-%           FM+DICE-RL baseline [/ DAWN residual baseline]
-%     can:  base .877 | A .950 | B .988/.993/.966 | C ~.92 | T ~.95 | FM-DICE .957
-%     sq:   B .923/.938/.929 @20K+ | C .57-.60 | T .57-.61 | FM-DICE ~.86-.90
-%           | A @20K = PENDING (sq_ext_A) <- REQUIRED before claiming B>A on square
-%     hard-8: B .738, C-guarded .738 vs FM-DICE .757 (powered evals pending)
-% 5.3 Analysis:
-%     - critic-trust regimes: why grad wins on robomimic, gap narrows on hard-8;
-%       guarded filter interaction; residual-health ablation (dead-zone restore —
-%       the T/C-without-radius collapse is itself an instructive ablation).
-%     - toy two-regime demo (Fig 1 mechanism).
-%     - finetunability metrics (GoodCov/BadEnt): paper's metrics rate drift worse
-%       yet it fine-tunes better — discussion point.
-% 5.4 Ablations: q_step/clip sweep (21-arm), restore radius, K particles, tau/topk.
-\todo{Experiments. Tables auto-fill from DEVLOG once final cells land.}
+% Numbers synced to DEVLOG 2026-07-26. PRELIMINARY cells marked \todo.
+% BLOCKING before submission: sq_ext_A (control A at full 20K square budget),
+% ext FM baselines, hard-8 powered evals (100x3) for all arms.
+
+\subsection{Setup}
+\label{sec:exp-setup}
+
+\textbf{Benchmarks.} (i) \emph{robomimic} can and square (state-based,
+300-episode evaluations, last-3-checkpoint average, 3 seeds), run in the
+official DICE-RL harness with our actor update implanted --- critic, replay,
+demo data, and evaluation protocol byte-identical to the baseline; (ii) the
+\emph{eight hardest LIBERO-90 tasks} (multitask base, 100 RL iterations,
+20-episode checkpoint evals with $\pm 11$pp noise; final numbers use powered
+evaluation, 100 rollouts $\times$ 3 evaluation seeds). \todo{exact env,
+horizon, demo counts table in appendix.}
+
+\textbf{Arms.} All methods share the drifting base, residual
+parameterization, critic, and data pipeline; only the actor update differs.
+\textbf{A} = DICE-RL residual actor on the drift base (backpropagated
+$-Q$ + filtered BC anchor; the control). \textbf{B} = \method{}
+(\cref{eq:update} with $V_Q^{\mathrm{grad}}$). \textbf{C/T} = the
+zeroth-order top-$k$ / tilted reward-field dial settings. \textbf{FM+DICE}
+= the unmodified state-of-the-art pipeline on the flow-matching base.
+Hyperparameters are \emph{family-shared} across B/C/T ($\eta_Q{=}0.5$,
+$\delta_{\mathrm{tot}}{=}0.15$, $\eta_{\mathrm{anc}}{=}1.0$; $\tau{=}1$,
+$k{=}4$; dead-zone $\rho{=}0.05$ where marked) so comparisons isolate the
+update rule, not tuning effort.
+
+\subsection{Main results: robomimic}
+\label{sec:exp-robomimic}
+
+\begin{table}[t]
+\centering
+\caption{robomimic success rates (300-episode evals, last-3 average, per
+seed). \method{} (B) exceeds the FM+DICE-RL pipeline on both tasks from a
+weaker base; value-only reward fields (C, T) collapse on square.
+\todo{refresh with final endpoints; add A@20K square (pending) and DAWN row.}}
+\label{tab:robomimic}
+\small
+\begin{tabular}{lcccccc}
+\toprule
+ & \multicolumn{3}{c}{can} & \multicolumn{3}{c}{square} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+arm & s42 & s43 & s44 & s42 & s43 & s44 \\
+\midrule
+drift base (no RL)        & \multicolumn{3}{c}{0.877} & \multicolumn{3}{c}{\todo{x}} \\
+A: DICE-RL on drift       & \multicolumn{3}{c}{0.950} & \multicolumn{3}{c}{0.839\,@18K\ \todo{20K pending}} \\
+FM + DICE-RL              & \multicolumn{3}{c}{0.957} & \multicolumn{3}{c}{0.86--0.90} \\
+C: top-$k$ field          & 0.920 & 0.905 & 0.929 & 0.591 & 0.570 & 0.598 \\
+T: tilted field           & 0.961 & 0.952 & 0.945 & 0.596 & 0.593 & 0.568 \\
+\textbf{B: \method{}}     & \textbf{0.988} & \textbf{0.993} & 0.966 & \textbf{0.923} & \textbf{0.938} & \textbf{0.929} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three observations. \textbf{(1) The update form beats backpropagation with
+the same reward signal:} B and A optimize the same critic scalar
+(\cref{prop:equiv}), yet B reaches $0.92$--$0.94$ on square where A
+plateaus at $0.839$ \todo{confirm at matched 20K budget} --- the
+action-space trust region is what permits the aggressive
+$\eta_Q$ that backpropagation cannot survive. \textbf{(2) A drifting base
+plus \method{} beats the stronger flow-matching base plus DICE-RL},
+inverting the base-quality ordering ($0.877$ vs $0.957$ pre-RL on can).
+\textbf{(3) The critic's gradient is worth trusting here:} the value-only
+dial settings (C, T) preserve can but collapse on square
+($\sim\!0.6$ vs $\sim\!0.93$) despite healthy residuals and longer
+training --- with a critic in its easy regime, ranking-resolution reward
+fields discard the signal that matters, consistent with the toy's easy
+regime.
+
+\subsection{Weak-critic regime: LIBERO hard-8}
+\label{sec:exp-libero}
+
+\todo{Final table once chains reach iter 100 + powered evals. Current
+endpoints (20-ep, $\pm$11pp): B 0.738, C-guarded 0.738 $>$ T-guarded
+0.675--0.713 $>$ A 0.662 $>$ C 0.631; FM+DICE reference 0.757. Narrative:
+ordering compresses exactly as the toy's hard regime predicts --- ranking
+transport (C-guarded) matches the gradient field when critic gradients are
+weak; the guarded filter interaction; nothing yet decisively beats FM+DICE
+here --- state honestly as ``competitive.''}
+
+\subsection{Ablations and analysis}
+\label{sec:exp-ablation}
+
+\todo{(i) trust-region ablation: A + parameter-space grad clip vs B's
+action-space clip (isolates the claim); (ii) anchor geometry: $\rho=0$
+erases T/C residuals (res\_rms 0.002 vs 0.010--0.015) and reduces them to
+base+selection --- the dead-zone is load-bearing for weak reward fields;
+(iii) $\eta_Q$/$\delta$ sweep (21-arm square study); (iv) dispersion /
+best-of-$N$ retention vs A (diversity-collapse measurement); (v)
+finetunability metrics (GoodCov/BadEnt) rate the drift base \emph{worse}
+yet it fine-tunes \emph{better} --- discussion.}
