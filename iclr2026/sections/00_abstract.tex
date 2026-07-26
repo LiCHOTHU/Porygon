@@ -1,0 +1,10 @@
+% ~150-200 words. Claim structure (pending final framing decision):
+% one-step drifting policies are trained by field-target regression; existing RL
+% fine-tuners abandon that primitive (likelihood-based PG is inapplicable;
+% backprop-through-critic invites critic exploitation). We fine-tune with the SAME
+% primitive: residual update r <- sg[r + eta_Q V_Q + eta_BC V_BC], with a native
+% action-space trust region. V_Q is a dial: analytic grad-Q where the critic
+% generalizes; value-only (top-k / exp-tilted) transport where it can only rank.
+% Results: robomimic can 0.99 / square 0.92-0.94 (> FM+DICE-RL baseline), LIBERO
+% hard-8 competitive; ablations map when each Q-source wins.
+\todo{Write abstract after framing decision (B-as-method vs.\ hybrid-anchor version).}

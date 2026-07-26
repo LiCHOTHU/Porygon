@@ -1,0 +1,20 @@
+% 5.1 Setup: robomimic can/square (official DICE-RL harness, 300-ep evals, 20K+
+%     steps, 3 seeds); LIBERO-90 hard-8 multitask (100 iters, powered evals).
+%     Family-shared hyperparameters across all arms (q_step 0.5, clip 0.15,
+%     restore 1.0 [+radius 0.05 where noted]) so comparisons isolate the update rule.
+% 5.2 Main table (fill from DEVLOG 2026-07-26; refresh with final endpoints):
+%     rows: drift base / A (DICE on drift) / B grad-field / C zeroth / T tilted /
+%           FM+DICE-RL baseline [/ DAWN residual baseline]
+%     can:  base .877 | A .950 | B .988/.993/.966 | C ~.92 | T ~.95 | FM-DICE .957
+%     sq:   B .923/.938/.929 @20K+ | C .57-.60 | T .57-.61 | FM-DICE ~.86-.90
+%           | A @20K = PENDING (sq_ext_A) <- REQUIRED before claiming B>A on square
+%     hard-8: B .738, C-guarded .738 vs FM-DICE .757 (powered evals pending)
+% 5.3 Analysis:
+%     - critic-trust regimes: why grad wins on robomimic, gap narrows on hard-8;
+%       guarded filter interaction; residual-health ablation (dead-zone restore —
+%       the T/C-without-radius collapse is itself an instructive ablation).
+%     - toy two-regime demo (Fig 1 mechanism).
+%     - finetunability metrics (GoodCov/BadEnt): paper's metrics rate drift worse
+%       yet it fine-tunes better — discussion point.
+% 5.4 Ablations: q_step/clip sweep (21-arm), restore radius, K particles, tau/topk.
+\todo{Experiments. Tables auto-fill from DEVLOG once final cells land.}

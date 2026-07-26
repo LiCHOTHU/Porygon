@@ -1,0 +1,14 @@
+% Outline:
+% P1  One-step generative policies (drifting models) for control: fast, multimodal.
+% P2  The fine-tuning gap: PG needs log-likelihoods (intractable for one-step
+%     generators); DICE-style backprop-through-critic couples step size to critic
+%     gradient magnitude -> critic exploitation (cite surveys; our toy Fig.1).
+% P3  Key idea: reuse the pretraining primitive. Drifting pretraining = regress
+%     onto field-transported targets; RL = add a reward velocity field V_Q to the
+%     anchor field V_BC. Trust region lives in ACTION space, not parameter space.
+% P4  The Q-source dial: grad / top-k / tilted; when each wins (two-regime story).
+% P5  Contributions (3 bullets): (i) unified field-target RL update for one-step
+%     policies, (ii) Q-source ablation + diagnosis of critic-trust regimes,
+%     (iii) SOTA-level robomimic results from a drifting base + hard-8 study.
+% Fig 1: toy two-regime demo (compass dies under hard critic; field survives).
+\todo{Introduction.}

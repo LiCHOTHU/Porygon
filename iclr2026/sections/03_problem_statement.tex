@@ -1,0 +1,21 @@
+% Problem statement + the toy experiment that motivates the method.
+% 3.1 Setup & notation: MDP with sparse success reward; one-step drifting base
+%     a0(s,z) (brief recap: pretrained by kernel-field target regression);
+%     residual fine-tuning a = a0(s,z) + r_theta(s,z), frozen base;
+%     critic Q(s,z,a) trained TD+CQL (unchanged across all methods — Sec. 4).
+% 3.2 Why existing updates fail on one-step generative policies:
+%     (a) likelihood-based PG (GRPO/PPO): log pi intractable for one-step
+%         generators — no likelihood to ratio.
+%     (b) backprop-through-critic (DICE-style): actor step size proportional to
+%         ||grad_a Q||; a steep-but-wrong critic marches the policy off the data
+%         manifold at maximum speed (critic exploitation).
+% 3.3 TOY TWO-REGIME EXPERIMENT (Fig. 1, from scripts/toy_field_vs_gradient*.py):
+%     - easy-critic regime: smooth Q, correct gradients -> compass (gradient)
+%       updates win, matching robomimic intuition.
+%     - hard-critic regime: Q ranks correctly but gradients are adversarial ->
+%       compass updates collapse to 0.000 success EVEN WITH a BC anchor, while
+%       field-target updates hold the base policy's performance.
+%     Punchline: the update rule must (i) bound policy movement in action space
+%     and (ii) be able to consume the critic at variable resolution (gradient vs
+%     ranking) — which is exactly the method dial of Sec. 4.
+\todo{Problem statement + toy experiment writeup.}

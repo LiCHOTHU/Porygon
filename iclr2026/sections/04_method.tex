@@ -1,0 +1,16 @@
+% 4.1 Field-target actor update (the primitive):
+%     r <- sg[ r + eta_Q * clip(V_Q) + eta_BC * V_BC ],  L = ||r_theta - target||^2
+%     - clipping = pointwise trust region in action space (policy moves <= delta
+%       per update regardless of critic gradient magnitude); Q-normalized step.
+%     - restore anchor with dead-zone radius (no damping inside trust radius).
+% 4.2 The Q-source dial (this is the ABCT ablation axis):
+%     grad:   V_Q = grad_a Q / q_scale (first-order; needs trustworthy gradients)
+%     zeroth: kernel drift toward top-k-by-Q particles (needs only ranking)
+%     tilted: all particles attract with softmax(adv/tau)*K weights (soft version)
+% 4.3 Anchor field V_BC: pointwise (-r) vs distributional (kernel drift toward
+%     frozen-BC particle cloud). [Hybrid distributional+grad cell pending.]
+% 4.4 Equivalence & mechanism: small-step unclipped limit recovers the DICE actor
+%     direction; the difference IS the action-space trust region + target form.
+%     Two-regime toy analysis -> when value-only transport is necessary.
+% Algorithm box: one update of actor/critic (critic unchanged from DICE).
+\todo{Method. Pull the math from our derivation notes; keep V_Q source-agnostic.}
