@@ -21,7 +21,7 @@ is transported by a kernel velocity field toward the data distribution,
 and the network is regressed onto the transported targets. We write
 $\mathcal{V}(x \mid p^{+}, p^{-})$ for this transport field acting on
 query particles $x$, attracted to particles of $p^{+}$ and repelled from
-particles of $p^{-}$ (\cref{sec:method} recalls its exact form).
+particles of $p^{-}$ (\cref{sec:reward-field} recalls its exact form).
 
 Following residual fine-tuning practice \citep{dawn2026,dicerl2026}, we
 freeze the base and learn a residual head on top of it,
@@ -104,11 +104,15 @@ the critic supports.
 
 \begin{figure}[t]
   \centering
-  % \includegraphics[width=\linewidth]{figures/toy_two_regime.pdf}
-  \fbox{\parbox[c][4cm][c]{0.9\linewidth}{\centering \todo{Fig 1: two-regime
-  toy. Left: easy regime, compass wins. Right: hard regime, compass (with and
-  without BC anchor) collapses to 0 while the field update holds the base.
-  Regenerate from \texttt{scripts/toy\_field\_vs\_gradient2.py} outputs.}}}
-  \caption{\todo{caption}}
+  \includegraphics[width=0.48\linewidth]{figures/toy2_curves_EASY_2d.png}\hfill
+  \includegraphics[width=0.48\linewidth]{figures/toy2_curves_HARD_16d.png}
+  \caption{\textbf{The two-regime toy} (3 seeds). \textbf{Left, easy regime}
+  (2-D actions, dense critic data): the critic's gradient generalizes and
+  backpropagation ($-Q$, with or without a BC anchor) is the best update.
+  \textbf{Right, hard regime} (16-D actions, 60 critic points): the same
+  updates collapse to zero true reward while their internal $Q$-estimate
+  explodes --- the BC anchor does not help --- whereas the bounded field-target
+  update stays on-manifold and holds the base policy. A useful fine-tuner must
+  keep the gradient where it is trustworthy and survive where it is not.}
   \label{fig:toy}
 \end{figure}

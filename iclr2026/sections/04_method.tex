@@ -63,6 +63,21 @@ performance difference is attributable to the update form --- the
 action-space trust region and target regression --- not to a different
 reward signal.
 
+\paragraph{The kernel transport operator.} The lower-resolution reward
+fields below, the pretraining objective, and the distributional anchor
+variant all use the same drifting-model transport operator
+\citep{deng2026drifting}. Given query particles $x$, attractor particles
+$p^{+}$ (optionally weighted), and repulsor particles $p^{-}$, distances are
+normalized by a global scale and, for each kernel radius $R$ in a small set,
+a soft mutual-matching affinity
+$A = \sqrt{\mathrm{softmax}_{\mathrm{row}}(-d/R) \odot
+\mathrm{softmax}_{\mathrm{col}}(-d/R)}$ converts matched attractors into
+pulls and matched repulsors into pushes; forces are summed over radii to
+give $\mathcal{V}(x \mid p^{+}, p^{-})$ (full form in
+\cref{app:kernel}). Intuitively, $\mathcal{V}$ moves a particle cloud so
+its density flows toward $p^{+}$ and away from $p^{-}$ --- it needs only
+\emph{samples} of the target, never a density or a gradient.
+
 Because $V_Q$ enters \cref{eq:update} only as a velocity, the critic
 can be consumed at \emph{lower resolution} when its gradients are not
 trustworthy, using only $Q$-values:
@@ -127,5 +142,30 @@ anchor, and the resolution dial on $V_Q$ --- each of which we ablate.
 The critic is unchanged from DICE-RL: ensemble TD with a CQL-style
 penalty pushing $Q$ down at policy actions and up at data actions;
 field construction never leaks gradients into the critic
-(gradients w.r.t.\ actions only). \todo{Algorithm box: one joint update
-(sample particles, build fields, regress actor, TD step critic).}
+(gradients w.r.t.\ actions only). \Cref{alg:porygon} summarizes one joint
+update.
+
+\begin{algorithm}[t]
+\caption{\method{}: one update ($V_Q^{\mathrm{grad}}$ variant)}
+\label{alg:porygon}
+\begin{algorithmic}[1]
+\Require frozen base $\pi_0$; residual $r_\theta$; critic $Q_\phi$;
+  steps $\eta_Q, \eta_{\mathrm{anc}}$; clips $\delta_Q, \delta_{\mathrm{tot}}$;
+  dead zone $\rho$; particles $K$
+\State sample batch of states $s$; draw $z_i \sim \mathcal{N}(0, I)$,
+  $\;a_i \gets \pi_0(s, z_i) + r_\theta(s, z_i)$ \Comment{no grad}
+\State $V_i \gets \operatorname{clip}_{\delta_Q}\!\big(\eta_Q\,
+  \nabla_{a}\bar{Q}_\phi(s, z_i, a_i) / q_{\mathrm{scale}}\big)$
+  \Comment{or top-$k$ / tilted kernel field}
+\State $V_i \gets V_i - \eta_{\mathrm{anc}}
+  \big(1 - \rho / \lVert r_i \rVert\big)_{+}\, r_i$
+  \Comment{dead-zone anchor, \cref{eq:anchor}}
+\State $\tilde{r}_i \gets \mathrm{sg}\big[\, r_i +
+  \operatorname{clip}_{\delta_{\mathrm{tot}}}(V_i) \,\big]$
+  \Comment{policy moves $\leq \delta_{\mathrm{tot}}$, always}
+\State $\theta \gets \theta - \alpha\, \nabla_\theta \tfrac{1}{K}
+  \textstyle\sum_i \lVert r_\theta(s, z_i) - \tilde{r}_i \rVert^2$
+\State update $\phi$: ensemble TD + CQL penalty \Comment{unchanged from
+  \citet{dicerl2026}}
+\end{algorithmic}
+\end{algorithm}

@@ -2,10 +2,13 @@
 % -> P5 dial + results -> contributions.
 
 One-step generative policies are an appealing endpoint for imitation
-learning: a drifting model \citep{deng2026drifting} distills a
-multimodal demonstration distribution into a single network evaluation,
-giving diffusion-quality action distributions at deployment-friendly
-cost. Like any behavior-cloned policy, they plateau at the quality of
+learning: a drifting model \citep{deng2026drifting} captures a multimodal
+demonstration distribution in a single network evaluation --- diffusion-quality
+action distributions at deployment-friendly cost. It is trained by a simple
+primitive: repeatedly transport a population of its own samples along a
+velocity field toward the data, and regress the network onto the transported
+targets. This paper is about what that primitive buys \emph{after}
+pretraining. Like any behavior-cloned policy, they plateau at the quality of
 their demonstrations, and the natural next step is reinforcement-learning
 fine-tuning with sparse task reward. That step, however, is structurally
 awkward for exactly this policy class.
@@ -49,11 +52,12 @@ lower resolution when its gradients cannot be trusted: transport toward
 critic-ranked top-$k$ particles, or toward the cloud's own
 $\exp(Q/\tau)$-tilted density. Our experiments treat this as an explicit
 dial and map its regimes. On robomimic, where the critic generalizes, the
-gradient-field method dominates: from a drifting base at $0.877$ (can) /
-$\sim\!0.60$ (square), \method{} reaches $0.99$ on can and $0.92$--$0.94$
-on square across seeds --- above the flow-matching + DICE-RL
-state-of-the-art pipeline ($0.957$ / $0.86$--$0.90$) --- while the
-value-only sources trail far behind ($\sim\!0.6$ on square). On the eight
+gradient-field method dominates: from a drifting base at $0.877$, \method{}
+reaches $0.99$ on can --- above the flow-matching + DICE-RL
+state-of-the-art pipeline at $0.957$ --- and $0.92$--$0.94$ on square
+across seeds, while the value-only sources trail far behind
+($\sim\!0.6$ on square).\todo{add square baseline comparison once the
+matched-budget FM and control runs complete} On the eight
 hardest LIBERO-90 tasks, where the critic is weaker, the ordering
 compresses exactly as the toy predicts, with ranking-based transport
 matching the gradient source. \todo{finalize hard-8 sentence once chains

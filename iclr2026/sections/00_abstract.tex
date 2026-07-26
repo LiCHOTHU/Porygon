@@ -15,8 +15,8 @@ with the same field-target regression primitive that pretrained it. A
 frozen base proposes action particles; a residual head is regressed onto
 targets displaced by a clipped critic-gradient reward field and a
 restoring anchor field, yielding a pointwise trust region in action space.
-On robomimic, \method{} lifts a drifting base from $0.877$ to $0.99$ (can)
-and to $0.92$--$0.94$ (square), surpassing the flow-matching + DICE-RL
-pipeline, and ablations over lower-resolution reward fields (top-$k$,
+On robomimic, \method{} lifts a drifting base from $0.877$ to $0.99$ (can,
+surpassing the flow-matching + DICE-RL pipeline at $0.957$) and to
+$0.92$--$0.94$ (square), and ablations over lower-resolution reward fields (top-$k$,
 exponentially tilted) map exactly when the critic's gradient --- versus
 only its ranking --- should be trusted.
