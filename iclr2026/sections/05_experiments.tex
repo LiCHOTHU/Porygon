@@ -72,6 +72,16 @@ update (\textbf{Q2}). On square, the harder task, \method{} attains
 $0.92$--$0.94$ on every seed. \todo{complete Q1/Q2 square comparison
 sentences when the matched-budget A and FM+DICE square runs finish.}
 
+\emph{Why does the form win?} The trust region converts critic error
+from a stability threat into bounded noise: with policy motion capped at
+$\delta_{\mathrm{tot}}$ per update, \method{} tolerates a reward step
+($\eta_Q{=}0.5$) far above what the backpropagated control can survive,
+and simply takes more, safer steps in the directions where the critic is
+consistent. The control must instead keep its effective step small enough
+for its \emph{worst} critic errors, which is exactly the plateau behavior
+we observe \todo{quantify with the stability-window ablation
+(\cref{sec:exp-ablation}, iii) and the matched-budget A square endpoint}.
+
 The dial answers \textbf{Q3} in its first regime: with a critic that
 generalizes (robomimic critics see dense, single-task data), the value-only
 reward fields preserve can ($0.90$--$0.96$) but collapse on square

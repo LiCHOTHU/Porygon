@@ -57,3 +57,9 @@ RL-finetuned language models is likewise governed by divergence from
 the base \citep{rlrazor2025} --- which cannot even be measured without
 likelihoods, reinforcing update rules whose step size is bounded in
 \emph{action} space by construction.
+
+In sum, prior work either trusts the critic's gradient and pays for it
+off-manifold, or discards it and pays on hard tasks; \method{} is, to our
+knowledge, the first fine-tuner for one-step generative policies whose
+update \emph{form} is safe under an arbitrary critic while still admitting
+the full first-order signal when it is available.

@@ -32,6 +32,15 @@ $\delta_{\mathrm{tot}}$. Because the target is built from detached
 quantities, \cref{eq:update} trains only the residual head; the critic
 (\cref{sec:critic}) is trained independently.
 
+\paragraph{Why this primitive, for this policy class.} Field-target
+regression is not merely \emph{a} safe update --- it is the operation the
+network was shaped by. A step-distilled generator fine-tuned under a
+mismatched objective drifts from the distribution its one-step map encodes
+\citep{dopsd2026,sdft2024}; by keeping fine-tuning inside the pretraining
+operator family, \method{} changes only \emph{where} the targets sit, not
+\emph{what kind} of function the network is asked to represent. We refer to
+this as \emph{operator-consistent fine-tuning}.
+
 \paragraph{A pointwise trust region in action space.}
 The clip in \cref{eq:update} is the load-bearing difference from
 backpropagation. Under $\mathcal{L} = \mathbb{E}[-Q]$, the actor's step
@@ -139,6 +148,17 @@ $\eta_{\mathrm{anc}}$.
 \method{} is therefore a strict generalization of its control: the new
 degrees of freedom are the pointwise action-space clip, the dead-zone
 anchor, and the resolution dial on $V_Q$ --- each of which we ablate.
+
+\emph{Remark (not just clipped gradient ascent).} One might object that
+\cref{eq:update} with $V_Q^{\mathrm{grad}}$ is ``DDPG with clipping.''
+The distinction is where the bound lives. Clipping $\nabla_\theta$ bounds a
+\emph{parameter} step, whose effect on the policy output is unknown and
+state-dependent; \cref{eq:update} bounds the \emph{policy's motion at every
+particle}, which is the quantity that off-manifold failure depends on
+(\cref{sec:toy}). Moreover, only the regression form makes the two other
+components expressible at all: a dead-zone anchor and a value-only $V_Q$
+have no loss-gradient counterpart. The ablations in
+\cref{sec:exp-ablation} test each distinction in isolation.
 The critic is unchanged from DICE-RL: ensemble TD with a CQL-style
 penalty pushing $Q$ down at policy actions and up at data actions;
 field construction never leaks gradients into the critic
