@@ -158,17 +158,26 @@ matched re-eval); GRPO FM+drift (checkpoints exist, matched re-eval); plain resi
 
 ## Results
 
-See [`DEVLOG.md`](DEVLOG.md) for the full experiment log. Headlines:
+See [`DEVLOG.md`](DEVLOG.md) for the full experiment log. Headlines (as of 2026-07-26):
 
-- **RL gain is inverted-U in demo count** — it peaks in the partial-success band (BC ≈ 30–60%)
-  and vanishes at both the few-demo extreme (no successful groups → no GRPO signal) and the
-  saturated extreme. "RL replaces demos" does not hold uniformly.
-- **GRPO beats DICE-RL on the 1-step drift policy**, which is over-dispersed per state; DICE-RL
-  is the stronger choice on the multi-step (K=10) flow-matching policy.
-- Multi-task BC on LIBERO-90 saturates near **~91%** for both policies, so the hard-task subset
-  is where the RL methods actually separate.
+- **The field-target-regression update on the drifting base ("B": V_Q = clipped analytic ∇ₐQ +
+  restore anchor, applied as a regression target instead of backprop-through-critic) beats both
+  plain DICE-RL on the same base and the FM + DICE-RL baseline on robomimic**: can 0.99
+  (base 0.877, FM-DICE 0.957), square 0.92–0.94 across 3 seeds at the full 20K budget
+  (FM-DICE best ≈ 0.86–0.90). First complete-budget square runs ever (paid-QOS wave).
+- **Q-source ablation (ABCT)**: with residual health verified, the value-only field variants —
+  zeroth-order top-k (C) and exp(Q/τ)-tilted transport (T) — reach only ~0.57–0.61 on square
+  vs B's ~0.93. The analytic gradient wins wherever the critic's ∇ₐQ is trustworthy; the
+  value-only transports are competitive only in the weak-critic regime (LIBERO hard-8, where
+  C-guarded ties B at 0.738; two-regime toy demo shows the mechanism).
+- LIBERO hard-8: field arms at 0.738 vs FM-DICE 0.757 — competitive, not yet ahead; tuned
+  chains still running.
+- Earlier findings (GRPO study): RL gain is inverted-U in demo count; GRPO > DICE-RL on the
+  over-dispersed 1-step drift policy, DICE-RL stronger on K=10 flow matching; LIBERO-90
+  multi-task BC saturates ~91%, so hard tasks are where methods separate.
 
-These are directional unless stated as powered evals (≥100 rollouts × 3 seeds); see the log.
+Robomimic numbers are 300-episode evals (last-3 average); hard-8 numbers are 20-episode
+checkpoint evals (±11pp) pending powered evals (100 rollouts × 3 seeds); see the log.
 
 ## Framework
 

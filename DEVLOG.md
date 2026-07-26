@@ -752,3 +752,66 @@ hard-8 tilted checkpoint (`tune_tilted_local.py` field-stats sweep +
   (was official-repo-only); smoke OK. Tuned hard-8 arms B2/C2/T2 relaunched with
   `restore_radius=0.05` as jobs 11477990-99. Robomimic tab jobs stay at radius 0
   (B's winning validated recipe there; per-benchmark uniformity preserved).
+
+## 2026-07-26 — ABCT showdown: B (pointwise ∇Q) confirmed method-grade; T/C fair-tested and beaten; infra fixed with paid QOS
+
+### Infrastructure: the square problem is solved
+Fri-night embers preemption storm wiped ~40 jobs (queue empty by 3 AM); the official-repo
+robomimic runs have NO resume, so every 8h-capped embers attempt restarted from step 0 —
+meaning **every previous square number was a 9-12K truncation** (square needs 14-16h for 20K).
+Fix (user-approved): moved all 20 robomimic jobs to paid `inferno` QOS on the ideas_l40s
+account (20h walltime, no preemption, ~$150-250); hard-8 stays free on embers since the
+imitation-repo chains resume from `dice_latest.pth`. Result: 11+ uninterrupted hours,
+first-ever complete 20K+ square runs. Hard-8 lost 14 chains to daytime preemption again;
+relaunched as 11501998-12012 (checkpoints intact, node atl1-1-03-010-1-0 excluded).
+
+### The critical fix behind this wave: dead-zone restore for T/C
+The Jul-25 robomimic T/C launches ran `restore_step_size=1.0` with NO dead-zone → full
+restore ERASED the distributional arms' residuals (T res_rms 0.0021-0.0025, C 0.0007 vs
+healthy B 0.0156-0.0173) — those runs were base+selection, not T/C tests. This wave (tabR)
+relaunched with `+model.field.restore_radius=0.05`; live verification shows healthy
+residuals 0.010-0.015. **So this is the first fair robomimic test of T and C.**
+
+### robomimic — 300-ep evals, last-3 average @ latest step (all seeds, tuned family recipe)
+| arm | can s42 | can s43 | can s44 | sq s42 | sq s43 | sq s44 |
+|---|---|---|---|---|---|---|
+| **B** (pointwise ∇Q) | **0.988** @20K | **0.993** @25K | 0.966 @18K | 0.905/**0.923** @20K | **0.938** @23K | **0.929** @23K |
+| T (tilted, radius 0.05) | 0.961 @34K | 0.952 @31K | 0.945 @29K | 0.596 @33K | 0.593 @32K | 0.568 @26K |
+| C (zeroth top-4, radius 0.05) | 0.920 @34K | 0.905 @31K | 0.929 @27K | 0.591 @31K | 0.570 @28K | 0.598 @26K |
+| references | drift base 0.877 · control A 0.950 · FM-DICE 0.957 | | | FM-DICE best ~0.857-0.896 | | |
+
+**Verdict: B is decisively the best arm.** Square is the tiebreaker: B replicates
+0.92-0.94 across three seeds at the full 20K budget while T and C sit at 0.57-0.61 —
+a ~35-point gap that is NOT a broken-residual artifact (residuals verified healthy,
+T/C trained 6-14K steps LONGER than B). On can, T is respectable (0.95) but 4 points
+below B's near-perfect 0.99. The value-only transports lose to the analytic gradient
+wherever the critic's ∇Q is trustworthy — robomimic is that regime.
+
+### LIBERO hard-8 — iter-100 endpoints (20-ep evals, ±11pp; chains resuming)
+| arm | s10000 | s10001 | s10002 |
+|---|---|---|---|
+| A (plain residual DICE) | 0.662 | 0.656 @50 | 0.675 @60 |
+| B (grad, gentle) | **0.738** | 0.694 @70 | 0.675 @50 |
+| B2 (grad, tuned) | 0.700 | 0.719 @40 | 0.656 @80 |
+| C (zeroth) | 0.631 | 0.644 @90 | 0.637 @40 |
+| C-guarded | **0.738** | **0.738** @70 | 0.669 @60 |
+| C2 (tuned) | 0.656 @90 | 0.625 @80 | 0.719 @60 |
+| T-guarded | 0.675 | 0.706 @70 | 0.650 @90 |
+| T2-guarded (tuned) | 0.656 @70 | 0.713 @60 | 0.688 @70 |
+
+Reference: FM-DICE 0.757. CORRECTION to Jul-25 entry: the tilted "first-ever field lead"
+(T_gf_s10000 0.781 @iter~50) did NOT hold — that seed finished iter-100 at 0.675; it was
+20-ep eval noise. Current hard-8 leaders are B and C-guarded at 0.738; nothing beats
+FM-DICE yet, several tuned chains still mid-run.
+
+### Paper framing decision (OPEN — needs user sign-off)
+The data supports **B as the method**, not T: same field-target-regression update
+primitive as pretraining (no likelihoods, action-space trust region native to the form),
+with the Q-source as a dial — analytic ∇Q where the critic generalizes (robomimic),
+value-only/guarded transports narrowing the gap only in the weak-critic regime (hard-8,
+toy Fig-1). The T-as-headline framing is untenable on this evidence.
+Two gating cells still pending on inferno (queued behind tabR): **sq_ext_A s42/43**
+(control A at full 20K budget — without it "B beats DICE-on-drift on square" is
+unsupported) and sq/can ext FM (FM-DICE at matched budget). Also proposed: the untested
+hybrid (distributional BC field + ∇Q) — decides whether the "drift-field anchor" story
+survives in the headline or the pointwise restore suffices.
