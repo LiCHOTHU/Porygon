@@ -815,3 +815,40 @@ Two gating cells still pending on inferno (queued behind tabR): **sq_ext_A s42/4
 unsupported) and sq/can ext FM (FM-DICE at matched budget). Also proposed: the untested
 hybrid (distributional BC field + ∇Q) — decides whether the "drift-field anchor" story
 survives in the headline or the pointwise restore suffices.
+
+## 2026-07-27 — Matched-budget harvest: Table 1 filled, curves figure generated
+
+### Robomimic — harmonized at the paper protocol (20K steps, last-3 avg of 18/19/20K, 300 ep)
+Drift-base **square eval completed** (job 11504491): **0.382** (RL residual ckpt 0.418; can base remains 0.877).
+
+| arm | can s42/s43/s44 | square s42/s43/s44 |
+|---|---|---|
+| A (DICE actor on drift) | 0.950 (single) | 0.870 / 0.909 / rerun |
+| FM + DICE | 0.957 (single) | 0.934 / 0.923 / rerun |
+| C (top-k) | 0.924 / 0.920 / 0.910 | 0.562 / 0.525 / 0.562 |
+| T (tilted) | 0.949 / 0.947 / 0.919 | 0.578 / 0.584 / 0.560 |
+| **B (Porygon)** | **0.988 / 0.993 /** rerun | **0.912 / 0.930 / 0.929** |
+
+Key reading (honest version, now in the paper): on square B beats A at the matched
+budget on every seed (+2–6pp) and reaches 0.91 by 15K vs A's ~20–25K; **both converge
+to 0.97–0.99 by ~40K** (extended runs), so the square win is speed-to-level, not a
+different asymptote. FM+DICE is at **parity with B on square** (0.92–0.93) from a much
+stronger base; B beats it on can (0.99 vs 0.957). Prior table cells quoted mixed
+steps — all superseded by the above.
+
+### Hard-8 iter-100 endpoint refresh (20-ep evals; * = still short of iter 100)
+A 0.662/0.694*/0.700 · B 0.738/0.650/0.675* · B2 0.700/0.675*/0.719 ·
+C 0.631/0.662/0.625* · C-gf 0.738/0.656/0.662* · C2 0.631/0.681/0.644 ·
+T-gf 0.675/0.650/0.656 · T2-gf 0.637/0.662*/0.644. FM-DICE ref 0.757 — best drift
+arms (B2 ~0.70 mean, B/C-gf peaks 0.738) still trail; powered evals after all chains end.
+
+### Actions
+- Relaunched dead runs: robomimic s44 fresh (no resume in official harness) —
+  sq_ext_A_s44 11516975, sq_ext_FM_s44 11516976, can_conf_Bq05_s44 11516977 (inferno);
+  6 hard-8 chain resumes 11516978–83 (embers, resume from dice_latest.pth):
+  A s10001, B s10002, C s10002, C-guarded s10002, B2 s10001, T2-guarded s10001.
+- Paper: Table 1 filled with the harmonized numbers (blanks only for the 3 s44 reruns);
+  abstract/intro/§5.2 rewritten to the matched-budget + parity-with-FM story;
+  fig:curves is now a real figure (`scripts/plot_robomimic_curves.py` →
+  `iclr2026/figures/robomimic_curves.pdf`, Okabe-Ito palette, regenerate post-s44).
+- Still running: sq_ext_A s42/43, sq_ext_FM s42/43, can_ext_FM s44 (walltime ~11:30–23:30 tonight).
