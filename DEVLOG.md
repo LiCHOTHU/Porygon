@@ -887,3 +887,28 @@ iter 90 with a native Abort (signal 6, no traceback — MuJoCo/EGL flake, node
 atl1-1-01-006, not the excluded one); relaunched as 11521901. Powered evals once it lands.
 New endpoint deltas: C s10002 = 0.719, C-gf s10002 = 0.713, T2-gf s10001 = 0.700,
 A s10001 collect=0.750 (eval line pending in log), B2 s10001 collect=0.688.
+
+## 2026-07-27 (evening) — L40S pinning fix, powered-eval fleet, LIBERO plot script
+
+### Root cause of the v100 mis-scheduling found and fixed
+PACE's submit filter appends gpu-v100 as a fallback partition, AND the launcher's
+`--cpus-per-task=8` violates the l40s 4:1 CPU:GPU cap, so pure-l40s submissions were
+rejected → everything drifted to v100 (half speed; nothing reaches 20K in its walltime).
+Fix: `--constraint=L40S --cpus-per-task=4`. All 8 open Table-1 cells now have healthy
+L40S-pinned jobs: 11522047 sq_ext_A_s44 (11h) · 11522048 sq_ext_FM_s44 (16h) ·
+11522049 can_conf_Bq05_s44 (12h) · 11522050/51 can_ext_A_s42/43 (14h) ·
+11521939 can_ext_A_s44 · 11521940/41 can_ext_FM_s42/43 (patched in place via scontrol:
+Features=L40S, NumCPUs=4).
+**USER ACTION (updated): `scancel 11516975 11516976 11516977 11521934 11521935 11521936 11521937 11521938`**
+(all 8 are v100-stranded duplicates on paid inferno that cannot reach 20K).
+
+### Hard-8 powered-eval fleet launched (embers, free)
+25 jobs 11522097-122: 8 field arms x 3 seeds (minus B_grad s10002, chain 11521901 still
+running) + FM+DICE iter-100 x 3 seeds (rl_hard8_dice_ff_fm*). ~7h each; JSONs land at
+$CEDAR/powered_eval_one_hard8ff_<LABEL>.json. BC-base row already on disk:
+powered_eval_2x2_drift_dice.json BC = **0.671 +- 0.035** (drift multitask base, 100x3).
+
+### New: scripts/plot_libero_pertask.py
+Generates fig:libero-pertask (grouped bars, 95% t-CIs over pooled 3 train x 3 eval seeds)
+AND prints tab:libero hard-8 means. Skips missing JSONs so it can re-run as evals land.
+Smoke-tested on the BC row. Fig 3 regenerated with latest logs (FM-can extends past 24K).
