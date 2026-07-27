@@ -59,12 +59,11 @@ critic-ranked top-$k$ particles, or toward the cloud's own
 $\exp(Q/\tau)$-tilted density. Our experiments treat this as an explicit
 dial and map its regimes. On robomimic, where the critic generalizes, the
 gradient-field method dominates: from a drifting base at $0.877$, \method{}
-reaches $0.99$ on can --- above the flow-matching + DICE-RL
-state-of-the-art pipeline at $0.957$ --- and lifts square from $0.382$ to
-$0.91$--$0.93$ across seeds, ahead of the backpropagated control at the
-matched budget ($0.87$--$0.91$) and at parity with the flow-matching
-pipeline, while the value-only sources trail far behind
-($\sim\!0.55$ on square). On the eight
+reaches $0.99$ on can, and lifts square from $0.382$ to
+$0.91$--$0.93$ across seeds --- ahead of the backpropagated control at the
+matched budget ($0.87$--$0.91$) and at parity with the flow-matching +
+DICE-RL state-of-the-art pipeline on both tasks, while the value-only
+sources trail far behind ($\sim\!0.55$ on square). On the eight
 hardest LIBERO-90 tasks, where the critic is weaker, the ordering
 compresses exactly as the toy predicts, with ranking-based transport
 matching the gradient source. \todo{finalize hard-8 sentence once chains
@@ -85,7 +84,7 @@ Our contributions:
   (\cref{sec:experiments}): under matched budgets and family-shared
   hyperparameters, \method{} beats the backpropagated update \emph{on the
   same base with the same reward signal}, lifts a weaker one-step base to
-  match --- and on can surpass --- the stronger flow-matching + DICE-RL
-  pipeline, and the $V_Q$-resolution ablation confirms the two-regime
-  picture on real benchmarks.
+  match the stronger flow-matching + DICE-RL pipeline, and the
+  $V_Q$-resolution ablation confirms the two-regime picture on real
+  benchmarks.
 \end{itemize}

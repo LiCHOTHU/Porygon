@@ -852,3 +852,38 @@ arms (B2 ~0.70 mean, B/C-gf peaks 0.738) still trail; powered evals after all ch
   fig:curves is now a real figure (`scripts/plot_robomimic_curves.py` →
   `iclr2026/figures/robomimic_curves.pdf`, Okabe-Ito palette, regenerate post-s44).
 - Still running: sq_ext_A s42/43, sq_ext_FM s42/43, can_ext_FM s44 (walltime ~11:30–23:30 tonight).
+
+## 2026-07-27 (afternoon) — can-row provenance correction + rerun triage
+
+### Correction: the can baselines in Table 1 were stale short-run numbers
+Audit of the old `ft_dice_can_*` logs (config + seed read from inside each log):
+- **A on drift (ft_distill_residual_drift_mlp)**: s42 died 19K (17/18/19K = 0.970/0.970/0.970),
+  s43 died 16K (0.957 last), s45 0.943@19K, s46 0.950@19K. **No run reached 20K** —
+  the table's "0.950 (single)" was a short-run value, and understated A (s42 was 0.970 by 19K).
+- **FM (ft_distill_residual_flow_mlp)**: all old runs died ≤12K (s42 0.987@12K peak).
+  The "0.957 baseline-to-beat" is not reproducible from any matched-protocol log.
+- **New matched cell**: can_ext_FM_s44 (11497236, l40s) passed 20K →
+  **18/19/20K = 0.993/0.983/0.983 → 0.986**. Run continues (24K by 15.5h).
+
+Consequence: **the "B surpasses FM on can (0.99 vs 0.957)" claim is dead.** Honest can
+story: fine-tuning saturates can — FM 0.986, B 0.988/0.993 — parity at the ceiling; square
+is the discriminative task. Abstract/intro/§5.2/fig-caption all rewritten accordingly;
+Table 1 can columns now per-seed with only matched cells (FM s44 = 0.986; A row blank
+pending reruns).
+
+### Rerun triage: the three morning s44 reruns were doomed
+11516975/76/77 landed on **gpu-v100** (~1.1K steps/h drift, ~0.7K/h FM) with 12/16/10h
+walltimes — none could reach 20K (L40S rates: A-sq 2.4K/h, FM-sq 1.5K/h, from the 20h
+TIMEOUT logs: A-sq reached 48-49K, FM-sq 30K). Replaced on gpu-l40s/inferno and added the
+5 unfinished can baselines the corrected table needs:
+- 11521934 sq_ext_A_s44 (11h) · 11521935 sq_ext_FM_s44 (16h) · 11521936 can_conf_Bq05_s44 (12h)
+- 11521937-39 can_ext_A_s42/43/44 (14h ea) · 11521940-41 can_ext_FM_s42/43 (16h ea)
+- **USER ACTION: `scancel 11516975 11516976 11516977`** (V100 jobs; can't produce cells, paid QOS).
+
+### Hard-8: 23/24 chains at iter 100
+The 6 resumes: A s10001, C s10002, B2 s10001 hit iter 100 *before* their preemptions
+(preemption harmless); C-gf s10002, T2-gf s10001 completed. B s10002 segment died at
+iter 90 with a native Abort (signal 6, no traceback — MuJoCo/EGL flake, node
+atl1-1-01-006, not the excluded one); relaunched as 11521901. Powered evals once it lands.
+New endpoint deltas: C s10002 = 0.719, C-gf s10002 = 0.713, T2-gf s10001 = 0.700,
+A s10001 collect=0.750 (eval line pending in log), B2 s10001 collect=0.688.

@@ -36,7 +36,8 @@ SOURCES = {
     },
     "can": {
         "B":  ["can_conf_Bq05_s42_*", "can_conf_Bq05_s43_*", "can_conf_Bq05_s44_*"],
-        "FM": ["can_ext_FM_s44_*"],
+        "A":  ["can_ext_A_s42_*", "can_ext_A_s43_*", "can_ext_A_s44_*"],
+        "FM": ["can_ext_FM_s42_*", "can_ext_FM_s43_*", "can_ext_FM_s44_*"],
         "C":  ["can_tabR_C_s42_*", "can_tabR_C_s43_*", "can_tabR_C_s44_*"],
         "T":  ["can_tabR_T_s42_*", "can_tabR_T_s43_*", "can_tabR_T_s44_*"],
     },

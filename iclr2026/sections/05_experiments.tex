@@ -55,8 +55,8 @@ submission-draft time; no provisional numbers are shown.}
 arm & s42 & s43 & s44 & s42 & s43 & s44 \\
 \midrule
 drift base (no RL)        & \multicolumn{3}{c}{0.877} & \multicolumn{3}{c}{0.382} \\
-A: DICE-RL actor on drift & \multicolumn{3}{c}{0.950} & 0.870 & 0.909 & --- \\
-FM + DICE-RL              & \multicolumn{3}{c}{0.957} & 0.934 & 0.923 & --- \\
+A: DICE-RL actor on drift & --- & --- & --- & 0.870 & 0.909 & --- \\
+FM + DICE-RL              & --- & --- & 0.986 & 0.934 & 0.923 & --- \\
 C: top-$k$ field          & 0.924 & 0.920 & 0.910 & 0.562 & 0.525 & 0.562 \\
 T: tilted field           & 0.949 & 0.947 & 0.919 & 0.578 & 0.584 & 0.560 \\
 \textbf{B: \method{}}     & \textbf{0.988} & \textbf{0.993} & --- & \textbf{0.912} & \textbf{0.930} & \textbf{0.929} \\
@@ -72,25 +72,27 @@ T: tilted field           & 0.949 & 0.947 & 0.919 & 0.578 & 0.584 & 0.560 \\
   matched 20K budget). On square, \method{} overtakes the backpropagated
   control~A by 7K steps and holds a $4$--$7$-point lead through the
   matched budget; the value-only fields C/T flatline near $0.55$. On can,
-  \method{} alone climbs to $0.99$. \todo{regenerate with the s44 reruns
+  \method{} and the flow-matching pipeline both approach the ceiling
+  ($\geq 0.98$). \todo{regenerate with the s44 and can-baseline reruns
   when they finish.}}
   \label{fig:curves}
 \end{figure}
 
 \Cref{tab:robomimic} gives the per-seed results, and \cref{fig:curves}
-the corresponding learning curves. On can, \method{} reaches
-$0.99$ from a base at $0.877$, above both the backpropagated control
-on the same base ($0.950$) and the flow-matching pipeline ($0.957$) --- a
-weaker base plus a safer update overtakes a stronger base plus the standard
-update (\textbf{Q2}). On square, the harder task, the drifting base solves
+the corresponding learning curves. On can, fine-tuning saturates the task:
+\method{} reaches $0.988$--$0.993$ from a base at $0.877$, and the
+flow-matching pipeline reaches $0.986$ --- can chiefly certifies that the
+field update preserves (and slightly extends) the base's competence at the
+ceiling. The discriminative task is square, where the drifting base solves
 only $0.382$ of episodes; \method{} adds $55$ points, reaching
 $0.91$--$0.93$ on every seed. The backpropagated control~A --- same base,
 same critic, same data, same budget --- reaches $0.87$--$0.91$
 (\textbf{Q1}): given the identical reward signal, the field-target form
 extracts strictly more progress at the matched budget. Against the
-flow-matching pipeline, \method{} reaches parity on square
-($0.91$--$0.93$ vs.\ $0.92$--$0.93$) from a base less than half as strong,
-and overtakes it on can (\textbf{Q2}).
+flow-matching pipeline, \method{} reaches parity on both tasks
+($0.91$--$0.93$ vs.\ $0.92$--$0.93$ on square; $0.99$ vs.\ $0.99$ on can)
+--- but from a base less than half as strong on square (\textbf{Q2}): the
+safer update recovers the headroom the weaker base gives up.
 
 \emph{Why does the form win?} The trust region converts critic error
 from a stability threat into bounded noise: with policy motion capped at

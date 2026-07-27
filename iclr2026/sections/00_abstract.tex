@@ -17,9 +17,9 @@ velocity fields --- a clipped critic-gradient reward field and a restoring
 anchor. The clip acts pointwise in action space, so the policy can move
 only a bounded distance per update no matter how wrong the critic is.
 On robomimic, \method{} lifts a drifting base from $0.877$ to $0.99$ on can
-(surpassing the flow-matching + DICE-RL pipeline at $0.957$) and from
-$0.382$ to $0.91$--$0.93$ on square --- ahead of the backpropagated update
-at the matched budget on every seed, and at parity with the flow-matching
-pipeline from a base less than half as strong. Ablations over lower-resolution reward fields (top-$k$,
+and from $0.382$ to $0.91$--$0.93$ on square --- ahead of the
+backpropagated update at the matched budget on every seed, and matching the
+flow-matching + DICE-RL pipeline on both tasks despite a base less than
+half as strong on square. Ablations over lower-resolution reward fields (top-$k$,
 exponentially tilted) map exactly when the critic's gradient --- versus
 only its ranking --- should be trusted.
