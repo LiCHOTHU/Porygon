@@ -63,9 +63,35 @@ becomes.
 \subsection{A two-regime toy experiment}
 \label{sec:toy}
 
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/toy_intuition.pdf}
+  \caption{\textbf{The failure and the fix, geometrically} (hard regime of
+  the toy: 16-D actions, critic fit on 60 on-manifold points; the plane
+  shown spans the mode axis and the direction the backprop update actually
+  takes). \textbf{(a)} Off the data manifold the critic extrapolates a
+  hallucinated high-$\hat{Q}$ region --- its maximum on this slice sits far
+  from any data. \textbf{(b)} Backpropagating $-\hat{Q}$ through the actor,
+  \emph{even with a BC anchor}, rides that gradient: the action cloud
+  (snapshots at $0/300/1500$ updates, connected trails) leaves the
+  manifold; internal $\hat{Q}$ rises $0.5 \to 16$ while true reward
+  collapses $0.65 \to 0.00$. \textbf{(c)} The field-target update consumes
+  the \emph{same} critic as a clipped, anchored velocity field: each
+  particle moves a bounded distance per update, the cloud never leaves the
+  manifold, and true reward is held ($0.65 \to 0.60$). This is why
+  \method{} fine-tunes the drifting base with the bounded-transport form it
+  was pretrained with.}
+  \label{fig:intuition}
+\end{figure}
+
 We isolate the second failure mode in a bandit with a bimodal expert
 distribution, a one-step base pretrained with the drift operator, and a
-critic fit \emph{only} on on-manifold data. We compare the standard
+critic fit \emph{only} on on-manifold data. \Cref{fig:intuition}
+shows the mechanism in the plane that matters: the scarce-data critic
+invents a high-value region off the manifold, backpropagation drives the
+policy into it at full speed, and the bounded field update --- fed the
+identical critic --- cannot be driven more than a clipped step from the
+data. We compare the standard
 backpropagation update without and with a BC anchor
 ($-Q$ and $-Q + \lambda \|r\|^2$, the DICE-RL residual actor) against
 the field-target update of \cref{sec:method}, in two regimes

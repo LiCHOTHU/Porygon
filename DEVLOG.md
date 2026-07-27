@@ -919,3 +919,22 @@ actor on the same base = controlled comparison for Q1) · FM + DICE-RL (external
 reference for Q2) · Porygon (top-k) / Porygon (tilted) (resolution ablations for Q3,
 explicitly "not baselines"). Compared-methods list now states each method's purpose.
 Plot scripts' legends renamed to match; A/B/C/T remain internal-only (DEVLOG, job names).
+
+### Fig 1 (intuition) + bib authors fixed (user requests)
+- **scripts/plot_toy_intuition.py** → iclr2026/figures/toy_intuition.pdf (now Figure 1):
+  hard-regime toy (16-D, 60 critic pts) in manifold coordinates (x = a·e1, y = ||a_perp||).
+  Computed, not drawn: (a) critic slice with hallucinated off-manifold high-Q region;
+  (b) backprop -Q + BC anchor rides it — Q-hat 0.5→16, true 0.65→0.000, cloud at y≈10-12;
+  (c) field update holds manifold, true 0.65→0.60. First attempt in 2-D/30pts was too easy
+  (backprop WON, 0.84) — honest fix was visualizing the real 16-D failure, not tuning 2-D
+  until it failed. Jobs 11524079/11524670 (38-53s).
+- **Bib**: all 10 placeholder/incomplete entries replaced with official arXiv-exported
+  BibTeX (keys kept): dicerl2026 = Sun & Song "From Prior to Pro" (2603.10263);
+  dfp2026 = Koo et al.; dawn2026 = Ma et al. "What Makes Value Learning Efficient..."
+  (DAWN acronym verified in abstract); simplevlarl = Li et al. (2509.09674);
+  reinflow2025 = Zhang et al.; savo2025 = Jain et al. "Mitigating Suboptimality..."
+  (2410.11833); rlrazor2025 = Shenfeld/Pari/Agrawal; dopsd2026 = Jiang et al. "D-OPSD";
+  deng2026drifting = Deng, Li, Li, Du, He "Generative Modeling via Drifting";
+  parl2024 = Mark et al. full list. Zero "Anonymous" remain.
+- pe_A_residual_s10000 preempted at 2h14 (embers, --requeue did NOT requeue) → relaunched
+  11524669 with flaky-rack exclusion.
