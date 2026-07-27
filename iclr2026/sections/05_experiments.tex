@@ -21,19 +21,36 @@ LIBERO-90} (multitask drifting base; 100 RL iterations; final numbers use
 powered evaluation: 100 rollouts $\times$ 3 evaluation seeds).
 \todo{appendix table: env details, horizons, demo counts, budgets.}
 
-\textbf{Compared methods.} All arms share the drifting base, residual
-parameterization, critic, and data; only the actor update differs:
+\textbf{Compared methods.} Each comparison is chosen to isolate one of the
+three questions; every method on the drifting base shares the residual
+parameterization, critic, data, and budget, so only the actor update
+varies.
 \begin{itemize}
-  \item \textbf{A} (control): the DICE-RL residual actor --- backpropagated
-  $-Q$ with a filtered BC penalty \citep{dicerl2026} --- on our drifting base;
-  \item \textbf{B} (\method{}): \cref{eq:update} with the gradient reward
-  field $V_Q^{\mathrm{grad}}$;
-  \item \textbf{C} / \textbf{T}: the same update with the zeroth-order
-  top-$k$ / tilted reward fields (the resolution dial);
-  \item \textbf{FM+DICE}: the unmodified state-of-the-art pipeline on the
-  flow-matching base \citep{dicerl2026}.
+  \item \textbf{\method{}}: \cref{eq:update} with the gradient reward
+  field $V_Q^{\mathrm{grad}}$.
+  \item \textbf{Backprop actor} (the controlled comparison for
+  \textbf{Q1}): the DICE-RL residual actor \citep{dicerl2026} ---
+  backpropagated $-Q$ with a filtered BC penalty --- run on \emph{our}
+  drifting base. It consumes the identical critic through the identical
+  residual head, so any gap to \method{} is attributable to the update
+  \emph{form}, not to the base, the reward signal, or the data.
+  \item \textbf{FM + DICE-RL} (the external reference for \textbf{Q2}):
+  the unmodified state-of-the-art pipeline on its own flow-matching base
+  \citep{dicerl2026}. It answers whether the one-step base plus \method{}
+  competes with the strongest published system, not merely with its own
+  control.
+  \item \textbf{\method{} (top-$k$)} and \textbf{\method{} (tilted)}
+  (resolution ablations for \textbf{Q3}, not baselines): the same update
+  with the reward field built from the critic's \emph{rankings}
+  (transport toward the top-$k$ particles) or its \emph{soft values}
+  ($\exp(Q/\tau)$-weighted self-attraction). Each deletes the critic's
+  gradient direction while changing nothing else, measuring how much of
+  \method{}'s gain flows through that one channel --- and, in the
+  weak-critic LIBERO regime, whether the gradient is worth consuming at
+  all.
 \end{itemize}
-Hyperparameters are \emph{family-shared} across B/C/T ($\eta_Q{=}0.5$,
+Hyperparameters are \emph{family-shared} across \method{} and its two
+resolution variants ($\eta_Q{=}0.5$,
 $\delta_{\mathrm{tot}}{=}0.15$, $\eta_{\mathrm{anc}}{=}1.0$, $\tau{=}1$,
 $k{=}4$; dead zone $\rho{=}0.05$ on LIBERO) so that comparisons isolate
 the update rule rather than tuning effort.
@@ -52,14 +69,14 @@ submission-draft time; no provisional numbers are shown.}
 \toprule
  & \multicolumn{3}{c}{can} & \multicolumn{3}{c}{square} \\
 \cmidrule(lr){2-4}\cmidrule(lr){5-7}
-arm & s42 & s43 & s44 & s42 & s43 & s44 \\
+method & s42 & s43 & s44 & s42 & s43 & s44 \\
 \midrule
-drift base (no RL)        & \multicolumn{3}{c}{0.877} & \multicolumn{3}{c}{0.382} \\
-A: DICE-RL actor on drift & --- & --- & --- & 0.870 & 0.909 & --- \\
-FM + DICE-RL              & --- & --- & 0.986 & 0.934 & 0.923 & --- \\
-C: top-$k$ field          & 0.924 & 0.920 & 0.910 & 0.562 & 0.525 & 0.562 \\
-T: tilted field           & 0.949 & 0.947 & 0.919 & 0.578 & 0.584 & 0.560 \\
-\textbf{B: \method{}}     & \textbf{0.988} & \textbf{0.993} & --- & \textbf{0.912} & \textbf{0.930} & \textbf{0.929} \\
+drift base (no RL)         & \multicolumn{3}{c}{0.877} & \multicolumn{3}{c}{0.382} \\
+backprop actor (same base) & --- & --- & --- & 0.870 & 0.909 & --- \\
+FM + DICE-RL               & --- & --- & 0.986 & 0.934 & 0.923 & --- \\
+\method{} (top-$k$)        & 0.924 & 0.920 & 0.910 & 0.562 & 0.525 & 0.562 \\
+\method{} (tilted)         & 0.949 & 0.947 & 0.919 & 0.578 & 0.584 & 0.560 \\
+\textbf{\method{}}         & \textbf{0.988} & \textbf{0.993} & --- & \textbf{0.912} & \textbf{0.930} & \textbf{0.929} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -69,9 +86,10 @@ T: tilted field           & 0.949 & 0.947 & 0.919 & 0.578 & 0.584 & 0.560 \\
   \includegraphics[width=\linewidth]{figures/robomimic_curves.pdf}
   \caption{robomimic learning curves (300-episode evaluations every 1K
   steps; mean and min--max band over seeds; dashed vertical line marks the
-  matched 20K budget). On square, \method{} overtakes the backpropagated
-  control~A by 7K steps and holds a $4$--$7$-point lead through the
-  matched budget; the value-only fields C/T flatline near $0.55$. On can,
+  matched 20K budget). On square, \method{} overtakes the backprop actor
+  by 7K steps and holds a $4$--$7$-point lead through the
+  matched budget; the value-only variants (top-$k$, tilted) flatline near
+  $0.55$. On can,
   \method{} and the flow-matching pipeline both approach the ceiling
   ($\geq 0.98$). \todo{regenerate with the s44 and can-baseline reruns
   when they finish.}}
@@ -85,7 +103,7 @@ flow-matching pipeline reaches $0.986$ --- can chiefly certifies that the
 field update preserves (and slightly extends) the base's competence at the
 ceiling. The discriminative task is square, where the drifting base solves
 only $0.382$ of episodes; \method{} adds $55$ points, reaching
-$0.91$--$0.93$ on every seed. The backpropagated control~A --- same base,
+$0.91$--$0.93$ on every seed. The backprop actor --- same base,
 same critic, same data, same budget --- reaches $0.87$--$0.91$
 (\textbf{Q1}): given the identical reward signal, the field-target form
 extracts strictly more progress at the matched budget. Against the
@@ -99,10 +117,11 @@ from a stability threat into bounded noise: with policy motion capped at
 $\delta_{\mathrm{tot}}$ per update, \method{} tolerates a reward step
 ($\eta_Q{=}0.5$) far above what the backpropagated control can survive,
 and simply takes more, safer steps in the directions where the critic is
-consistent. The control must instead keep its effective step small enough
+consistent. The backprop actor must instead keep its effective step small enough
 for its \emph{worst} critic errors, and it pays in speed: \method{} reaches
-$0.91$ on every seed by $15$K steps, a level A reaches only $5$--$10$K
-steps later; A's matched-budget endpoint trails \method{}'s on every seed,
+$0.91$ on every seed by $15$K steps, a level the backprop actor reaches
+only $5$--$10$K
+steps later; its matched-budget endpoint trails \method{}'s on every seed,
 and the gap closes only near $40$K, where both converge to
 $0.97$--$0.99$. The form's advantage on this benchmark is therefore a
 faster, never-worse path to the same asymptote --- exactly what a
@@ -135,7 +154,7 @@ $\times$ 3 seeds). Runs in progress; table reserved.}
 \small
 \begin{tabular}{lcccc}
 \toprule
- & BC base & A (control) & FM + DICE & \method{} / C / T \\
+ & BC base & backprop actor & FM + DICE-RL & \method{} / top-$k$ / tilted \\
 \midrule
 hard-8 mean & --- & --- & --- & --- \\
 \bottomrule
@@ -146,7 +165,8 @@ hard-8 mean & --- & --- & --- & --- \\
   \centering
   \figplaceholder{3.6cm}{\textbf{[Figure reserved: hard-8 per-task
   breakdown.]} Grouped bars, one group per LIBERO task, one bar per method
-  (BC base / A / FM+DICE / \method{} / C / T), powered evaluations with
+  (BC base / backprop actor / FM+DICE-RL / \method{} / top-$k$ /
+  tilted), powered evaluations with
   95\% intervals --- shows \emph{where} the dial compresses, not just the
   mean.}
   \caption{LIBERO hard-8 per-task results. \todo{runs in progress}}
@@ -176,14 +196,15 @@ complete. Include the guarded BC-filter interaction.}
 
 \todo{Four ablations (plots reserved in \cref{fig:ablations}), one table
 each once runs complete:
-(i) \textbf{trust-region locus} --- control A + parameter-space gradient
+(i) \textbf{trust-region locus} --- the backprop actor + parameter-space
+gradient
 clipping vs.\ B's action-space clip at equal effective step (isolates the
 central claim);
 (ii) \textbf{anchor geometry} --- $\rho{=}0$ silently erases the residual
 under weak reward fields (measured residual RMS collapses $\sim$5$\times$
 and performance reverts to base-plus-selection), the quantitative version
 of the toy's ``penalties lose to fields'' lesson;
-(iii) \textbf{step/clip sweep} --- the 21-arm square study behind the
+(iii) \textbf{step/clip sweep} --- the 21-configuration square sweep behind the
 family recipe: stability window of $\eta_Q$ under \cref{eq:update} vs.\
 backpropagation;
 (iv) \textbf{dispersion retention} --- action dispersion and best-of-$N$

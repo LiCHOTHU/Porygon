@@ -30,11 +30,11 @@ BC_JSON = os.path.join(CEDAR, "powered_eval_2x2_drift_dice.json")
 # display order: label -> (json LABEL prefix, style); seeds 10000/10001/10002
 ARMS = {
     "BC base":   dict(prefix=None, color="#777777"),
-    "A: DICE-RL actor": dict(prefix="A_residual", color="#E69F00"),
+    "backprop actor": dict(prefix="A_residual", color="#E69F00"),
     "FM + DICE-RL": dict(prefix="FMDICE", color="#009E73"),
-    "B: Porygon": dict(prefix="B_grad", color="#0072B2"),
-    "C: top-$k$": dict(prefix="C_zeroth", color="#CC79A7"),
-    "T: tilted":  dict(prefix="T_tilted_gf", color="#56B4E9"),
+    "Porygon": dict(prefix="B_grad", color="#0072B2"),
+    "Porygon (top-$k$)": dict(prefix="C_zeroth", color="#CC79A7"),
+    "Porygon (tilted)":  dict(prefix="T_tilted_gf", color="#56B4E9"),
 }
 SEEDS = [10000, 10001, 10002]
 TCRIT = {3: 4.303, 6: 2.571, 9: 2.306}  # two-sided 95%, df = n-1

@@ -48,11 +48,11 @@ XMAX = 40_000
 
 # Okabe-Ito (CVD-safe); line style doubles as a second identity channel.
 STYLE = {
-    "B":  dict(color="#0072B2", ls="-",  lw=2.2, label="B: Porygon"),
-    "A":  dict(color="#E69F00", ls="--", lw=1.8, label="A: DICE-RL actor"),
+    "B":  dict(color="#0072B2", ls="-",  lw=2.2, label="Porygon"),
+    "A":  dict(color="#E69F00", ls="--", lw=1.8, label="backprop actor"),
     "FM": dict(color="#009E73", ls="-.", lw=1.8, label="FM + DICE-RL"),
-    "C":  dict(color="#CC79A7", ls=":",  lw=1.8, label="C: top-$k$ field"),
-    "T":  dict(color="#56B4E9", ls="-",  lw=1.2, label="T: tilted field"),
+    "C":  dict(color="#CC79A7", ls=":",  lw=1.8, label="Porygon (top-$k$)"),
+    "T":  dict(color="#56B4E9", ls="-",  lw=1.2, label="Porygon (tilted)"),
 }
 
 

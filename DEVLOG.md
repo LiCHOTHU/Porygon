@@ -912,3 +912,10 @@ powered_eval_2x2_drift_dice.json BC = **0.671 +- 0.035** (drift multitask base, 
 Generates fig:libero-pertask (grouped bars, 95% t-CIs over pooled 3 train x 3 eval seeds)
 AND prints tab:libero hard-8 means. Skips missing JSONs so it can re-run as evals land.
 Smoke-tested on the BC row. Fig 3 regenerated with latest logs (FM-can extends past 24K).
+
+### Naming pass (user request): retired the A/B/C/T lab labels in the paper
+Table/figures/prose now use: Porygon (method) · backprop actor (the DICE-RL residual
+actor on the same base = controlled comparison for Q1) · FM + DICE-RL (external SOTA
+reference for Q2) · Porygon (top-k) / Porygon (tilted) (resolution ablations for Q3,
+explicitly "not baselines"). Compared-methods list now states each method's purpose.
+Plot scripts' legends renamed to match; A/B/C/T remain internal-only (DEVLOG, job names).
