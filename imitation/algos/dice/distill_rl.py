@@ -224,6 +224,10 @@ class DistilledRLModel(nn.Module):
                  replay_flow_warmup_steps: int = 1000,
                  # Q-normalization
                  use_q_normalization: bool = False,
+                 # Per-state (= per-task in multitask batches) q_scale for the
+                 # field update: a batch-global scale lets high-|Q| tasks
+                 # suppress the reward field of low-|Q| tasks.
+                 per_state_q_scale: bool = False,
                  # Multi-sample next-noise for stable target Q
                  multi_sample_next_noise: bool = False,
                  num_next_noise_samples: int = 4,
@@ -310,6 +314,7 @@ class DistilledRLModel(nn.Module):
         self.replay_flow_warmup_steps = replay_flow_warmup_steps
         # Q-norm
         self.use_q_normalization = use_q_normalization
+        self.per_state_q_scale = per_state_q_scale
         # Multi-z target
         self.multi_sample_next_noise = multi_sample_next_noise
         self.num_next_noise_samples = num_next_noise_samples
@@ -852,8 +857,15 @@ class DistilledRLModel(nn.Module):
             old_res = self.actor(state_K, z)                     # r_theta (detached source)
             cur = base + old_res                                 # current particles
             q_cur = self.critic(state_K, z, cur)                 # (B*K,1) conservative
-            q_scale = (q_cur.abs().mean().clamp_min(1e-8)
-                       if self.use_q_normalization else cur.new_tensor(1.0))
+            if not self.use_q_normalization:
+                q_scale = cur.new_tensor(1.0)
+            elif self.per_state_q_scale:
+                # one scale per batch row (= per task in multitask batches),
+                # shared across that row's K particles
+                q_scale = (q_cur.reshape(B, K).abs().mean(dim=1, keepdim=True)
+                           .clamp_min(1e-8).expand(B, K).reshape(B * K, 1))
+            else:
+                q_scale = q_cur.abs().mean().clamp_min(1e-8)
 
         # ---- reward field V_Q ----
         if q_source == "grad":

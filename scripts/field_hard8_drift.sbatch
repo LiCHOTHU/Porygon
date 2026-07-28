@@ -58,7 +58,11 @@ case "${EXP}" in
         dice.field.q_step_size=0.5 dice.field.bc_step_size=0.05 dice.field.total_max_norm=0.15 +dice.field.restore_step_size=1.0 +dice.field.restore_radius=0.05 dice.field.topk=4) ;;
   T2) RL_NAME="field_hard8_ff_T2_tuned${FTAG}_s${SEED}";       ACTOR=(dice.actor_mode=field_distributional dice.field.q_source=tilted
         dice.field.q_step_size=0.5 dice.field.bc_step_size=0.05 dice.field.total_max_norm=0.15 +dice.field.restore_step_size=1.0 +dice.field.restore_radius=0.05 +dice.field.q_temp=1.0) ;;
-  *) echo "unknown EXP=${EXP} (use A, B, C, T, B2, C2 or T2)"; exit 1 ;;
+  # BP: B2 tuned recipe + per-state (per-task) q_scale — fixes the multitask
+  # normalization defect where high-|Q| tasks suppress low-|Q| tasks' fields
+  BP) RL_NAME="field_hard8_ff_BP_pscale${FTAG}_s${SEED}";      ACTOR=(dice.actor_mode=field_pointwise dice.field.q_source=grad
+        dice.field.q_step_size=0.5 dice.field.bc_step_size=0.05 dice.field.total_max_norm=0.15 +dice.field.restore_step_size=1.0 +dice.field.restore_radius=0.05 +dice.per_state_q_scale=true) ;;
+  *) echo "unknown EXP=${EXP} (use A, B, C, T, B2, C2, T2 or BP)"; exit 1 ;;
 esac
 LOG="${CEDAR}/${RL_NAME}.log"
 # dice_train saves under exp_name/ or exp_name/<seed>/ depending on layout — check both.

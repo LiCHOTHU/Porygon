@@ -26,8 +26,12 @@ from powered_eval_matched import _build_dice_policy
 from imitation.algos.dice.drift_field import compute_q_gradient_field, compute_drift_field, clip_field_norm
 
 CEDAR = "/storage/cedar/cedar0/cedarp-agarg35-0/liquan.w/imitation_scratch"
-CK = f"{CEDAR}/imitation/experiments_dice/libero/libero_90/field_drift_t32_C_distrib_zeroth/dice_latest.pth"
-TASK, B, K = 32, 8, 16
+CK = os.environ.get(
+    "DIAG_CK",
+    f"{CEDAR}/imitation/experiments_dice/libero/libero_90/field_drift_t32_C_distrib_zeroth/dice_latest.pth",
+)
+TASK = int(os.environ.get("DIAG_TASK", "32"))
+B, K = 8, 16
 
 
 def main():
@@ -120,6 +124,9 @@ def main():
                 print(f"    {qs:6s} step={step_sz}:  dQ = {dQ:+.4e}   ||field||={f.reshape(B*K,-1).norm(dim=-1).mean():.3f}")
 
     # ---- 5. in-loop: 150 field updates vs REAL critic ----
+    if os.environ.get("DIAG_PSQ"):
+        student.per_state_q_scale = True
+        print("\n[5] IN-LOOP with per_state_q_scale=True")
     print(f"\n[5] IN-LOOP field_actor_loss (real critic, 150 steps) — does Q climb & residual grow?")
     init_actor = {k: v.clone() for k, v in student.actor.state_dict().items()}
 
