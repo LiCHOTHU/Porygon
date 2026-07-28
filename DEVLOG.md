@@ -960,3 +960,17 @@ re-armed 09:40, relaunched the 7 missing evals (11532344-50).
 - L40S: sq_ext_A_s44 (~13:00), can_conf_Bq05_s44 (~11:50), sq_ext_FM_s44 (~18:00);
   can_ext_A s42/s43 L40S duplicates queued (v100 copies died at 18K again).
 - 7 eval relaunches + per-task figure + guarded-filter appendix once all seeds land.
+
+### per_state_q_scale: tested and REFUTED (2026-07-28 afternoon)
+Hypothesis (from per-task ||grad Q|| spanning 0.003-0.55): batch-global q_scale
+suppresses alive tasks' fields in multitask batches. Fix implemented
+(dice.per_state_q_scale), verified correct on local GPU: single-task ON/OFF runs
+bitwise-identical (expected no-op; flag confirmed differing in configs).
+Mixed-8-task in-loop probe on the iter-100 B ckpt (local GPU): global vs per-state
+scale indistinguishable — dQ≈0 both, residual 0.002-0.005, NO task moves (incl. 32).
+Cause: per-particle norm-clip erases scalar-scale differences where signal is strong.
+Sharper finding: task 32 climbs (+0.16 Q, res 0.68) under single-task conds but not in
+the mixed batch — shared-residual-head interference from 7 flat-anchor tasks blocks the
+one alive task. Multitask no-gain is structural (dead critics + interference), not a
+normalization artifact. BP pilot (11535529) left running as empirical confirmation;
+expected flat. Paper's no-gain framing stands; per-task critics = future work.

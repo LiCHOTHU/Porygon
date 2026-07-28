@@ -45,17 +45,29 @@ def main():
     for p in student.actor.parameters():
         p.requires_grad_(True)
 
-    # one real task-32 cond, tiled to B
-    task_emb = {k: v.repeat(1, 1) for k, v in env_runner.benchmark.get_task_emb(TASK).items()}
-    penv = env_runner.env_factory(task_id=TASK, benchmark=env_runner.benchmark)
-    penv = lw.LiberoVectorWrapper(lambda: lw.LiberoFrameStack(penv, env_runner.frame_stack), 1)
-    obs, _ = penv.reset()
-    batch = bc_policy.preprocess_input(
-        bc_policy._make_batch({k: v for k, v in obs.items()}, TASK, **task_emb), train_mode=False)
-    with torch.no_grad():
-        cond = bc_policy.get_cond(batch)
-    penv.close()
-    cond = cond.expand(B, -1, -1).contiguous().to(dev)
+    # conds: either one task tiled to B, or (DIAG_TASKS) one row per task —
+    # a real mixed-task batch, the regime where global vs per-state q_scale differ
+    def _cond_for(tid):
+        task_emb = {k: v.repeat(1, 1) for k, v in env_runner.benchmark.get_task_emb(tid).items()}
+        penv = env_runner.env_factory(task_id=tid, benchmark=env_runner.benchmark)
+        penv = lw.LiberoVectorWrapper(lambda: lw.LiberoFrameStack(penv, env_runner.frame_stack), 1)
+        obs, _ = penv.reset()
+        batch = bc_policy.preprocess_input(
+            bc_policy._make_batch({k: v for k, v in obs.items()}, tid, **task_emb), train_mode=False)
+        with torch.no_grad():
+            c = bc_policy.get_cond(batch)
+        penv.close()
+        return c
+
+    if os.environ.get("DIAG_TASKS"):
+        tids = [int(t) for t in os.environ["DIAG_TASKS"].split(",")]
+        cond = torch.cat([_cond_for(t) for t in tids], dim=0).contiguous().to(dev)
+        globals()["MIXED_TIDS"] = tids
+        B_actual = len(tids)
+    else:
+        cond = _cond_for(TASK).expand(B, -1, -1).contiguous().to(dev)
+        B_actual = B
+    B = B_actual
 
     H, A = student.horizon_steps, student.action_dim
     S = H * A
@@ -135,17 +147,33 @@ def main():
         a = student._teacher_fn(state_K, z) + student.actor(state_K, z)
         return critic(state_K, z, a).mean().item(), student.actor(state_K, z).pow(2).mean().sqrt().item()
 
-    for qs in ("zeroth", "grad"):
-        student.actor.load_state_dict(init_actor)
-        opt = torch.optim.Adam(student.actor.parameters(), lr=1e-3)
-        q0, r0 = measure()
-        for step in range(150):
-            m = student.field_actor_loss(cond, mode="field_distributional", q_source=qs,
-                                         q_step=0.2, bc_step=0.05, q_max_norm=1.0,
-                                         total_max_norm=0.2, num_particles=K, num_bc_particles=K, topk=4)
-            opt.zero_grad(set_to_none=True); m["actor_total"].backward(); opt.step()
-        q1, r1 = measure()
-        print(f"    {qs:6s}:  Q {q0:+.4f} -> {q1:+.4f}  (dQ={q1-q0:+.4f})   residual {r0:.4f} -> {r1:.4f}")
+    @torch.no_grad()
+    def measure_per_row():
+        a = student._teacher_fn(state_K, z) + student.actor(state_K, z)
+        q = critic(state_K, z, a).reshape(B, K).mean(dim=1)
+        r = student.actor(state_K, z).reshape(B, K, -1).pow(2).mean(dim=(1, 2)).sqrt()
+        return q.cpu(), r.cpu()
+
+    scale_modes = ((False, "global"), (True, "per-state")) if "MIXED_TIDS" in globals() \
+        else ((student.per_state_q_scale, "as-set"),)
+    for psq, tag in scale_modes:
+        student.per_state_q_scale = psq
+        for qs in (("grad",) if "MIXED_TIDS" in globals() else ("zeroth", "grad")):
+            student.actor.load_state_dict(init_actor)
+            opt = torch.optim.Adam(student.actor.parameters(), lr=1e-3)
+            q0, r0 = measure()
+            q0r, _ = measure_per_row()
+            for step in range(150):
+                m = student.field_actor_loss(cond, mode="field_distributional", q_source=qs,
+                                             q_step=0.2, bc_step=0.05, q_max_norm=1.0,
+                                             total_max_norm=0.2, num_particles=K, num_bc_particles=K, topk=4)
+                opt.zero_grad(set_to_none=True); m["actor_total"].backward(); opt.step()
+            q1, r1 = measure()
+            q1r, r1r = measure_per_row()
+            print(f"    [{tag:9s}] {qs:6s}:  Q {q0:+.4f} -> {q1:+.4f}  (dQ={q1-q0:+.4f})   residual {r0:.4f} -> {r1:.4f}")
+            if "MIXED_TIDS" in globals():
+                for i, t in enumerate(MIXED_TIDS):
+                    print(f"        task {t:3d}: Q {q0r[i]:+.4f} -> {q1r[i]:+.4f}   residual -> {r1r[i]:.4f}")
 
     print("\n" + "=" * 68)
     print("READ: [1] dead grad + [2] weak Q-spread => neither channel has a reward")
