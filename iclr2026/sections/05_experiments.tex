@@ -61,7 +61,8 @@ the update rule rather than tuning effort.
 \begin{table}[t]
 \centering
 \caption{robomimic success rate (300-episode evaluations, last-3-checkpoint
-average, per seed). ``---'' = matched-budget run still in progress at
+average, per seed). Bold marks the best value in each column (ties within
+$0.005$). ``---'' = matched-budget run still in progress at
 submission-draft time; no provisional numbers are shown.}
 \label{tab:robomimic}
 \small
@@ -72,11 +73,11 @@ submission-draft time; no provisional numbers are shown.}
 method & s42 & s43 & s44 & s42 & s43 & s44 \\
 \midrule
 drift base (no RL)         & \multicolumn{3}{c}{0.877} & \multicolumn{3}{c}{0.382} \\
-backprop actor (same base) & --- & --- & --- & 0.870 & 0.909 & --- \\
-FM + DICE-RL               & --- & --- & 0.986 & 0.934 & 0.923 & --- \\
+backprop actor (same base) & --- & --- & 0.940 & 0.870 & 0.909 & --- \\
+FM + DICE-RL               & \textbf{0.989} & 0.979 & \textbf{0.986} & \textbf{0.934} & 0.923 & --- \\
 \method{} (top-$k$)        & 0.924 & 0.920 & 0.910 & 0.562 & 0.525 & 0.562 \\
 \method{} (tilted)         & 0.949 & 0.947 & 0.919 & 0.578 & 0.584 & 0.560 \\
-\textbf{\method{}}         & \textbf{0.988} & \textbf{0.993} & --- & \textbf{0.912} & \textbf{0.930} & \textbf{0.929} \\
+\method{}                  & \textbf{0.988} & \textbf{0.993} & --- & 0.912 & \textbf{0.930} & \textbf{0.929} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -98,8 +99,9 @@ FM + DICE-RL               & --- & --- & 0.986 & 0.934 & 0.923 & --- \\
 
 \Cref{tab:robomimic} gives the per-seed results, and \cref{fig:curves}
 the corresponding learning curves. On can, fine-tuning saturates the task:
-\method{} reaches $0.988$--$0.993$ from a base at $0.877$, and the
-flow-matching pipeline reaches $0.986$ --- the can task chiefly certifies
+\method{} reaches $0.988$--$0.993$ from a base at $0.877$, the
+flow-matching pipeline reaches $0.979$--$0.989$, and the backprop actor
+trails slightly at $0.940$ --- the can task chiefly certifies
 that the field update preserves (and slightly extends) the base's
 competence at the ceiling. The discriminative task is square, where the drifting base solves
 only $0.382$ of episodes; \method{} adds $55$ points, reaching
@@ -148,34 +150,55 @@ transport should approach --- not trail --- the gradient field.
 
 \begin{table}[t]
 \centering
-\caption{LIBERO hard-8 mean success (powered evaluation: 100 rollouts
-$\times$ 3 seeds). Runs in progress; table reserved.}
+\caption{LIBERO hard-8 mean success under powered evaluation ($100$
+rollouts $\times$ $3$ evaluation seeds per cell; one column per training
+seed; $100$ RL iterations). Neither base is moved by \emph{any}
+fine-tuner: the weak multitask critic supports no extractable gain, for
+backpropagation and field transport alike. ``---'' = evaluation still
+running.}
 \label{tab:libero}
 \small
-\begin{tabular}{lcccc}
+\begin{tabular}{lccc}
 \toprule
- & BC base & backprop actor & FM + DICE-RL & \method{} / top-$k$ / tilted \\
+method & s10000 & s10001 & s10002 \\
 \midrule
-hard-8 mean & --- & --- & --- & --- \\
+drift base (no RL)         & \multicolumn{3}{c}{$0.671 \pm 0.014$} \\
+backprop actor (same base) & 0.657 & 0.655 & 0.668 \\
+\method{} (top-$k$)        & --- & 0.684 & --- \\
+\method{} (tilted)         & 0.677 & --- & 0.672 \\
+\method{}                  & 0.655 & --- & 0.659 \\
+\midrule
+flow-matching base (no RL) & \multicolumn{3}{c}{$0.738 \pm 0.022$} \\
+FM + DICE-RL               & 0.756 & 0.735 & 0.737 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\begin{figure}[t]
-  \centering
-  \figplaceholder{3.6cm}{\textbf{[Figure reserved: hard-8 per-task
-  breakdown.]} Grouped bars, one group per LIBERO task, one bar per method
-  (BC base / backprop actor / FM+DICE-RL / \method{} / top-$k$ /
-  tilted), powered evaluations with
-  95\% intervals --- shows \emph{where} the dial compresses, not just the
-  mean.}
-  \caption{LIBERO hard-8 per-task results. \todo{runs in progress}}
-  \label{fig:libero-pertask}
-\end{figure}
-
-\todo{Fill \cref{tab:libero}, \cref{fig:libero-pertask}, and the
-compression analysis when the chains reach iteration 100 and powered evals
-complete. Include the guarded BC-filter interaction.}
+The powered numbers (\cref{tab:libero}) deliver a verdict that noisy
+small-sample readouts had obscured: \emph{nothing wins here}. On the
+drifting base, the backprop actor ($0.655$--$0.668$), \method{}
+($0.655$--$0.659$), and every resolution variant ($0.66$--$0.70$) all sit
+within noise of the untuned base ($0.671 \pm 0.014$). The flow-matching
+pipeline looks stronger in absolute terms ($0.735$--$0.756$) --- but its
+own base already scores $0.738 \pm 0.022$, so DICE-RL likewise extracts
+essentially nothing; its apparent lead on this benchmark is inherited
+entirely from pretraining. Three honest conclusions follow. First, the
+weak-critic regime is a \emph{no-gain} regime for every update rule we
+tested: when the shared critic's action-signal is this poor, neither
+backpropagating it nor transporting along it, at any resolution, converts
+it into task success. Second, the dial compresses exactly as the toy
+predicts --- gradient, ranking, and soft-value sources become
+indistinguishable --- though in the starkest possible form. Third, every
+drift-base arm \emph{preserves} the base within noise: the failure mode of
+\cref{fig:intuition} does not appear even for the backprop actor,
+consistent with the diagnosis that this critic is action-blind rather than
+action-exploitable --- there is no steep hallucinated gradient to ride.
+Small-sample evaluations told a different, wrong story (single-seed
+$20$-episode endpoints ranged $0.63$--$0.78$ across these same arms);
+powered evaluation collapses that spread to the base value.
+\todo{per-task breakdown figure (\texttt{scripts/plot\_libero\_pertask.py})
+once the remaining seed evaluations land; include the guarded BC-filter
+interaction in the appendix.}
 
 \subsection{Ablations: which component pays where}
 \label{sec:exp-ablation}

@@ -64,10 +64,12 @@ $0.91$--$0.93$ across seeds --- ahead of the backpropagated control at the
 matched budget ($0.87$--$0.91$) and at parity with the flow-matching +
 DICE-RL state-of-the-art pipeline on both tasks, while the value-only
 sources trail far behind ($\sim\!0.55$ on square). On the eight
-hardest LIBERO-90 tasks, where the critic is weaker, the ordering
-compresses exactly as the toy predicts, with ranking-based transport
-matching the gradient source. \todo{finalize hard-8 sentence once chains
-complete.}
+hardest LIBERO-90 tasks, where the shared multitask critic is far weaker,
+the ordering compresses exactly as the toy predicts --- and in the
+starkest form: under powered evaluation no update rule, backpropagated or
+field-based, at any resolution, improves on its own base (the
+flow-matching pipeline's apparent lead is inherited entirely from its
+pretraining), while every field arm preserves the base within noise.
 
 Our contributions:
 \begin{itemize}

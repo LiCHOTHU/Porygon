@@ -938,3 +938,25 @@ Plot scripts' legends renamed to match; A/B/C/T remain internal-only (DEVLOG, jo
   parl2024 = Mark et al. full list. Zero "Anonymous" remain.
 - pe_A_residual_s10000 preempted at 2h14 (embers, --requeue did NOT requeue) → relaunched
   11524669 with flaky-rack exclusion.
+
+## 2026-07-28 — Overnight harvest: hard-8 powered VERDICT (nothing gains) + can column fills
+Overnight PACE storage/Slurm outage (~00:00-06:00) killed the session's monitor;
+re-armed 09:40, relaunched the 7 missing evals (11532344-50).
+
+### LIBERO hard-8 powered verdict (100x3 per training seed; 20/27 evals in)
+- drift base 0.671±0.014 | backprop A 0.657/0.655/0.668 | Porygon 0.655/—/0.659 |
+  top-k —/0.684/— | tilted 0.677/—/0.672 | C2 0.666/0.667/0.678 | T2-gf 0.663/0.684/0.703
+- **FM base (no RL) 0.738±0.022 | FM+DICE 0.756/0.735/0.737 (0.743)** → FM+DICE gains
+  +0.5pp over ITS OWN base. **No update rule beats its base on hard-8.** The 20-ep
+  spread (0.63-0.78, incl. tilted's 0.781 "lead") was noise; powered eval collapses
+  everything to base. §5.3 + tab:libero + intro rewritten to the no-gain story;
+  every drift arm preserves base (critic action-blind, not action-exploitable).
+### Robomimic can column fills (matched 18/19/20K, 300 ep)
+- can A s44 = 0.940 (11521939, ran to 33K) · can FM s42 = 0.989 · can FM s43 = 0.979
+- FM-can now per-seed 0.979-0.989 ≈ B 0.988/0.993: full parity at ceiling; per-column
+  bolding in Table 1 (FM bold on can s42-tie/s44 + sq s42; B bold on can s42-tie/s43,
+  sq s43/s44). Fig 3 regenerated (can panel now has backprop-actor curve).
+### Still in flight
+- L40S: sq_ext_A_s44 (~13:00), can_conf_Bq05_s44 (~11:50), sq_ext_FM_s44 (~18:00);
+  can_ext_A s42/s43 L40S duplicates queued (v100 copies died at 18K again).
+- 7 eval relaunches + per-task figure + guarded-filter appendix once all seeds land.
