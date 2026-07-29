@@ -974,3 +974,30 @@ the mixed batch — shared-residual-head interference from 7 flat-anchor tasks b
 one alive task. Multitask no-gain is structural (dead critics + interference), not a
 normalization artifact. BP pilot (11535529) left running as empirical confirmation;
 expected flat. Paper's no-gain framing stands; per-task critics = future work.
+
+## 2026-07-29 — LIBERO single-task campaign: sweep verdict, anchor-fix dynamics, causal chain
+### Powered results (100×3, iter-40 ckpts, pre-fix chains; per-task raw bases)
+| task | base | Porygon | backprop A |
+|---|---|---|---|
+| 65 | 0.573 | 0.670 (+9.7) / **q1: 0.703 (+13.0)** | 0.550 (−2.3) |
+| 81 | 0.588 | 0.643 (+5.5) | (queued) |
+| 53 | 0.785 | 0.820 (+3.5) | (queued) |
+| 75 | 0.578 | 0.593 (+1.5) | 0.583 (+0.5) |
+| 73 | 0.648 | 0.647 (−0.1) | 0.663 (+1.5) |
+B mean +4.0pp (never < −0.1); q1 recipe +13 on t65 vs backprop −2.3 (15pp method gap).
+t65 sweep ladder: q1 0.703 > default 0.670 = K32 0.670 > clip.3 0.663 > cadence 0.630 ≫ A 0.550.
+### Anchor rms-fix in-vivo dynamics (local GPU runs)
+Engages early (residual 0.005→0.020 by iter 3-5) then DECAYS back (~0.005 by iter 25):
+as the critic matures/CQL flattens, the fading field loses to the constant −0.05·r BC pull
+→ transport is TRANSIENT at q_step 0.5; sustain requires q_step 1.0 (the sweep winner).
+rms-fix local final evals 0.700/0.850 (20-ep; powered eval 11557527 queued).
+### Why LIBERO ≪ robomimic (measured causal chain, paper-ready)
+(1) field 4× weaker: q_delta 0.37-0.39 robomimic vs 0.095 LIBERO — S=112 vs 28 chunks;
+(2) anchor units bug killed all transport pre-fix (dea9956);
+(3) field-vs-BC-pull attrition (transient transport) at default q_step;
+(4) budget ~670 episodes vs thousands. In chunk-decision units LIBERO episodes are SHORTER
+(19 vs 37) — episode length is NOT the cause.
+### In flight
+Local GPU: full stack q1+rmsfix+n_step3 t65 (field_st_B_t65_q1n3rms_local). Cluster (inferno
+congested): q1×5 tasks, rms×6, q1+rms, q1-ext→100 iters, soft-anchor, pes B_t32/A_t32/Brms_t65,
+can_ext_A s42/s43 (Table-1 last cells), 6 hard-8 eval seeds.
