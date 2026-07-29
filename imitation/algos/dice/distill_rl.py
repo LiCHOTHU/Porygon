@@ -821,6 +821,7 @@ class DistilledRLModel(nn.Module):
                          num_bc_particles: int = 16,
                          radii=(0.02, 0.05, 0.2), topk: int = 4, q_temp: float = 1.0,
                          restore_step: float = 0.0, restore_radius: float = 0.0,
+                         restore_radius_rms: bool = False,
                          unit_normalize: bool = False, adaptive_bc: bool = False,
                          res_target: float = 0.2, lambda_lr: float = 0.1,
                          lambda_max: float = 20.0) -> Dict[str, torch.Tensor]:
@@ -937,6 +938,12 @@ class DistilledRLModel(nn.Module):
         # the excess norm beyond it.
         if restore_radius > 0.0:
             rn = old_res.reshape(B * K, -1).norm(dim=-1)
+            if restore_radius_rms:
+                # dimension-independent dead zone: gate on per-dim rms, not the
+                # S-dim vector norm (norm scales with sqrt(S): the same radius
+                # that leaves a working dead zone at S=28 is already exceeded
+                # by the base residual at S=112)
+                rn = rn / (old_res.shape[-1] * old_res.shape[-2]) ** 0.5
             gate = (1.0 - restore_radius / rn.clamp_min(1e-8)).clamp(min=0.0)
             restore_delta = -restore_step * gate.reshape(B * K, 1, 1) * old_res
         else:
@@ -1138,6 +1145,7 @@ class DistilledRLModel(nn.Module):
                 q_temp=fc.get("q_temp", 1.0),
                 restore_step=fc.get("restore_step_size", 0.0),
                 restore_radius=fc.get("restore_radius", 0.0),
+                restore_radius_rms=fc.get("restore_radius_rms", False),
                 unit_normalize=fc.get("unit_normalize", False),
                 adaptive_bc=fc.get("adaptive_bc", False),
                 res_target=fc.get("res_target", 0.2),

@@ -63,11 +63,10 @@ def main():
         tids = [int(t) for t in os.environ["DIAG_TASKS"].split(",")]
         cond = torch.cat([_cond_for(t) for t in tids], dim=0).contiguous().to(dev)
         globals()["MIXED_TIDS"] = tids
-        B_actual = len(tids)
+        B = len(tids)
     else:
+        B = globals()["B"]
         cond = _cond_for(TASK).expand(B, -1, -1).contiguous().to(dev)
-        B_actual = B
-    B = B_actual
 
     H, A = student.horizon_steps, student.action_dim
     S = H * A
@@ -154,6 +153,35 @@ def main():
         r = student.actor(state_K, z).reshape(B, K, -1).pow(2).mean(dim=(1, 2)).sqrt()
         return q.cpu(), r.cpu()
 
+    if os.environ.get("DIAG_GRID"):
+        # controlled bisect: same state, same z, one config per row
+        grid = [
+            ("distr  no-anchor", dict(mode="field_distributional", q_step=0.2, bc_step=0.05, total_max_norm=0.2)),
+            ("distr  anchor",    dict(mode="field_distributional", q_step=0.2, bc_step=0.05, total_max_norm=0.2,
+                                      restore_step=1.0, restore_radius=0.05)),
+            ("pointw no-anchor", dict(mode="field_pointwise", q_step=0.2, bc_step=0.05, total_max_norm=0.2)),
+            ("pointw anchor",    dict(mode="field_pointwise", q_step=0.2, bc_step=0.05, total_max_norm=0.2,
+                                      restore_step=1.0, restore_radius=0.05)),
+            ("pointw soft-anch", dict(mode="field_pointwise", q_step=0.2, bc_step=0.05, total_max_norm=0.2,
+                                      restore_step=0.3, restore_radius=0.05)),
+            ("train-exact",      dict(mode="field_pointwise", q_step=0.5, bc_step=0.05, total_max_norm=0.15,
+                                      restore_step=1.0, restore_radius=0.05)),
+            ("train+rms-fix",    dict(mode="field_pointwise", q_step=0.5, bc_step=0.05, total_max_norm=0.15,
+                                      restore_step=1.0, restore_radius=0.05, restore_radius_rms=True)),
+        ]
+        print("\n[5g] CONTROLLED GRID (same state/z, 150 steps each, lr=1e-3, q_source=grad)")
+        for tag, kw in grid:
+            student.actor.load_state_dict(init_actor)
+            opt = torch.optim.Adam(student.actor.parameters(), lr=1e-3)
+            q0, r0 = measure()
+            for step in range(150):
+                m = student.field_actor_loss(cond, q_source="grad", q_max_norm=1.0,
+                                             num_particles=K, num_bc_particles=K, topk=4, **kw)
+                opt.zero_grad(set_to_none=True); m["actor_total"].backward(); opt.step()
+            q1, r1 = measure()
+            print(f"    [{tag:16s}] Q {q0:+.4f} -> {q1:+.4f} (dQ={q1-q0:+.4f})  residual {r0:.4f} -> {r1:.4f}")
+        return
+
     scale_modes = ((False, "global"), (True, "per-state")) if "MIXED_TIDS" in globals() \
         else ((student.per_state_q_scale, "as-set"),)
     for psq, tag in scale_modes:
@@ -163,10 +191,21 @@ def main():
             opt = torch.optim.Adam(student.actor.parameters(), lr=1e-3)
             q0, r0 = measure()
             q0r, _ = measure_per_row()
+            kw = dict(mode=os.environ.get("DIAG_MODE", "field_distributional"),
+                      q_source=qs,
+                      q_step=float(os.environ.get("DIAG_QSTEP", 0.2)),
+                      bc_step=float(os.environ.get("DIAG_BCSTEP", 0.05)),
+                      q_max_norm=1.0,
+                      total_max_norm=float(os.environ.get("DIAG_TOTAL", 0.2)),
+                      num_particles=K, num_bc_particles=K, topk=4)
+            if os.environ.get("DIAG_RESTORE"):
+                kw["restore_step"] = float(os.environ["DIAG_RESTORE"])
+            if os.environ.get("DIAG_RADIUS"):
+                kw["restore_radius"] = float(os.environ["DIAG_RADIUS"])
+            lr = float(os.environ.get("DIAG_LR", 1e-3))
+            opt = torch.optim.Adam(student.actor.parameters(), lr=lr)
             for step in range(150):
-                m = student.field_actor_loss(cond, mode="field_distributional", q_source=qs,
-                                             q_step=0.2, bc_step=0.05, q_max_norm=1.0,
-                                             total_max_norm=0.2, num_particles=K, num_bc_particles=K, topk=4)
+                m = student.field_actor_loss(cond, **kw)
                 opt.zero_grad(set_to_none=True); m["actor_total"].backward(); opt.step()
             q1, r1 = measure()
             q1r, r1r = measure_per_row()
