@@ -62,7 +62,12 @@ case "${EXP}" in
   # normalization defect where high-|Q| tasks suppress low-|Q| tasks' fields
   BP) RL_NAME="field_hard8_ff_BP_pscale${FTAG}_s${SEED}";      ACTOR=(dice.actor_mode=field_pointwise dice.field.q_source=grad
         dice.field.q_step_size=0.5 dice.field.bc_step_size=0.05 dice.field.total_max_norm=0.15 +dice.field.restore_step_size=1.0 +dice.field.restore_radius=0.05 +dice.per_state_q_scale=true) ;;
-  *) echo "unknown EXP=${EXP} (use A, B, C, T, B2, C2, T2 or BP)"; exit 1 ;;
+  # BS: the tuned single-task stack recipe applied MULTITASK — q1 + rms dead-zone fix + 3-step returns
+  BS) RL_NAME="field_hard8_ff_BS_stack${FTAG}_s${SEED}";       ACTOR=(dice.actor_mode=field_pointwise dice.field.q_source=grad
+        dice.field.q_step_size=1.0 dice.field.bc_step_size=0.05 dice.field.total_max_norm=0.15
+        +dice.field.restore_step_size=1.0 +dice.field.restore_radius=0.05
+        ++dice.field.restore_radius_rms=true ++dice.use_n_step=true ++dice.n_step=3) ;;
+  *) echo "unknown EXP=${EXP} (use A, B, C, T, B2, C2, T2, BP or BS)"; exit 1 ;;
 esac
 LOG="${CEDAR}/${RL_NAME}.log"
 # dice_train saves under exp_name/ or exp_name/<seed>/ depending on layout — check both.
