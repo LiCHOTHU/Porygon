@@ -1013,3 +1013,10 @@ Overnight-restart casualties repaired: hung t32 stack killed+restarted (local ch
 A_t81 eval relaunched (11569581). Next: stack t32 (~13:00) & t53 (~16:00) powered → if they
 track precedent, per-task fine-tuned hard-8 table done; then decide per-task-critic multitask
 build vs writing LIBERO section on per-task table.
+
+### RECIPE FREEZE (2026-07-30, user commit): Porygon LIBERO hard-8 hyperparameters
+field_pointwise/grad · q_step 1.0 · bc_step 0.05 · total_max_norm 0.15 ·
+restore 1.0 @ radius 0.05 in RMS units (restore_radius_rms=true) · n_step=3 ·
+K=16 · q-normalized · 40 iters × 16 eps (warmup 32) × 400 grad-steps · bcw=100 RLPD ·
+deploy max_q_min best-of-10. Validated: t65 0.781 (+20.8), t32 0.710 (+10.0 iter-40).
+`field_single_task.sbatch` B arm = this recipe (legacy → B0). Multitask twin = BS arm.
