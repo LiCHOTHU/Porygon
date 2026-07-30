@@ -1001,3 +1001,15 @@ rms-fix local final evals 0.700/0.850 (20-ep; powered eval 11557527 queued).
 Local GPU: full stack q1+rmsfix+n_step3 t65 (field_st_B_t65_q1n3rms_local). Cluster (inferno
 congested): q1×5 tasks, rms×6, q1+rms, q1-ext→100 iters, soft-anchor, pes B_t32/A_t32/Brms_t65,
 can_ext_A s42/s43 (Table-1 last cells), 6 hard-8 eval seeds.
+
+## 2026-07-30 — STACK BREAKTHROUGH on t65: +20.8pp powered (last-3), beats GRPO best-ever
+Full stack (q_step 1.0 + restore_radius_rms + n_step 3), 40 iters, powered 100×3:
+iter20 0.793 / iter30 0.747 / iter40 0.803 → **last-3 avg 0.781 = +20.8pp over base 0.573**
+(GRPO best-ever on t65: 0.770). Components compound: rms alone 0.703 (+13.0) = q1 alone
+0.703 (+13.0) < stack 0.781 (+20.8). USER BAR (+10–15pp) CLEARED on t65.
+Backprop-A column complete: −2.3/+1.5/−2.3(t32)/+1.5/+0.5/(t81 eval rerun) — mean ≈ 0,
+negative on the two highest-headroom tasks. B default column complete: mean +3.6, never <−0.1.
+Overnight-restart casualties repaired: hung t32 stack killed+restarted (local chain t32→t53),
+A_t81 eval relaunched (11569581). Next: stack t32 (~13:00) & t53 (~16:00) powered → if they
+track precedent, per-task fine-tuned hard-8 table done; then decide per-task-critic multitask
+build vs writing LIBERO section on per-task table.
