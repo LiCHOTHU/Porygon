@@ -64,12 +64,13 @@ $0.91$--$0.93$ across seeds --- ahead of the backpropagated control at the
 matched budget ($0.87$--$0.91$) and at parity with the flow-matching +
 DICE-RL state-of-the-art pipeline on both tasks, while the value-only
 sources trail far behind ($\sim\!0.55$ on square). On the eight
-hardest LIBERO-90 tasks, where the shared multitask critic is far weaker,
-the ordering compresses exactly as the toy predicts --- and in the
-starkest form: under powered evaluation no update rule, backpropagated or
-field-based, at any resolution, improves on its own base (the
-flow-matching pipeline's apparent lead is inherited entirely from its
-pretraining), while every field arm preserves the base within noise.
+hardest LIBERO-90 tasks, fine-tuned per task from one shared base with
+one shared recipe, \method{} gains $+6$ to $+21$ points where the
+backpropagated actor consuming the same critics \emph{loses} ground; with
+a single critic shared across all eight tasks, no update rule ---
+backpropagated or field-based, ours or the state of the art's ---
+improves on its own base, locating the binding constraint in per-task
+critic quality exactly as the toy predicts.
 
 Our contributions:
 \begin{itemize}

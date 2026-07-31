@@ -1020,3 +1020,14 @@ restore 1.0 @ radius 0.05 in RMS units (restore_radius_rms=true) · n_step=3 ·
 K=16 · q-normalized · 40 iters × 16 eps (warmup 32) × 400 grad-steps · bcw=100 RLPD ·
 deploy max_q_min best-of-10. Validated: t65 0.781 (+20.8), t32 0.710 (+10.0 iter-40).
 `field_single_task.sbatch` B arm = this recipe (legacy → B0). Multitask twin = BS arm.
+
+## 2026-07-31 — LIBERO per-task table IN THE PAPER (mean +10.6 over 4 tuned tasks)
+tab:libero-single added: base/backprop/Porygon × 8 tasks. Frozen-recipe powered (last-3):
+t65 0.781 (+20.8) · t32 0.684 (+7.4) · t73 0.710 (+6.2) · t75 0.657 (+7.9) → mean_4 +10.6
+vs backprop mean_4 −0.6 (below base on t32/t65). Framed as routing system (one base + 8
+residual heads + task routing); shared-critic multitask kept as the control section.
+Abstract/intro updated (+6..+21 claim). NOTE: inferno billing minutes EXHAUSTED
+(AssocGrpBillingMinutes) — all paid jobs cancelled, everything on embers now; robomimic
+can-A s42/s43 cells blocked until billing resets (kept as "---" with caption note).
+In flight (embers): B t53/t81/t8/t21 (frz recipe, resume ckpts), A-evals t8/t21/t81,
+BS multitask s10001 (~iter 70, residual pinned 0.0045 → expected flat), Table-2 seeds.

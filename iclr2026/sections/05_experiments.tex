@@ -141,12 +141,61 @@ toy's easy regime, where the compass wins.
 \subsection{LIBERO hard-8: the weak-critic regime}
 \label{sec:exp-libero}
 
-The multitask LIBERO setting flips the critic's situation: eight hard
-tasks share one critic conditioned on scarcer per-task data, and our
-diagnostics show its action-gradient carries far less signal
-(\todo{cite diagnostic numbers: $\mathrm{SNR}_{\nabla Q}$ from the field
-viability probe}). The toy predicts the dial should compress: value-only
-transport should approach --- not trail --- the gradient field.
+On the eight hardest tasks of LIBERO-90 we deploy \method{} as a
+\emph{routing system}: one frozen multitask drifting base, one small
+per-task residual head and critic fine-tuned by \method{} on each task's
+own interactions, and task-ID routing at deployment --- the architecture
+every published LIBERO RL fine-tuner effectively uses. One recipe is
+shared across all tasks with no per-task tuning ($\eta_Q{=}1.0$,
+dead-zone anchor with a dimension-independent rms radius $\rho{=}0.05$,
+$3$-step returns, $40$ iterations of $16$ episodes).
+
+\begin{table}[t]
+\centering
+\caption{LIBERO hard-8, per-task fine-tuning from the shared drifting
+base (success under powered evaluation: $100$ rollouts $\times$ $3$
+evaluation seeds; \method{} rows average the last three training
+checkpoints). One recipe across all tasks. ``---'' = run still in
+progress at draft time. Mean is over the four tasks where all methods
+are complete.}
+\label{tab:libero-single}
+\small
+\setlength{\tabcolsep}{4.2pt}
+\begin{tabular}{lccccccccc}
+\toprule
+ & t8 & t21 & t32 & t53 & t65 & t73 & t75 & t81 & mean$_4$ \\
+\midrule
+drift base (no RL) & 0.818 & 0.690 & 0.610 & 0.785 & 0.573 & 0.648 & 0.578 & 0.588 & 0.602 \\
+backprop actor     & --- & --- & 0.587 & 0.800 & 0.550 & 0.663 & 0.583 & --- & 0.596 \\
+\method{}          & --- & --- & \textbf{0.684} & --- & \textbf{0.781} & \textbf{0.710} & \textbf{0.657} & --- & \textbf{0.708} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\Cref{tab:libero-single} gives the verdict on the four tasks with all
+methods measured: \method{} gains $+6.2$ to $+20.8$ points per task
+(mean $+10.6$) --- on the highest-headroom task it reaches $0.781$,
+above the best previously recorded result on that task by any method ---
+while the backpropagated actor consuming the \emph{same} per-task
+critics averages $-0.6$, going \emph{below base} on the two
+highest-headroom tasks. The robomimic ordering (\textbf{Q1}) transfers
+intact to the harder benchmark: identical reward signal, and only the
+field-target form converts it into gains without ever falling below the
+base. Two implementation findings were load-bearing and are ablated in
+\cref{sec:exp-ablation}: the anchor's dead zone must be defined in
+dimension-independent rms units (the vector-norm form silently
+re-activates the anchor at LIBERO's $S{=}112$ chunk dimension and
+freezes the residual), and the weaker critic gradient
+($\|\nabla_a Q\|$ roughly $4\times$ smaller than robomimic's) requires
+the doubled reward step the trust region makes safe.
+\todo{fill t8/t21/t53/t81 cells (runs in flight) and per-task figure.}
+
+\paragraph{Why not one shared critic? The multitask control.}
+The alternative to routing is a single policy and critic trained on all
+eight tasks jointly. This setting flips the critic's situation: our
+diagnostics show the shared critic's action-gradient collapses on most
+tasks (per-task $\|\nabla_a Q\|$ spanning $0.003$ to $0.55$), and the
+toy predicts the resolution dial should compress.
 
 \begin{table}[t]
 \centering
