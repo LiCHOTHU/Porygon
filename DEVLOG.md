@@ -1031,3 +1031,23 @@ Abstract/intro updated (+6..+21 claim). NOTE: inferno billing minutes EXHAUSTED
 can-A s42/s43 cells blocked until billing resets (kept as "---" with caption note).
 In flight (embers): B t53/t81/t8/t21 (frz recipe, resume ckpts), A-evals t8/t21/t81,
 BS multitask s10001 (~iter 70, residual pinned 0.0045 → expected flat), Table-2 seeds.
+
+## 2026-07-31 (evening) — LIBERO hard-8 per-task table COMPLETE (8/8)
+Powered (100x3, last-3 ckpts), frozen recipe, per-task fine-tuning from shared drift base:
+| task | base | backprop A | Porygon |
+|---|---|---|---|
+| t8  | 0.818 | 0.820 | **0.831** (+1.3) |
+| t21 | 0.690 | 0.703 | **0.737** (+4.7) |
+| t32 | 0.610 | 0.587 | **0.684** (+7.4) |
+| t53 | 0.785 | 0.800 | **0.844** (+5.9) |
+| t65 | 0.573 | 0.550 | **0.781** (+20.8) |
+| t73 | 0.648 | 0.663 | **0.710** (+6.2) |
+| t75 | 0.578 | 0.583 | **0.657** (+7.9) |
+| t81 | 0.588 | **0.653** | 0.607 (+1.9) |
+| **mean** | **0.661** | **0.670 (+0.9)** | **0.731 (+7.0)** |
+Porygon best on 7/8 tasks, positive on 8/8 (never below base); backprop below base on
+t32/t65 (the two highest-headroom tasks). t81 = the dead-gradient task (single-task
+||grad_a Q||=0.007) where only the selection channel exists — backprop's simpler
+selection-riding wins there; documented as the mechanism's honest boundary.
+Multitask BS (one shared critic, same frozen recipe): iter 90 in-harness 0.700 vs base
+0.738 → confirms shared-critic no-gain even WITH all fixes (control row).
