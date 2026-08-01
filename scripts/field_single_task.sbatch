@@ -13,7 +13,10 @@ conda activate porygon
 cd /storage/home/hcoda1/8/lwang831/workspace/imitation
 export OMP_NUM_THREADS=8 MKL_NUM_THREADS=8 MUJOCO_GL=egl EGL_DEVICE_ID=0
 CEDAR=/storage/cedar/cedar0/cedarp-agarg35-0/liquan.w/imitation_scratch
-CKPT=/storage/scratch1/8/lwang831/imitation/cold_start/libero/libero_90/drift_multitask_lib90/multitask_model_latest.pth
+# base checkpoint + inference steps are overridable so the same protocol can be
+# run on the drifting base (default, 1 step) or the flow-matching base (10 steps)
+CKPT="${BASE_CKPT:-/storage/scratch1/8/lwang831/imitation/cold_start/libero/libero_90/drift_multitask_lib90/multitask_model_latest.pth}"
+NIS="${NUM_INF_STEPS:-1}"
 case "${EXP}" in
   A) RL_NAME="field_st_A_t${TASK}${TAG}_s${SEED}"; ACTOR=(dice.actor_mode=residual) ;;
   # B = the COMMITTED Porygon LIBERO recipe (frozen 2026-07-30): q1 + rms dead-zone + 3-step returns
@@ -35,7 +38,7 @@ done
 LOG="${CEDAR}/${RL_NAME}.log"
 echo "[$(date)] START ${RL_NAME}"
 python dice_train.py \
-  algo.num_inference_steps=1 cold_start_checkpoint="${CKPT}" ${RESUME_FLAG} seed=${SEED} \
+  algo.num_inference_steps=${NIS} cold_start_checkpoint="${CKPT}" ${RESUME_FLAG} seed=${SEED} \
   "task_indices=[${TASK}]" \
   dice.bc_loss_weight=100 dice.n_iters=40 dice.episodes_per_iter=16 \
   dice.warmup_episodes=32 dice.gradient_steps=400 dice.eval_interval=10 \
