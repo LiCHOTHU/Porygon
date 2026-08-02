@@ -1088,3 +1088,14 @@ FM-base matrix (matched protocol): FM+DICE −0.8/−0.2/+2.2/−2.8 (mean −0.
 t32 +4.8. Queued: q2 t65/t53 evals, FM+Porygon t65, seed-2 (t32/t53/t65), q2 t73 resumed.
 Cluster note: local session lost its GPU node (nvidia-smi gone) — local q2 chain for
 t75/t81/t8/t21 died at t75 start; those four now need cluster jobs if the q2 recipe wins.
+
+### 2026-08-02 (evening) — q2 sweep, seed variance, FM+Porygon replication
+- **eta_Q=2.0 >= frozen on all 3 tested**: t65 0.812 (+3.1), t53 0.853 (+0.9), t32 0.729 (+4.5).
+  Gains over base: t65 +23.9, t32 +11.9, t53 +6.8.
+- **SEED VARIANCE IS LARGE**: t65 seed 10001 (frozen recipe) = 0.870 vs seed 10000 = 0.781 →
+  spread 8.9pp. CAUTION: q2-vs-frozen deltas (+0.9 to +4.5) are INSIDE seed noise; cannot
+  claim q2 superiority from single seeds. Both recipes are far above backprop (that gap is
+  15-25pp, well outside noise).
+- **FM+Porygon replicates on a 2nd task**: t65 0.878 vs FM base 0.787 (+9.1) and FM+DICE
+  0.809 (+6.9); t32 was +4.8/+5.6. Q1 (form beats backprop) now holds on BOTH bases, 2 tasks.
+- Launched: q2 on t8/t21/t75/t81 (+t73 resumed), seed-2 on t73/t75, FM+Porygon t53/t75.

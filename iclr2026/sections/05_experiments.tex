@@ -171,7 +171,7 @@ backprop actor     & 0.820 & 0.703 & 0.587 & 0.800 & 0.550 & 0.663 & 0.583 & 0.6
 \multicolumn{10}{l}{\emph{same protocol, flow-matching base (4 tasks measured)}} \\
 FM base (no RL)    & --- & --- & 0.690 & 0.917 & 0.787 & --- & 0.620 & --- & --- \\
 FM + DICE-RL       & --- & --- & 0.682 & 0.915 & 0.809 & --- & 0.592 & --- & --- \\
-FM + \method{}     & --- & --- & \textbf{0.738} & --- & --- & --- & --- & --- & --- \\
+FM + \method{}     & --- & --- & \textbf{0.738} & --- & \textbf{0.878} & --- & --- & --- & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -199,8 +199,9 @@ nothing per task: FM + DICE-RL scores $-0.8$, $-0.2$, $+2.2$ and $-2.8$
 points relative to the FM base on t32, t53, t65 and t75 (mean $-0.4$),
 the same near-zero extraction its actor shows on the drifting base
 ($+0.9$). Swapping only the actor update fixes it: \method{} on the
-\emph{identical} flow-matching base and budget reaches $0.738$ on t32,
-$+4.8$ over that base and $+5.6$ over FM + DICE-RL. The field-target form,
+\emph{identical} flow-matching base and budget reaches $0.738$ on t32 and
+$0.878$ on t65 --- $+4.8$ and $+9.1$ over that base, and $+5.6$ and
+$+6.9$ over FM + DICE-RL on the same two tasks. The field-target form,
 not the base and not the reward signal, is what converts critic signal
 into success. It also puts the \textbf{Q2} comparison in perspective:
 \method{} on the weak one-step base reaches $0.781$ on t65 against the
