@@ -156,9 +156,11 @@ $3$-step returns, $40$ iterations of $16$ episodes).
 base (success under powered evaluation: $100$ rollouts $\times$ $3$
 evaluation seeds; \method{} rows average the last three training
 checkpoints, and two training seeds on t32/t53/t65). One recipe across
-all tasks. Training-seed spread on the tasks measured twice is
-$0.004$/$0.019$/$0.089$ (t53/t32/t65), so differences below $\sim\!4$
-points should not be read as method differences. ``---'' = run still in
+all tasks. Across the five tasks trained with two seeds the spread is
+$0.000$, $0.003$, $0.004$, $0.019$ and $0.089$ (t75, t73, t53, t32,
+t65): negligible except on the highest-headroom task, so on all tasks
+but t65 differences of a few points are meaningful, while on t65 only
+gaps above $\sim\!9$ points are. ``---'' = run still in
 progress at draft time.}
 \label{tab:libero-single}
 \small
