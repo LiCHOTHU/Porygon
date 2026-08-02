@@ -167,6 +167,11 @@ progress at draft time.}
 drift base (no RL) & 0.818 & 0.690 & 0.610 & 0.785 & 0.573 & 0.648 & 0.578 & 0.588 & 0.661 \\
 backprop actor     & 0.820 & 0.703 & 0.587 & 0.800 & 0.550 & 0.663 & 0.583 & 0.653 & 0.670 \\
 \method{}          & \textbf{0.831} & \textbf{0.737} & \textbf{0.684} & \textbf{0.844} & \textbf{0.781} & \textbf{0.710} & \textbf{0.657} & 0.607 & \textbf{0.731} \\
+\midrule
+\multicolumn{10}{l}{\emph{same protocol, flow-matching base (4 tasks measured)}} \\
+FM base (no RL)    & --- & --- & 0.690 & 0.917 & 0.787 & --- & 0.620 & --- & --- \\
+FM + DICE-RL       & --- & --- & 0.682 & 0.915 & 0.809 & --- & 0.592 & --- & --- \\
+FM + \method{}     & --- & --- & \textbf{0.738} & --- & --- & --- & --- & --- & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -187,7 +192,23 @@ re-activates the anchor at LIBERO's $S{=}112$ chunk dimension and
 freezes the residual), and the weaker critic gradient
 ($\|\nabla_a Q\|$ roughly $4\times$ smaller than robomimic's) requires
 the doubled reward step the trust region makes safe.
-\todo{per-task figure.}
+
+The flow-matching rows settle \textbf{Q1} independently of the base. On
+its own, stronger base the state-of-the-art pipeline extracts essentially
+nothing per task: FM + DICE-RL scores $-0.8$, $-0.2$, $+2.2$ and $-2.8$
+points relative to the FM base on t32, t53, t65 and t75 (mean $-0.4$),
+the same near-zero extraction its actor shows on the drifting base
+($+0.9$). Swapping only the actor update fixes it: \method{} on the
+\emph{identical} flow-matching base and budget reaches $0.738$ on t32,
+$+4.8$ over that base and $+5.6$ over FM + DICE-RL. The field-target form,
+not the base and not the reward signal, is what converts critic signal
+into success. It also puts the \textbf{Q2} comparison in perspective:
+\method{} on the weak one-step base reaches $0.781$ on t65 against the
+flow-matching pipeline's $0.809$ --- within three points, from a base
+$21$ points lower --- and \emph{exceeds} it on t75 ($0.657$ vs.\ $0.592$)
+and on t32 once the reward step is matched to that task's stronger critic
+gradient ($0.729$ vs.\ $0.682$).
+\todo{per-task figure; remaining FM cells and matched-budget FM + GRPO.}
 
 \paragraph{Why not one shared critic? The multitask control.}
 The alternative to routing is a single policy and critic trained on all
@@ -265,8 +286,55 @@ interaction in the appendix.}
   \label{fig:ablations}
 \end{figure}
 
-\todo{Four ablations (plots reserved in \cref{fig:ablations}), one table
-each once runs complete:
+\begin{table}[t]
+\centering
+\caption{LIBERO ablations: leave-one-out on the frozen recipe, two tasks,
+powered evaluation (last-3 checkpoints). Every row changes exactly one
+component. $\Delta$ is relative to the full recipe.}
+\label{tab:libero-ablation}
+\small
+\begin{tabular}{lcccc}
+\toprule
+ & \multicolumn{2}{c}{t65 (base 0.573)} & \multicolumn{2}{c}{t32 (base 0.610)} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+variant & success & $\Delta$ & success & $\Delta$ \\
+\midrule
+\textbf{full recipe} & \textbf{0.781} & --- & \textbf{0.684} & --- \\
+$-$ dimension-independent anchor (vector-norm $\rho$) & 0.662 & $-0.119$ & 0.655 & $-0.029$ \\
+$-$ dead zone ($\rho{=}0$) & 0.549 & $-0.232$ & --- & --- \\
+$-$ doubled reward step ($\eta_Q{=}0.5$) & 0.769 & $-0.012$ & 0.615 & $-0.069$ \\
+$-$ $3$-step returns ($n{=}1$) & 0.782 & $+0.001$ & 0.512 & $-0.172$ \\
+\midrule
+reward field $\to$ top-$k$ (no gradient) & 0.577 & $-0.204$ & --- & --- \\
+reward field $\to$ tilted (no gradient) & 0.697 & $-0.084$ & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\Cref{tab:libero-ablation} isolates each component. Three findings
+matter. First, \emph{the anchor geometry is load-bearing}: removing the
+dead zone entirely ($\rho{=}0$) drops t65 to $0.549$, \emph{below} the
+un-tuned base --- the un-gated restoring pull erases the residual, the
+quantitative version of the toy's ``penalties lose to fields'' lesson ---
+and measuring the dead-zone radius in vector-norm rather than
+dimension-independent units costs $11.9$ points, because at LIBERO's
+$S{=}112$ chunk dimension the base residual already exceeds $\rho$ at
+initialisation, so the anchor is active from the first update. Second,
+\emph{deleting the critic's gradient direction is fatal here too}:
+top-$k$ transport falls to $0.577$ (base level) and tilted transport to
+$0.697$, mirroring the robomimic square result and answering
+\textbf{Q3} on both benchmarks. Third, the step-size and credit-horizon
+components are \emph{task-dependent in exactly the way the critic
+diagnostics predict}: on t32, whose critic carries a strong
+action-gradient ($\|\nabla_a Q\|\!\approx\!0.55$), $3$-step returns are
+worth $17$ points and the doubled step $7$; on t65, whose gradient is an
+order of magnitude weaker ($\approx\!0.035$), both are within noise. What
+a bounded-step field update needs is not one universal step size but
+enough trust-region headroom to exploit whatever signal the critic
+actually has.
+
+\todo{Remaining ablation plots (\cref{fig:ablations}); robomimic-side
+items below:
 (i) \textbf{trust-region locus} --- the backprop actor + parameter-space
 gradient
 clipping vs.\ B's action-space clip at equal effective step (isolates the

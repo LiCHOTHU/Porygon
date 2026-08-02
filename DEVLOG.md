@@ -1051,3 +1051,31 @@ t32/t65 (the two highest-headroom tasks). t81 = the dead-gradient task (single-t
 selection-riding wins there; documented as the mechanism's honest boundary.
 Multitask BS (one shared critic, same frozen recipe): iter 90 in-harness 0.700 vs base
 0.738 → confirms shared-critic no-gain even WITH all fixes (control row).
+
+## 2026-08-02 — Baselines + ablations COMPLETE (92 powered evals harvested)
+### LIBERO ablations (leave-one-out, powered last-3)
+| variant | t65 (base .573, full .781) | t32 (base .610, full .684) |
+|---|---|---|
+| − rms anchor (vector-norm rho) | 0.662 (−11.9) | 0.655 (−2.9) |
+| − dead zone (rho=0) | **0.549 (−23.2, BELOW BASE)** | — |
+| − doubled step (q0.5) | 0.769 (−1.2) | 0.615 (−6.9) |
+| − 3-step returns | 0.782 (+0.1) | **0.512 (−17.2)** |
+| dial → top-k | 0.577 (−20.4 ≈ base) | — |
+| dial → tilted | 0.697 (−8.4) | — |
+Anchor geometry load-bearing on both; gradient source essential (Q3 confirmed on LIBERO);
+step/credit components matter in proportion to per-task ‖∇ₐQ‖ (t32 0.55 vs t65 0.035).
+### FM-base baselines, matched protocol (NEW)
+FM base: t32 .690 t53 .917 t65 .787 t75 .620
+FM+DICE: t32 .682 (−0.8) t53 .915 (−0.2) t65 .809 (+2.2) t75 .592 (−2.8) → **mean −0.4**
+FM+Porygon t32: **.738 (+4.8 over FM base, +5.6 over FM+DICE)** → Q1 holds on BOTH bases.
+Porygon-on-drift vs FM+DICE absolute: t65 .781 vs .809 (from base 21pp lower); t75 .657 vs
+.592 (WIN); t32 .729 (q2) vs .682 (WIN).
+### Tuning: field strength scales with critic gradient
+t32 eta_Q=2.0 → .729 (+11.9 vs +7.4 frozen); clip 0.25 → .689 (neutral). GRPO t32 .743, so
+gap 5.9 → 1.4pp. q2 running on t65/t53/t73 (cluster) + t75/t81/t8/t21 (local chain).
+### Baseline positioning (honest)
+drift+GRPO (critic-free, matched 640 ep) mean +9.5 over 7 tasks vs Porygon +7.8; GRPO wins
+5/7. Our GRPO impl uses a fixed-sigma noised sampler (ReinFlow trick) — the intro's
+"likelihoods intractable ⇒ PG unavailable" claim must be softened to "available only via a
+noise-injection surrogate that alters the deployed policy". FM+GRPO ceiling runs (19,200 ep
+= 28× budget) are NOT baselines; matched-budget FM+GRPO training now.
