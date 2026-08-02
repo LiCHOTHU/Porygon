@@ -1099,3 +1099,22 @@ t75/t81/t8/t21 died at t75 start; those four now need cluster jobs if the q2 rec
 - **FM+Porygon replicates on a 2nd task**: t65 0.878 vs FM base 0.787 (+9.1) and FM+DICE
   0.809 (+6.9); t32 was +4.8/+5.6. Q1 (form beats backprop) now holds on BOTH bases, 2 tasks.
 - Launched: q2 on t8/t21/t75/t81 (+t73 resumed), seed-2 on t73/t75, FM+Porygon t53/t75.
+
+### 2026-08-02 (late) — eta_Q=2.0 sweep COMPLETE (8/8) → new headline
+| task | base | Porygon q1 | Porygon q2 | q2−q1 |
+|---|---|---|---|---|
+| t8 | .818 | .831 | **.857** | +2.6 |
+| t21 | .690 | .737 | **.752** | +1.5 |
+| t32 | .610 | .694 | **.729** | +4.5 |
+| t53 | .785 | .842 | **.853** | +0.9 |
+| t65 | .573 | **.826** | .812 | −1.4 (2-seed vs 1-seed; inside t65 noise 8.9) |
+| t73 | .648 | .710 | **.752** | +4.2 |
+| t75 | .578 | **.657** | .648 | −0.9 (inside noise) |
+| t81 | .588 | .607 | **.635** | +2.8 |
+| **mean** | **.661** | .738 (+7.7) | **.755 (+9.4)** | +1.8 |
+6/8 tasks improve; 2 marginal losses inside seed spread. **Benefit UNCORRELATED with
+‖∇ₐQ‖** (t81 dead-critic +2.8 ≈ strong-gradient tasks) → my gradient-scaling hypothesis is
+REFUTED; mechanism is likely reduced BC-anchor drag (bc_step fixed while q_step doubles).
+**7-task comparison vs GRPO** (excl. t8, no GRPO number): Porygon q2 **+10.1** vs
+drift-GRPO **+9.5** → Porygon now edges the critic-free baseline at matched budget.
+Seed replication (5 tasks): spreads .000/.003/.004/.019/.089 — negligible except t65.

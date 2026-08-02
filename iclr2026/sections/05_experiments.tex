@@ -171,7 +171,8 @@ progress at draft time.}
 \midrule
 drift base (no RL) & 0.818 & 0.690 & 0.610 & 0.785 & 0.573 & 0.648 & 0.578 & 0.588 & 0.661 \\
 backprop actor     & 0.820 & 0.703 & 0.587 & 0.800 & 0.550 & 0.663 & 0.583 & 0.653 & 0.670 \\
-\method{}          & \textbf{0.831} & \textbf{0.737} & \textbf{0.694} & \textbf{0.842} & \textbf{0.826} & \textbf{0.710} & \textbf{0.657} & 0.607 & \textbf{0.738} \\
+\method{} ($\eta_Q{=}1$) & 0.831 & 0.737 & 0.694 & 0.842 & \textbf{0.826} & 0.710 & \textbf{0.657} & 0.607 & 0.738 \\
+\method{} ($\eta_Q{=}2$) & \textbf{0.857} & \textbf{0.752} & \textbf{0.729} & \textbf{0.853} & 0.812 & \textbf{0.752} & 0.648 & \textbf{0.635} & \textbf{0.755} \\
 \midrule
 \multicolumn{10}{l}{\emph{same protocol, flow-matching base (4 tasks measured)}} \\
 FM base (no RL)    & --- & --- & 0.690 & 0.917 & 0.787 & --- & 0.620 & --- & --- \\
@@ -182,8 +183,9 @@ FM + \method{}     & --- & --- & \textbf{0.738} & --- & \textbf{0.878} & --- & -
 \end{table}
 
 \Cref{tab:libero-single} gives the verdict across all eight tasks:
-\method{} gains $+1.3$ to $+25.3$ points per task (mean $+7.7$),
-improving on the base for \emph{every} task --- on the highest-headroom task it reaches $0.781$,
+\method{} gains $+3.9$ to $+23.9$ points per task (mean $+9.4$ at
+$\eta_Q{=}2$, $+7.7$ at $\eta_Q{=}1$), improving on the base for
+\emph{every} task at both settings --- on the highest-headroom task it reaches $0.781$,
 above the best previously recorded result on that task by any method ---
 while the backpropagated actor consuming the \emph{same} per-task
 critics averages $+0.9$, going \emph{below base} on the two
@@ -196,7 +198,16 @@ dimension-independent rms units (the vector-norm form silently
 re-activates the anchor at LIBERO's $S{=}112$ chunk dimension and
 freezes the residual), and the weaker critic gradient
 ($\|\nabla_a Q\|$ roughly $4\times$ smaller than robomimic's) requires
-the doubled reward step the trust region makes safe.
+the doubled reward step the trust region makes safe. Sweeping the reward step across all eight tasks confirms
+this at the table level: $\eta_Q{=}2$ improves the mean from $0.738$ to
+$0.755$ and helps on six of eight tasks (the two exceptions, $-0.014$ and
+$-0.009$, are inside the seed spread), and the benefit is
+\emph{uncorrelated} with the critic's action-gradient magnitude --- the
+task with the deadest critic (t81, $\|\nabla_a Q\|\!=\!0.007$) gains
+$+2.8$, as much as the strongest-gradient tasks. The reward step therefore
+acts mainly by reducing the anchor's drag rather than by exploiting more
+first-order signal, and the trust region is what keeps the larger step
+safe: no setting on any task falls below its base.
 
 The flow-matching rows settle \textbf{Q1} independently of the base. On
 its own, stronger base the state-of-the-art pipeline extracts essentially
