@@ -1079,3 +1079,12 @@ drift+GRPO (critic-free, matched 640 ep) mean +9.5 over 7 tasks vs Porygon +7.8;
 "likelihoods intractable ⇒ PG unavailable" claim must be softened to "available only via a
 noise-injection surrogate that alters the deployed policy". FM+GRPO ceiling runs (19,200 ep
 = 28× budget) are NOT baselines; matched-budget FM+GRPO training now.
+
+### 2026-08-02 (afternoon) — ablation table extended; FM matrix complete for 4 tasks
+Added to tab:libero-ablation: wider trust region (t32 0.689, +0.5 = neutral) and stronger
+reward step (t32 0.729, +4.5). Finding: on strong-gradient tasks it is the REWARD step, not
+the movement bound, that pays — the trust region is what makes raising it safe.
+FM-base matrix (matched protocol): FM+DICE −0.8/−0.2/+2.2/−2.8 (mean −0.4) vs FM+Porygon
+t32 +4.8. Queued: q2 t65/t53 evals, FM+Porygon t65, seed-2 (t32/t53/t65), q2 t73 resumed.
+Cluster note: local session lost its GPU node (nvidia-smi gone) — local q2 chain for
+t75/t81/t8/t21 died at t75 start; those four now need cluster jobs if the q2 recipe wins.

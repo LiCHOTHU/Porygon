@@ -304,6 +304,8 @@ $-$ dimension-independent anchor (vector-norm $\rho$) & 0.662 & $-0.119$ & 0.655
 $-$ dead zone ($\rho{=}0$) & 0.549 & $-0.232$ & --- & --- \\
 $-$ doubled reward step ($\eta_Q{=}0.5$) & 0.769 & $-0.012$ & 0.615 & $-0.069$ \\
 $-$ $3$-step returns ($n{=}1$) & 0.782 & $+0.001$ & 0.512 & $-0.172$ \\
+wider trust region ($\delta_{\mathrm{tot}}{=}0.25$) & --- & --- & 0.689 & $+0.005$ \\
+stronger reward step ($\eta_Q{=}2.0$) & --- & --- & \textbf{0.729} & $\mathbf{+0.045}$ \\
 \midrule
 reward field $\to$ top-$k$ (no gradient) & 0.577 & $-0.204$ & --- & --- \\
 reward field $\to$ tilted (no gradient) & 0.697 & $-0.084$ & --- & --- \\
@@ -328,10 +330,14 @@ components are \emph{task-dependent in exactly the way the critic
 diagnostics predict}: on t32, whose critic carries a strong
 action-gradient ($\|\nabla_a Q\|\!\approx\!0.55$), $3$-step returns are
 worth $17$ points and the doubled step $7$; on t65, whose gradient is an
-order of magnitude weaker ($\approx\!0.035$), both are within noise. What
-a bounded-step field update needs is not one universal step size but
-enough trust-region headroom to exploit whatever signal the critic
-actually has.
+order of magnitude weaker ($\approx\!0.035$), both are within noise. Pushing the
+reward step further on that task ($\eta_Q{=}2.0$) adds another $4.5$
+points ($0.729$), while widening the trust region alone
+($\delta_{\mathrm{tot}}{=}0.25$) changes nothing ($+0.5$): it is the
+\emph{reward} step, not the movement bound, that the strong-gradient task
+wants. What a bounded-step field update needs is therefore not one
+universal step size but a step matched to the signal the critic actually
+carries --- which the trust region is what makes safe to raise.
 
 \todo{Remaining ablation plots (\cref{fig:ablations}); robomimic-side
 items below:
