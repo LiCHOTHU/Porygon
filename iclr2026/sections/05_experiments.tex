@@ -177,6 +177,7 @@ backprop actor     & 0.820 & 0.703 & 0.587 & 0.800 & 0.550 & 0.663 & 0.583 & 0.6
 \multicolumn{10}{l}{\emph{same protocol, flow-matching base (4 tasks measured)}} \\
 FM base (no RL)    & --- & --- & 0.690 & 0.917 & 0.787 & --- & 0.620 & --- & --- \\
 FM + DICE-RL       & --- & --- & 0.682 & 0.915 & 0.809 & --- & 0.592 & --- & --- \\
+FM + GRPO          & --- & --- & 0.700 & 0.897 & \textbf{0.883} & --- & 0.603 & --- & --- \\
 FM + \method{}     & --- & --- & \textbf{0.738} & 0.897 & \textbf{0.878} & --- & \textbf{0.608} & --- & --- \\
 \bottomrule
 \end{tabular}
@@ -225,7 +226,19 @@ shows on all eight drifting-base tasks does not carry over to this base:
 on t53 and t75 it ends $2.0$ and $1.2$ points below its starting point.
 Fine-tuning a base that is already near its ceiling is a different problem
 from lifting a weak one, and our trust region is calibrated for the
-latter. The field-target form,
+latter.
+
+Adding the critic-free policy-gradient baseline at the same budget
+completes the picture. On the one task with real headroom from the
+flow-matching base, GRPO and \method{} extract essentially the same
+amount ($0.883$ and $0.878$ on t65, both $\approx\!+9.5$) while the
+backpropagated actor manages $+2.2$; on t32 \method{} leads ($0.738$ vs.\
+$0.700$); on the two tasks where no method gains, all three sit together.
+The separation on this benchmark is therefore not \method{} against the
+world but \emph{update form} against backpropagation-through-the-critic:
+the field update matches what a policy-gradient method extracts, without
+requiring the noise-injection surrogate that makes likelihood ratios
+available for a one-step generator in the first place. The field-target form,
 not the base and not the reward signal, is what converts critic signal
 into success. It also puts the \textbf{Q2} comparison in perspective:
 \method{} on the weak one-step base reaches $0.781$ on t65 against the
