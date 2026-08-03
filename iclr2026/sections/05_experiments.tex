@@ -177,7 +177,7 @@ backprop actor     & 0.820 & 0.703 & 0.587 & 0.800 & 0.550 & 0.663 & 0.583 & 0.6
 \multicolumn{10}{l}{\emph{same protocol, flow-matching base (4 tasks measured)}} \\
 FM base (no RL)    & --- & --- & 0.690 & 0.917 & 0.787 & --- & 0.620 & --- & --- \\
 FM + DICE-RL       & --- & --- & 0.682 & 0.915 & 0.809 & --- & 0.592 & --- & --- \\
-FM + \method{}     & --- & --- & \textbf{0.738} & --- & \textbf{0.878} & --- & --- & --- & --- \\
+FM + \method{}     & --- & --- & \textbf{0.738} & 0.893 & \textbf{0.878} & --- & \textbf{0.608} & --- & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -214,10 +214,18 @@ its own, stronger base the state-of-the-art pipeline extracts essentially
 nothing per task: FM + DICE-RL scores $-0.8$, $-0.2$, $+2.2$ and $-2.8$
 points relative to the FM base on t32, t53, t65 and t75 (mean $-0.4$),
 the same near-zero extraction its actor shows on the drifting base
-($+0.9$). Swapping only the actor update fixes it: \method{} on the
-\emph{identical} flow-matching base and budget reaches $0.738$ on t32 and
-$0.878$ on t65 --- $+4.8$ and $+9.1$ over that base, and $+5.6$ and
-$+6.9$ over FM + DICE-RL on the same two tasks. The field-target form,
+($+0.9$). Swapping only the actor update helps on three of the four tasks:
+\method{} on the \emph{identical} flow-matching base and budget beats
+FM + DICE-RL by $+5.6$ (t32), $+6.9$ (t65) and $+1.6$ (t75), reaching
+$0.738$ and $0.878$ on the first two --- $+4.8$ and $+9.1$ over that base.
+The exception is instructive: on t53 the flow-matching base already scores
+$0.917$ and \emph{neither} update improves it ($-2.2$ for \method{},
+$-0.2$ for DICE-RL). Indeed the never-below-base behaviour \method{}
+shows on all eight drifting-base tasks does not carry over to this base:
+on t53 and t75 it ends $2.4$ and $1.2$ points below its starting point.
+Fine-tuning a base that is already near its ceiling is a different problem
+from lifting a weak one, and our trust region is calibrated for the
+latter. The field-target form,
 not the base and not the reward signal, is what converts critic signal
 into success. It also puts the \textbf{Q2} comparison in perspective:
 \method{} on the weak one-step base reaches $0.781$ on t65 against the
