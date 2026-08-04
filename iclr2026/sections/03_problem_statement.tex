@@ -71,22 +71,22 @@ becomes.
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/toy_intuition.pdf}
-  \caption{\textbf{Why backpropagating a critic breaks, and what fixes
-  it.} Each panel shows the same action space, flattened to two axes: how
-  far along the two expert modes an action lies (horizontal) and how far
-  it is from any expert data (vertical, so the grey band at the bottom is
-  where the demonstrations live). Colour is what the critic \emph{thinks}
-  an action is worth. \textbf{(a)} The critic is trained only on expert
-  actions, so away from them it is free to invent value --- its highest-scoring
-  action (star) sits far from anything it has seen. \textbf{(b)} Backpropagating
-  $-\hat{Q}$ through the policy sets each step's size by the critic's
-  gradient, and the action cloud (three snapshots, connected) is pulled
-  straight into that invented region: the critic's score rises
-  $32\times$ while the policy's true success falls to zero. \textbf{(c)}
-  Our update uses the same critic, but as a \emph{clipped velocity} on
-  each action plus a restoring anchor, so no update can move an action
-  more than a fixed distance: the cloud stays on the data and success is
-  preserved.}
+  \caption{\textbf{The failure, its cause, and the fix} (toy: $16$-D
+  actions, critic trained on $60$ expert actions). \textbf{(a)} Under the
+  standard update --- backpropagate $-Q$ through the policy --- the
+  critic's opinion of its own policy rises without bound while the task
+  success of that policy collapses to zero within $50$ updates. The
+  optimiser is succeeding at what it was asked to do. \textbf{(b)} The
+  cause: because each step's size is set by the critic's gradient, the
+  policy travels enormous distances away from the actions the expert
+  demonstrates ($12{,}416\times$ the expert's own spread). A
+  behaviour-cloning penalty slows this but does not stop it
+  ($2.8\times$); our clipped field update keeps the policy inside the
+  data ($0.09\times$). \textbf{(c)} The consequence: both backpropagated
+  variants end at zero success, while the bounded update retains the
+  base's competence. The lesson the method is built on: what protects the
+  policy is a bound on how far it may move, not a penalty competing
+  against an unbounded gradient.}
   \label{fig:intuition}
 \end{figure}
 

@@ -117,41 +117,45 @@ def fresh():
     return m
 
 
-Z_VIS = torch.randn(48, DIM, device=DEV)  # fixed noise batch -> trackable cloud
+LOG_EVERY = 25
 
 
-def snapshot(pol, snaps, stats, t):
-    with torch.no_grad():
-        a = pol(Z_VIS)
-        snaps[t] = a.cpu()
-        stats[t] = (critic(a).mean().item(), true_reward(a).mean().item())
+def dist_from_data(a):
+    """Distance from the nearer expert mode, in per-dimension rms units."""
+    d1 = (a - M1).norm(dim=-1)
+    d2 = (a - M2).norm(dim=-1)
+    return (torch.minimum(d1, d2) / math.sqrt(DIM)).mean().item()
 
 
-def run_grad_bc(lam=1.0):
-    """Backprop -Q with BC anchor: the DICE-RL residual actor analog."""
-    pol = fresh()
-    opt = torch.optim.Adam(pol.parameters(), 3e-4)
-    snaps, stats = {}, {}
+@torch.no_grad()
+def probe(pol):
+    z = torch.randn(256, DIM, device=DEV)
+    a = pol(z)
+    return (critic(a).mean().item(), true_reward(a).mean().item(), dist_from_data(a))
+
+
+def run_backprop(bc_lambda):
+    pol = fresh(); opt = torch.optim.Adam(pol.parameters(), 3e-4)
+    hist = []
     for t in range(STEPS + 1):
-        if t in SNAPS:
-            snapshot(pol, snaps, stats, t)
+        if t % LOG_EVERY == 0:
+            hist.append((t,) + probe(pol))
         if t == STEPS:
             break
         z = torch.randn(64, DIM, device=DEV)
         a = pol(z)
-        loss = -critic(a).mean() + lam * F.mse_loss(a, base(z))
+        loss = -critic(a).mean() + bc_lambda * F.mse_loss(a, base(z))
         opt.zero_grad(); loss.backward(); opt.step()
-    return snaps, stats
+    return np.array(hist)
 
 
 def run_field():
-    pol = fresh()
-    opt = torch.optim.Adam(pol.parameters(), 3e-4)
+    pol = fresh(); opt = torch.optim.Adam(pol.parameters(), 3e-4)
     q_step, bc_step, clip_n, lam = 0.2, 0.2, 0.15, 1.0
-    snaps, stats = {}, {}
+    hist = []
     for t in range(STEPS + 1):
-        if t in SNAPS:
-            snapshot(pol, snaps, stats, t)
+        if t % LOG_EVERY == 0:
+            hist.append((t,) + probe(pol))
         if t == STEPS:
             break
         z = torch.randn(64, DIM, device=DEV)
@@ -163,132 +167,81 @@ def run_field():
             VQ = drift_field(cur, cur, w, cur, mask_pos_self=True)
             bc = base(torch.randn(64, DIM, device=DEV))
             VBC = drift_field(cur, bc, torch.ones(64, device=DEV), cur)
-            res = cur - base(z)
-            delta = q_step * VQ + bc_step * VBC - lam * res
+            delta = q_step * VQ + bc_step * VBC - lam * (cur - base(z))
             dn = delta.norm(dim=-1, keepdim=True)
             tgt = cur + delta * torch.clamp(clip_n / (dn + 1e-8), max=1.0)
         l = F.mse_loss(pol(z), tgt)
         opt.zero_grad(); l.backward(); opt.step()
-    return snaps, stats
+    return np.array(hist)
 
 
-g_snaps, g_stats = run_grad_bc()
-f_snaps, f_stats = run_field()
+H_BP   = run_backprop(0.0)
+H_BPBC = run_backprop(1.0)
+H_FLD  = run_field()
+BASE_R = probe(fresh())[1]
+for nm, H in [("backprop", H_BP), ("backprop+BC", H_BPBC), ("field", H_FLD)]:
+    print(f"{nm}: final true={H[-1,2]:.3f} critic={H[-1,1]:.2f} dist={H[-1,3]:.3f}")
+print(f"base true={BASE_R:.3f}")
 
-for name, st in [("backprop+anchor", g_stats), ("field", f_stats)]:
-    for t in SNAPS:
-        print(f"{name} t={t}: Q-hat={st[t][0]:.2f} true={st[t][1]:.3f}")
-
-
-def manifold_coords(a):
-    """x = position along the mode axis, y = off-manifold distance."""
-    x = a[:, 0].numpy()
-    y = a[:, 1:].norm(dim=-1).numpy()
-    return x, y
-
-
-# fixed perpendicular direction for the visualization slice
-U = torch.zeros(DIM, device=DEV)
-gy_dir = g_snaps[SNAPS[-1]].mean(0)[1:]        # where backprop actually went
-if gy_dir.norm() > 1e-6:
-    U[1:] = (gy_dir / gy_dir.norm()).to(DEV)
-else:
-    U[1] = 1.0
-
-all_y = np.concatenate([manifold_coords(g_snaps[t])[1] for t in SNAPS] +
-                       [manifold_coords(f_snaps[t])[1] for t in SNAPS])
-all_x = np.concatenate([manifold_coords(g_snaps[t])[0] for t in SNAPS] +
-                       [manifold_coords(f_snaps[t])[0] for t in SNAPS])
-XL = max(2.6, float(np.abs(all_x).max()) * 1.1)
-YL = max(2.2, float(all_y.max()) * 1.08)
-
-gx = np.linspace(-XL, XL, 200)
-gy = np.linspace(0, YL, 200)
-GX, GY = np.meshgrid(gx, gy)
-pts = (torch.tensor(GX.ravel(), dtype=torch.float32, device=DEV)[:, None] * E1
-       + torch.tensor(GY.ravel(), dtype=torch.float32, device=DEV)[:, None] * U)
-with torch.no_grad():
-    Q = critic(pts).squeeze(-1).cpu().numpy().reshape(GX.shape)
-    R = true_reward(pts).cpu().numpy().reshape(GX.shape)
-dx, dy_ = manifold_coords(da.cpu())
-
-C_BP, C_FLD, C_DATA = "#D55E00", "#0072B2", "#111111"
+C_BP, C_BC, C_FLD, C_BASE = "#D55E00", "#CC79A7", "#0072B2", "#666666"
 plt.rcParams.update({"font.size": 10})
-fig, axes = plt.subplots(1, 3, figsize=(12.6, 4.2), sharey=True, sharex=True)
-LEV = np.linspace(Q.min(), Q.max(), 12)
+fig, axes = plt.subplots(1, 3, figsize=(12.6, 3.7))
 
-def _bg(ax):
-    im = ax.contourf(GX, GY, Q, levels=LEV, cmap="Reds", alpha=0.55)
-    ax.axhspan(-0.05, 1.0, color="#2ca02c", alpha=0.15, zorder=1)
-    ax.axhline(1.0, color="#2ca02c", lw=1.3, ls="--", alpha=0.85, zorder=2)
-    return im
-
-def _data(ax, lab=True):
-    ax.scatter(dx, dy_, s=60, c=C_DATA, marker="o", edgecolors="white",
-               linewidths=0.9, zorder=6, label="expert actions" if lab else None)
-
-def _cloud(ax, snaps, color):
-    xs0, ys0 = manifold_coords(snaps[SNAPS[0]])
-    xsT, ysT = manifold_coords(snaps[SNAPS[-1]])
-    ax.scatter(xs0, ys0, s=50, facecolors="none", edgecolors="#555555",
-               linewidths=1.1, zorder=5, label="policy before RL")
-    for i in range(0, len(xs0), 3):
-        ax.annotate("", xy=(xsT[i], ysT[i]), xytext=(xs0[i], ys0[i]),
-                    arrowprops=dict(arrowstyle="->", color=color, lw=0.9,
-                                    alpha=0.5, shrinkA=2, shrinkB=2), zorder=4)
-    ax.scatter(xsT, ysT, s=80, c=color, marker="o", edgecolors="white",
-               linewidths=0.9, zorder=7, label="policy after RL")
-
-def _box(ax, stats, verdict, color):
-    q0, r0 = stats[SNAPS[0]]; qT, rT = stats[SNAPS[-1]]
-    txt = ("critic score: %.1f -> %.0f\n"
-           "true success: %.0f%% -> %.0f%%  %s") % (q0, qT, r0*100, rT*100, verdict)
-    ax.text(0.03, 0.97, txt, transform=ax.transAxes, fontsize=9.0,
-            ha="left", va="top", family="monospace", color=color,
-            bbox=dict(fc="white", ec=color, lw=1.0, alpha=0.96, pad=4.0), zorder=10)
-
-# --- (a) the critic's belief ---
+# (a) the delusion: critic's belief vs reality, for the backpropagated update
 ax = axes[0]
-im = _bg(ax); _data(ax)
-ax.annotate("", xy=(-2.6, YL * 0.92), xytext=(-2.6, YL * 0.22),
-            arrowprops=dict(arrowstyle="-|>", lw=2.4, color="k"), zorder=8)
-ax.text(-2.35, YL * 0.57, "the critic's score keeps\nrising the further you go\nfrom the data",
-        fontsize=10, ha="left", va="center", fontweight="bold", zorder=9)
-ax.annotate("all expert data is here", xy=(1.0, 0.7), xytext=(1.0, YL * 0.16),
-            fontsize=10, ha="center", color="#1a6b1a", fontweight="bold",
-            arrowprops=dict(arrowstyle="->", lw=1.4, color="#1a6b1a"), zorder=9)
-ax.set_title("(a) what the critic believes", fontsize=12.5, fontweight="bold")
-ax.set_ylabel("distance away from expert data", fontsize=11)
-ax.legend(loc="upper right", fontsize=9, framealpha=0.96)
+ax.plot(H_BP[:, 0], H_BP[:, 2], color="k", lw=2.6, label="what it actually solves")
+ax.set_ylim(-0.03, 0.75); ax.set_ylabel("true success rate", fontsize=11)
+ax.set_xlabel("RL update", fontsize=11)
+ax2 = ax.twinx()
+ax2.plot(H_BP[:, 0], H_BP[:, 1], color=C_BP, lw=2.6, ls="--",
+         label="what the critic thinks it is worth")
+ax2.set_ylabel("critic's own score", color=C_BP, fontsize=11)
+ax2.tick_params(axis="y", colors=C_BP)
+ax.annotate("reality collapses", xy=(400, 0.05), xytext=(620, 0.34),
+            fontsize=10.5, fontweight="bold", color="k",
+            arrowprops=dict(arrowstyle="->", lw=1.5, color="k"))
+ax2.annotate("the critic is\ndelighted", xy=(1100, H_BP[-1, 1] * 0.93),
+             xytext=(430, H_BP[-1, 1] * 0.55), fontsize=10.5, fontweight="bold",
+             color=C_BP, arrowprops=dict(arrowstyle="->", lw=1.5, color=C_BP))
+ax.set_title("(a) backpropagating a critic:\nit optimises the score, not the task",
+             fontsize=11.5, fontweight="bold")
 
-# --- (b) backprop ---
+# (b) the cause: the policy walks off the data
 ax = axes[1]
-_bg(ax); _data(ax, lab=False); _cloud(ax, g_snaps, C_BP)
-ax.annotate("dragged far\noff the data", xy=(-1.3, YL * 0.70),
-            xytext=(1.4, YL * 0.55), fontsize=10.5, ha="center",
-            color=C_BP, fontweight="bold",
-            arrowprops=dict(arrowstyle="->", lw=1.6, color=C_BP), zorder=9)
-_box(ax, g_stats, "FAILS", C_BP)
-ax.set_title("(b) backpropagating the critic", fontsize=12.5, fontweight="bold")
-ax.legend(loc="center right", fontsize=9, framealpha=0.96)
+ax.set_yscale("log")
+ax.axhspan(0.01, 0.2, color="#2ca02c", alpha=0.18)
+ax.text(760, 0.028, "where the expert's actions are", ha="center", fontsize=10,
+        color="#1a6b1a", fontweight="bold")
+ax.plot(H_BP[:, 0], H_BP[:, 3], color=C_BP, lw=2.6, label="backprop $-Q$")
+ax.plot(H_BPBC[:, 0], H_BPBC[:, 3], color=C_BC, lw=2.4, ls="--",
+        label="backprop $-Q$ + BC penalty")
+ax.plot(H_FLD[:, 0], H_FLD[:, 3], color=C_FLD, lw=2.8, label="ours (bounded field)")
+ax.set_xlabel("RL update", fontsize=11)
+ax.set_ylabel("how far the policy has moved\nfrom expert data (log scale)", fontsize=11)
+ax.set_ylim(0.01, 5e4)
+for H, c, lab in [(H_BP, C_BP, f"{H_BP[-1,3]:,.0f}$\\times$"),
+                  (H_BPBC, C_BC, f"{H_BPBC[-1,3]:.1f}$\\times$"),
+                  (H_FLD, C_FLD, f"{H_FLD[-1,3]:.2f}$\\times$")]:
+    ax.text(1560, H[-1, 3], lab, color=c, fontsize=10, fontweight="bold", va="center")
+ax.set_title("(b) why: the update size is set by\nthe critic, so the policy escapes",
+             fontsize=11.5, fontweight="bold")
+ax.legend(loc="upper left", fontsize=9.5, framealpha=0.95)
 
-# --- (c) ours ---
+# (c) the outcome
 ax = axes[2]
-_bg(ax); _data(ax, lab=False); _cloud(ax, f_snaps, C_FLD)
-ax.annotate("steps are capped:\nit stays on the data", xy=(0.5, 1.1),
-            xytext=(1.3, YL * 0.55), fontsize=10.5, ha="center",
-            color=C_FLD, fontweight="bold",
-            arrowprops=dict(arrowstyle="->", lw=1.6, color=C_FLD), zorder=9)
-_box(ax, f_stats, "HOLDS", C_FLD)
-ax.set_title("(c) our bounded field update", fontsize=12.5, fontweight="bold")
-ax.legend(loc="center right", fontsize=9, framealpha=0.96)
+names = ["no RL\n(base)", "backprop\n$-Q$", "backprop\n+ BC penalty", "ours"]
+vals = [BASE_R, H_BP[-1, 2], H_BPBC[-1, 2], H_FLD[-1, 2]]
+cols = [C_BASE, C_BP, C_BC, C_FLD]
+bars = ax.bar(range(4), vals, color=cols, edgecolor="white", linewidth=1.2)
+for i, v in enumerate(vals):
+    ax.text(i, v + 0.018, f"{v:.2f}", ha="center", fontsize=11, fontweight="bold")
+ax.axhline(BASE_R, color=C_BASE, ls=":", lw=1.4)
+ax.set_xticks(range(4)); ax.set_xticklabels(names, fontsize=9.5)
+ax.set_ylim(0, max(vals) * 1.28); ax.set_ylabel("true success rate", fontsize=11)
+ax.set_title("(c) the outcome: a penalty does not\nrescue it, a bounded step does",
+             fontsize=11.5, fontweight="bold")
 
-for ax in axes:
-    ax.set_xlim(-XL, XL); ax.set_ylim(-0.05, YL * 1.02)
-    ax.set_xlabel("action", fontsize=11)
-    ax.tick_params(labelsize=9)
-cb = fig.colorbar(im, ax=axes, fraction=0.016, pad=0.022)
-cb.set_label("value the critic predicts", fontsize=10)
+fig.tight_layout()
 out = os.path.join(OUT, "toy_intuition.pdf")
 fig.savefig(out, bbox_inches="tight", dpi=200)
 print("wrote", out)
