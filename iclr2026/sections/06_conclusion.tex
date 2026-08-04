@@ -1,21 +1,43 @@
 We showed that the natural update primitives for RL fine-tuning of one-step
-generative policies --- likelihood ratios and backpropagated critics --- are
-respectively unavailable and unsafe, and that the policy class's own
-pretraining primitive, field-target regression, provides the missing update
-rule. \method{} expresses reward, trust region, and anchoring as composable
-velocity fields over action particles, provably bounds policy movement
-pointwise in action space, and recovers the backpropagated direction in the
-small-step limit. On robomimic it lifts a drifting base past the stronger
-flow-matching + DICE-RL pipeline; a controlled toy and a weak-critic
-benchmark map when the critic's gradient, ranking, or soft values should
-drive the field.
+generative policies are, respectively, unavailable without modifying the
+policy and unsafe when the critic is imperfect, and that the policy class's
+own pretraining primitive --- field-target regression --- provides the
+missing update rule. \method{} expresses reward, trust region, and anchoring
+as composable velocity fields over action particles, provably bounds policy
+movement pointwise in action space, and recovers the backpropagated
+direction in the small-step limit.
 
-\textbf{Limitations.} On the weak-critic benchmark \method{} is competitive
-with, but not yet ahead of, the flow-matching pipeline \todo{update when
-final}; our critic-trust diagnosis is post hoc --- choosing the reward-field
-resolution online from critic trust signals is the natural next step; and
-all results are state-based simulation benchmarks on a single embodiment.
-The broader principle --- \emph{fine-tune a policy with the operator that
-pretrained it} --- applies to any generative policy class trained by target
-regression, and testing it beyond drifting models is the direction we find
-most promising.
+The experiments locate the advantage precisely. Given the \emph{same} base,
+critic, data and budget, the field-target form extracts far more than
+backpropagating that critic: $+55$ points on robomimic square, and
+$+9.4$ versus $+0.9$ on average across the eight hardest LIBERO-90 tasks,
+where the backpropagated actor falls below its base on the two
+highest-headroom tasks and \method{} improves on every one. The same
+ordering holds when the base is swapped for the stronger flow-matching
+policy, so the effect is attributable to the update rule rather than to the
+starting point. Against a critic-free policy-gradient baseline at matched
+interaction budget, \method{} is at parity ($+10.1$ versus $+9.5$ per-task
+mean on LIBERO; $0.878$ versus $0.883$ on the flow-matching base's one
+high-headroom task) --- while requiring none of the noise injection that
+makes likelihood ratios definable for a deterministic one-step generator in
+the first place. Ablations confirm the mechanism rather than the
+hyperparameters: removing the dead-zone anchor drops performance
+\emph{below} the untuned base, deleting the critic's gradient direction
+collapses gains to base level on both benchmarks, and the reward step can be
+doubled safely --- the trust region, not a small step size, is what buys the
+stability.
+
+\textbf{Limitations.} The gains track how much a critic actually knows.
+When a single critic is shared across all eight LIBERO tasks its
+action-gradient collapses and \emph{no} critic-based update --- ours or the
+state of the art's --- improves on its base; when a base is already near its
+ceiling, \method{} can end slightly below it ($-2.0$ and $-1.2$ on two
+flow-matching tasks), since our trust region is calibrated for lifting weak
+bases rather than for refining strong ones. Our critic-trust diagnosis is
+also post hoc: choosing the reward-field resolution online from critic-trust
+signals is the natural next step, as is testing whether the reward step
+should adapt per task. Finally, all results are state-based simulation on a
+single embodiment. The broader principle --- \emph{fine-tune a policy with
+the operator that pretrained it} --- applies to any generative policy class
+trained by target regression, and testing it beyond drifting models is the
+direction we find most promising.

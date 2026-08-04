@@ -14,10 +14,16 @@ fine-tuning with sparse task reward. That step, however, is structurally
 awkward for exactly this policy class.
 
 The two standard fine-tuning routes both break on this policy class.
-Likelihood-ratio methods (PPO/GRPO-style) need $\log\pi(a\mid s)$, and a
-one-step noise-to-action map simply does not expose it; the chain-MDP
+Likelihood-ratio methods (PPO/GRPO-style) need $\log\pi(a\mid s)$, which a
+deterministic one-step noise-to-action map does not expose; the chain-MDP
 reformulations that rescue multi-step diffusion policies
-\citep{ren2024dppo} have no analog when there is only one step. The remaining route --- learn a critic and backpropagate $-Q$
+\citep{ren2024dppo} have no analog when there is only one step. They can
+be applied only by \emph{changing the policy} --- injecting Gaussian noise
+around its output to define a surrogate likelihood
+\citep{reinflow2025} --- which alters the action distribution that is
+finally deployed. We use exactly that surrogate for our policy-gradient
+baseline, and it is a competitive one; the question this paper asks is
+what can be done \emph{without} modifying the policy at all. The remaining route --- learn a critic and backpropagate $-Q$
 through the actor, as the state-of-the-art residual fine-tuner DICE-RL
 \citep{dicerl2026} does --- silently ties the size of every policy update
 to the magnitude of the critic's action-gradient. A learned critic is
@@ -65,12 +71,17 @@ matched budget ($0.87$--$0.91$) and at parity with the flow-matching +
 DICE-RL state-of-the-art pipeline on both tasks, while the value-only
 sources trail far behind ($\sim\!0.55$ on square). On the eight
 hardest LIBERO-90 tasks, fine-tuned per task from one shared base with
-one shared recipe, \method{} gains $+6$ to $+21$ points where the
-backpropagated actor consuming the same critics \emph{loses} ground; with
-a single critic shared across all eight tasks, no \emph{critic-based}
-update rule --- backpropagated or field-based, ours or the state of the
-art's --- improves on its own base, locating the binding constraint in
-per-task critic quality exactly as the toy predicts.
+one shared recipe, \method{} gains $+3.9$ to $+23.9$ points (mean
+$+9.4$) where the
+backpropagated actor consuming the same critics gains $+0.9$ and
+\emph{loses} ground on the two highest-headroom tasks. The ordering is
+unchanged when the base is swapped for the stronger flow-matching policy,
+and \method{} matches a critic-free policy-gradient baseline at equal
+budget without needing the noise injection that baseline requires. With a
+single critic shared across all eight tasks, no \emph{critic-based} update
+rule --- backpropagated or field-based, ours or the state of the art's ---
+improves on its own base, locating the binding constraint in per-task
+critic quality exactly as the toy predicts.
 
 Our contributions:
 \begin{itemize}
@@ -84,10 +95,12 @@ Our contributions:
   regime-dependent, and \emph{not} fixed by BC penalties --- motivating
   trust regions in action space rather than loss space.
   \item \textbf{Evidence that the form is what wins}
-  (\cref{sec:experiments}): under matched budgets and family-shared
-  hyperparameters, \method{} beats the backpropagated update \emph{on the
-  same base with the same reward signal}, lifts a weaker one-step base to
-  match the stronger flow-matching + DICE-RL pipeline, and the
-  $V_Q$-resolution ablation confirms the two-regime picture on real
-  benchmarks.
+  (\cref{sec:experiments}): under matched budgets and one shared recipe,
+  \method{} beats the backpropagated update \emph{on the same base with the
+  same reward signal} on both benchmarks and on both bases, lifts a weaker
+  one-step base to match the stronger flow-matching + DICE-RL pipeline, and
+  reaches parity with a critic-free policy-gradient baseline without
+  modifying the deployed policy. Leave-one-out ablations isolate what pays:
+  the action-space trust region and its dead-zone anchor, not the step size,
+  and the critic's gradient direction, not its ranking.
 \end{itemize}

@@ -20,8 +20,11 @@ On robomimic, \method{} lifts a drifting base from $0.877$ to $0.99$ on can
 and from $0.382$ to $0.91$--$0.93$ on square --- ahead of the
 backpropagated update at the matched budget on every seed, and matching the
 flow-matching + DICE-RL pipeline on both tasks despite a base less than
-half as strong on square. On the hardest LIBERO-90 tasks, per-task
-fine-tuning with one shared recipe gains up to $+21$ points of success
-where the backpropagated actor goes below its base. Ablations over lower-resolution reward fields (top-$k$,
+half as strong on square. On the eight hardest LIBERO-90 tasks it gains $+9.4$ points on average
+with one shared recipe --- improving on every task, by up to $+24$ ---
+where the backpropagated actor gains $+0.9$ and falls below its base on
+the two tasks with the most headroom, and matches a critic-free
+policy-gradient baseline at equal interaction budget without the noise
+injection that baseline requires. Ablations over lower-resolution reward fields (top-$k$,
 exponentially tilted) map exactly when the critic's gradient --- versus
 only its values --- should be trusted.

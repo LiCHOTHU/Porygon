@@ -44,8 +44,13 @@ $\log \pi(a \mid s)$. A one-step generator defines its action
 distribution implicitly through the noise map \cref{eq:residual}; its
 likelihood is intractable, and unlike multi-step diffusion policies
 there is no chain-MDP reformulation to fall back on
-\citep{ren2024dppo,park2025fql,reinflow2025}. The ratio-based toolbox
-is structurally unavailable.
+\citep{ren2024dppo,park2025fql}. The ratio-based toolbox becomes
+available only after \emph{modifying the policy} --- adding fixed-variance
+Gaussian noise to its output so that a surrogate log-density exists
+\citep{reinflow2025} --- so the deployed policy is no longer the
+deterministic one-step map that was pretrained. Our experiments include
+this surrogate as a baseline; the update we develop needs no such
+modification.
 
 \paragraph{Critic exploitation through backpropagation.} The remaining
 standard update --- backpropagate $-Q$ through the actor, as in DDPG
