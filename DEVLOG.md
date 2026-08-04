@@ -1118,3 +1118,19 @@ REFUTED; mechanism is likely reduced BC-anchor drag (bc_step fixed while q_step 
 **7-task comparison vs GRPO** (excl. t8, no GRPO number): Porygon q2 **+10.1** vs
 drift-GRPO **+9.5** → Porygon now edges the critic-free baseline at matched budget.
 Seed replication (5 tasks): spreads .000/.003/.004/.019/.089 — negligible except t65.
+
+## 2026-08-04 — Storyline/exposition pass (user request)
+- **Fig 1 redesigned**: plain-language panel titles ("the critic is wrong off the data" /
+  "backpropagating the critic" / "our bounded field update"), in-figure annotations with
+  arrows, shaded "data lives here" band, and per-panel stat boxes (critic score vs true
+  success). Axes relabelled in words. Caption rewritten to explain the axes before the
+  mechanism. Regenerated via scripts/plot_toy_intuition.py (job 11671319).
+- **Toy section (§3.3) simplified**: removed the dense number dump; now flaw → why the BC
+  penalty loses → the fix that follows → two conclusions. Kept only the numbers that carry
+  the argument (0.79 easy-regime backprop; 0.00 hard-regime with and without BC penalty;
+  0.61 vs 0.65 base for the field update).
+- **Method opening rewritten** to foreground the two contributions: reward field (direction,
+  clipped) + anchor field (dead-zone restoring pull), stated as displacements-not-loss-terms,
+  with the explicit link back to why the BC penalty failed.
+- **Algorithm now described in words**: propose → score and displace → freeze targets →
+  regress, with the critic explicitly "queried, never differentiated through".

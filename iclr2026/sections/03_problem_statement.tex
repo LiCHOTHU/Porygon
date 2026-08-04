@@ -71,68 +71,71 @@ becomes.
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/toy_intuition.pdf}
-  \caption{\textbf{The failure and the fix, geometrically} (hard regime of
-  the toy: 16-D actions, critic fit on 60 on-manifold points; the plane
-  shown spans the mode axis and the direction the backprop update actually
-  takes). \textbf{(a)} Off the data manifold the critic extrapolates a
-  hallucinated high-$\hat{Q}$ region --- its maximum on this slice sits far
-  from any data. \textbf{(b)} Backpropagating $-\hat{Q}$ through the actor,
-  \emph{even with a BC anchor}, rides that gradient: the action cloud
-  (snapshots at $0/300/1500$ updates, connected trails) leaves the
-  manifold; internal $\hat{Q}$ rises $0.5 \to 16$ while true reward
-  collapses $0.65 \to 0.00$. \textbf{(c)} The field-target update consumes
-  the \emph{same} critic as a clipped, anchored velocity field: each
-  particle moves a bounded distance per update, the cloud never leaves the
-  manifold, and true reward is held ($0.65 \to 0.60$). This is why
-  \method{} fine-tunes the drifting base with the bounded-transport form it
-  was pretrained with.}
+  \caption{\textbf{Why backpropagating a critic breaks, and what fixes
+  it.} Each panel shows the same action space, flattened to two axes: how
+  far along the two expert modes an action lies (horizontal) and how far
+  it is from any expert data (vertical, so the grey band at the bottom is
+  where the demonstrations live). Colour is what the critic \emph{thinks}
+  an action is worth. \textbf{(a)} The critic is trained only on expert
+  actions, so away from them it is free to invent value --- its highest-scoring
+  action (star) sits far from anything it has seen. \textbf{(b)} Backpropagating
+  $-\hat{Q}$ through the policy sets each step's size by the critic's
+  gradient, and the action cloud (three snapshots, connected) is pulled
+  straight into that invented region: the critic's score rises
+  $32\times$ while the policy's true success falls to zero. \textbf{(c)}
+  Our update uses the same critic, but as a \emph{clipped velocity} on
+  each action plus a restoring anchor, so no update can move an action
+  more than a fixed distance: the cloud stays on the data and success is
+  preserved.}
   \label{fig:intuition}
 \end{figure}
 
-We isolate the second failure mode in a bandit with a bimodal expert
-distribution, a one-step base pretrained with the drift operator, and a
-critic fit \emph{only} on on-manifold data. \Cref{fig:intuition}
-shows the mechanism in the plane that matters: the scarce-data critic
-invents a high-value region off the manifold, backpropagation drives the
-policy into it at full speed, and the bounded field update --- fed the
-identical critic --- cannot be driven more than a clipped step from the
-data. We compare the standard
-backpropagation update without and with a BC anchor
-($-Q$ and $-Q + \lambda \|r\|^2$, the DICE-RL residual actor) against
-the field-target update of \cref{sec:method}, in two regimes
-(\cref{fig:toy}; 3 seeds).
+To see the failure cleanly we build the smallest setting that contains
+it: a bandit whose expert data has two modes, a one-step policy
+pretrained on that data with the drift operator, and a critic trained
+\emph{only} on actions the expert actually takes. The critic is therefore
+accurate on the data and unconstrained everywhere else --- the situation
+every offline-trained critic is in. We then fine-tune the same base with
+two update rules and vary one thing: the action dimension, which controls
+how much of the space the critic has never seen.
 
-\textbf{Easy regime} (2-D actions, dense critic data): the critic
-generalizes, its gradient field is trustworthy, and backpropagation
-wins --- true reward $0.793$ ($-Q$) and $0.770$ ($-Q$ + anchor) versus
-$0.530$ for a value-only field update and $0.496$ for the base. When
-the critic is a good compass, following its gradient is the right thing
-to do.
+\textbf{When the critic is reliable, follow it.} With $2$-D actions and
+dense critic data, backpropagation is the best update ($0.79$ true
+reward, versus $0.53$ for a value-only field update and $0.50$ for the
+base). Nothing is wrong with using a critic's gradient when the critic
+knows what it is talking about.
 
-\textbf{Hard regime} (16-D actions, 60 critic training points ---
-mimicking high-dimensional chunked control with scarce coverage): the
-same backpropagation update collapses to $0.000$ true reward while its
-internal estimate soars ($Q$ rises by $2.9\times 10^{4}$; 100\% of
-actions off-manifold). Critically, \emph{the BC anchor does not save
-it}: $-Q + \lambda\|r\|^2$ also reaches $0.000$ (99\% off-manifold).
-Penalty terms compete with an unbounded gradient and lose. The
-field-target update, whose displacement is clipped in action space and
-anchored by a restoring field, stays entirely on-manifold and holds the
-base's performance ($0.614$ vs.\ base $0.647$) while preserving action
-dispersion (best-of-16 sampling reaches $0.767$).
+\textbf{When it is not, backpropagation is catastrophic --- and a BC
+penalty does not save it.} With $16$-D actions and $60$ critic training
+points, the same update drives true reward to \emph{zero} while the
+critic's own estimate of that policy rises by four orders of magnitude:
+the policy has walked into a region the critic scores highly and has
+never seen. Adding the standard behavior-cloning penalty changes nothing
+($0.00$ as well). This is the diagnostic result of the paper:
+\emph{the penalty is a term in a loss, and it is competing against a
+gradient of unbounded magnitude.} It loses. \Cref{fig:intuition} shows
+the geometry --- the policy is not wandering, it is being pulled, quickly
+and directly, toward the critic's hallucinated optimum.
 
-Two conclusions set up the method. First, the failure is
-\emph{regime-dependent}: gradient-following is optimal exactly when the
-critic's gradients generalize, and catastrophic when the critic can only
-rank. Any fix must retain the first-order signal where it is good.
-Second, what protects the field update in the hard regime is not the
-choice of reward signal but the \emph{form} of the update: displacement
-bounded pointwise in action space, plus a restoring anchor field ---
-properties a backpropagated loss cannot express, since gradient
-clipping in parameter space bounds neither. This motivates a method
-that keeps the safe update form and plugs in the strongest reward field
-the critic supports --- in slogan form: \emph{keep the compass, but bolt it
-to a governor}.
+\textbf{The fix that follows.} If the danger is that the update's
+\emph{size} is set by the critic's gradient magnitude, then the cure is
+not a stronger penalty but a bound on how far the policy may move --- and
+the bound must live in action space, where the damage happens, not in
+parameter space, where gradient clipping lives. Replacing the
+backpropagated update with one that transports each action particle by a
+\emph{clipped} velocity does exactly this: in the same $16$-D setting it
+holds the base's performance ($0.61$ vs.\ base $0.65$) and keeps every
+action on the data manifold, while preserving the action diversity the
+base was trained for (best-of-$16$ sampling reaches $0.77$).
+
+Two conclusions carry into the method. First, the choice is
+\emph{regime-dependent}: the critic's gradient is the best signal
+available when it generalizes and a liability when it does not, so a
+useful update must keep it without being steered by its magnitude.
+Second, what protects the policy is not which reward signal is used but
+the \emph{form} of the update --- a displacement bounded pointwise in
+action space, plus a restoring pull toward the base. In slogan form:
+\emph{keep the compass, but bolt it to a governor}.
 
 \begin{figure}[t]
   \centering

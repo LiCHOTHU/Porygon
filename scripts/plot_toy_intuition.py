@@ -213,55 +213,76 @@ with torch.no_grad():
 dx, dy_ = manifold_coords(da.cpu())
 
 C_BP, C_FLD, C_DATA = "#E69F00", "#0072B2", "#333333"
-fig, axes = plt.subplots(1, 3, figsize=(10.2, 3.3), sharey=True)
+fig, axes = plt.subplots(1, 3, figsize=(11.0, 3.5), sharey=True)
 
+def _bg(ax, alpha=1.0):
+    im = ax.contourf(GX, GY, Q, levels=18, cmap="RdBu_r", alpha=alpha)
+    ax.axhspan(-0.05, 0.9, color="#7f7f7f", alpha=0.13, zorder=0)
+    return im
+
+# ---- (a) what the critic believes -------------------------------------
 ax = axes[0]
-im = ax.contourf(GX, GY, Q, levels=24, cmap="RdBu_r")
-ax.contour(GX, GY, R, levels=[0.2, 0.6], colors="k", linewidths=0.7,
-           linestyles=":")
-ax.scatter(dx, dy_, s=10, c=C_DATA, zorder=3, label="critic data")
+im = _bg(ax)
+ax.scatter(dx, dy_, s=14, c=C_DATA, zorder=4, label="expert data")
 qmax = np.unravel_index(Q.argmax(), Q.shape)
-ax.scatter(GX[qmax], GY[qmax], marker="*", s=150, c="#D55E00",
-           edgecolors="k", linewidths=0.5, zorder=4,
-           label=r"$\arg\max \hat{Q}$ (slice)")
-ax.set_title(rf"(a) critic fit on {N_CRITIC} on-manifold points", fontsize=10)
-ax.set_ylabel(r"off-manifold distance $\|a_\perp\|$", fontsize=9)
-ax.legend(fontsize=7.5, loc="upper left", framealpha=0.9)
+ax.scatter(GX[qmax], GY[qmax], marker="*", s=230, c="#FFD700",
+           edgecolors="k", linewidths=0.7, zorder=5)
+ax.annotate("critic's best action\n(no data anywhere near)",
+            xy=(GX[qmax], GY[qmax]), xytext=(-0.2, YL * 0.60),
+            fontsize=8.5, ha="center", color="k",
+            arrowprops=dict(arrowstyle="->", lw=1.1, color="k"))
+ax.annotate("data lives here", xy=(0.0, 0.45), xytext=(1.5, 2.4),
+            fontsize=8.5, ha="center",
+            arrowprops=dict(arrowstyle="->", lw=1.0, color="#333333"))
+ax.set_title("(a) the critic is wrong off the data", fontsize=10.5)
+ax.set_ylabel("distance from expert data", fontsize=9.5)
 cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.02)
-cb.set_label(r"$\hat{Q}$", fontsize=9)
+cb.set_label("critic's predicted value", fontsize=8.5)
 
-for ax, snaps, stats, color, title in [
-    (axes[1], g_snaps, g_stats, C_BP,
-     r"(b) backprop $-\hat{Q}$ + BC anchor"),
-    (axes[2], f_snaps, f_stats, C_FLD,
-     r"(c) field update (clipped, anchored)"),
-]:
-    ax.contourf(GX, GY, Q, levels=24, cmap="RdBu_r", alpha=0.35)
-    ax.contour(GX, GY, R, levels=[0.2, 0.6], colors="k", linewidths=0.7,
-               linestyles=":")
-    ax.scatter(dx, dy_, s=8, c=C_DATA, alpha=0.45, zorder=2)
-    for al, t in zip([0.25, 0.55, 1.0], SNAPS):
-        sx, sy = manifold_coords(snaps[t])
-        ax.scatter(sx, sy, s=13, c=color, alpha=al, zorder=3,
-                   edgecolors="none")
-    for i in range(0, len(Z_VIS), 6):
-        xs = [manifold_coords(snaps[t])[0][i] for t in SNAPS]
-        ys = [manifold_coords(snaps[t])[1][i] for t in SNAPS]
-        ax.plot(xs, ys, color=color, lw=0.7, alpha=0.6, zorder=2)
-    q0, r0 = stats[SNAPS[0]]
-    qT, rT = stats[SNAPS[-1]]
-    ax.set_title(title, fontsize=10)
-    ax.text(0.03, 0.97,
-            rf"$\hat{{Q}}$: {q0:.1f}$\to${qT:.0f}"
-            "\n" rf"true reward: {r0:.2f}$\to${rT:.2f}",
-            transform=ax.transAxes, fontsize=8.5, va="top",
-            bbox=dict(fc="white", ec="none", alpha=0.85, pad=2.5))
+# ---- (b) backprop follows it ------------------------------------------
+ax = axes[1]
+_bg(ax, alpha=0.30)
+ax.scatter(dx, dy_, s=10, c=C_DATA, alpha=0.5, zorder=2)
+for al, t in zip([0.25, 0.55, 1.0], SNAPS):
+    sx, sy = manifold_coords(g_snaps[t])
+    ax.scatter(sx, sy, s=15, c=C_BP, alpha=al, zorder=3, edgecolors="none")
+for i in range(0, len(Z_VIS), 6):
+    xs = [manifold_coords(g_snaps[t])[0][i] for t in SNAPS]
+    ys = [manifold_coords(g_snaps[t])[1][i] for t in SNAPS]
+    ax.plot(xs, ys, color=C_BP, lw=0.8, alpha=0.65, zorder=2)
+q0, r0 = g_stats[SNAPS[0]]; qT, rT = g_stats[SNAPS[-1]]
+ax.annotate("policy is dragged\noff the data", xy=(0.1, YL * 0.75),
+            xytext=(1.9, YL * 0.45), fontsize=8.5, ha="center", color=C_BP,
+            arrowprops=dict(arrowstyle="->", lw=1.2, color=C_BP))
+ax.text(0.5, 0.045, f"critic score  {q0:.1f} $\\rightarrow$ {qT:.0f}   (looks better)\n"
+                    f"true success  {r0:.2f} $\\rightarrow$ {rT:.2f}   (is worse)",
+        transform=ax.transAxes, fontsize=8.5, ha="center",
+        bbox=dict(fc="white", ec="#999999", alpha=0.92, pad=3.0))
+ax.set_title("(b) backpropagating the critic", fontsize=10.5)
+
+# ---- (c) the field update ---------------------------------------------
+ax = axes[2]
+_bg(ax, alpha=0.30)
+ax.scatter(dx, dy_, s=10, c=C_DATA, alpha=0.5, zorder=2)
+for al, t in zip([0.25, 0.55, 1.0], SNAPS):
+    sx, sy = manifold_coords(f_snaps[t])
+    ax.scatter(sx, sy, s=15, c=C_FLD, alpha=al, zorder=3, edgecolors="none")
+q0, r0 = f_stats[SNAPS[0]]; qT, rT = f_stats[SNAPS[-1]]
+ax.annotate("each step is capped,\nso the cloud stays put",
+            xy=(0.0, 0.55), xytext=(1.9, YL * 0.45), fontsize=8.5,
+            ha="center", color=C_FLD,
+            arrowprops=dict(arrowstyle="->", lw=1.2, color=C_FLD))
+ax.text(0.5, 0.045, f"critic score  {q0:.1f} $\\rightarrow$ {qT:.1f}\n"
+                    f"true success  {r0:.2f} $\\rightarrow$ {rT:.2f}   (held)",
+        transform=ax.transAxes, fontsize=8.5, ha="center",
+        bbox=dict(fc="white", ec="#999999", alpha=0.92, pad=3.0))
+ax.set_title("(c) our bounded field update", fontsize=10.5)
 
 for ax in axes:
-    ax.set_xlim(-XL, XL)
-    ax.set_ylim(-0.03, YL)
-    ax.set_xlabel(r"position along mode axis $a \cdot e_1$", fontsize=9)
-    ax.tick_params(labelsize=7)
+    ax.set_xlim(-XL, XL); ax.set_ylim(-0.05, YL)
+    ax.set_xlabel("action (projected onto the two expert modes)", fontsize=9.5)
+    ax.tick_params(labelsize=7.5)
+    ax.set_yticks([0, 4, 8, 12])
 
 fig.tight_layout()
 out = os.path.join(OUT, "toy_intuition.pdf")

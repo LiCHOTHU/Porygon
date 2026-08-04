@@ -2,12 +2,25 @@
 % zeroth/tilted presented as dial instantiations evaluated in the ablation.
 % Code refs: imitation/algos/dice/drift_field.py, distill_rl.py:field_actor_loss.
 
-\method{} fine-tunes the residual head of \cref{eq:residual} with the
-same primitive that pretrained the base: \emph{move samples along a
-velocity field, then regress the network onto the moved targets}.
-Reward shaping, trust region, and anchoring are all expressed as fields
-in action space; no likelihood is ever required, and no critic gradient
-is ever backpropagated into the actor.
+\Cref{sec:toy} left us with a concrete requirement: use the critic's
+gradient as a \emph{direction}, but never let its \emph{magnitude} decide
+how far the policy moves, and bound that movement where the damage
+happens --- in action space. \method{} meets it by borrowing the
+operation that pretrained the policy in the first place: \emph{move
+action samples along a velocity field, then regress the network onto the
+moved samples.} Fine-tuning becomes one more field added to that
+transport.
+
+Two fields do all the work, and they are the paper's main contribution.
+The \textbf{reward field} $V_Q$ says which way each action should move to
+score better, and is clipped so no single update can be large. The
+\textbf{anchor field} $V_{\mathrm{anc}}$ pulls the policy back toward its
+base, but only once it has strayed beyond a set radius --- inside that
+radius it is silent, so it never fights the reward field. Neither is a
+loss term: both are displacements applied to actions before the
+regression, which is exactly why the anchor cannot be out-shouted the way
+a behavior-cloning penalty was in \cref{sec:toy}. No likelihood is
+required, and no critic gradient is ever backpropagated into the actor.
 
 \begin{figure}[t]
   \centering
@@ -41,11 +54,20 @@ $a_i = \pi_0(s, z_i) + r_\theta(s, z_i)$, treated as constants (detached). Each 
 \end{equation}
 where $\mathrm{sg}[\cdot]$ is stop-gradient and
 $\operatorname{clip}_{\delta}(v) = v \cdot \min(1, \delta / \|v\|)$
-rescales a field vector to norm at most $\delta$. The total
-displacement applied to any particle is additionally clipped to
-$\delta_{\mathrm{tot}}$. Because the target is built from detached
-quantities, \cref{eq:update} trains only the residual head; the critic
-(\cref{sec:critic}) is trained independently.
+rescales a field vector to norm at most $\delta$.
+
+In words, one update does four things. \textbf{(1) Propose:} draw $K$
+noise samples and push them through the frozen base plus the current
+residual to get a cloud of candidate actions for this state.
+\textbf{(2) Score and displace:} ask the critic which direction improves
+each candidate, clip that direction to length $\delta_Q$, and add the
+anchor's pull if the residual has strayed past its radius; clip the
+resulting total displacement to $\delta_{\mathrm{tot}}$.
+\textbf{(3) Freeze the targets:} the displaced actions are detached ---
+they are data now, not a computation graph. \textbf{(4) Regress:} train
+the residual head to output those displaced targets. The critic is
+trained separately (\cref{sec:critic}); it is never differentiated
+through the actor, only queried.
 
 \paragraph{Why this primitive, for this policy class.} Field-target
 regression is not merely \emph{a} safe update --- it is the operation the
