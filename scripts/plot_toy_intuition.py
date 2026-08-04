@@ -212,79 +212,83 @@ with torch.no_grad():
     R = true_reward(pts).cpu().numpy().reshape(GX.shape)
 dx, dy_ = manifold_coords(da.cpu())
 
-C_BP, C_FLD, C_DATA = "#E69F00", "#0072B2", "#333333"
-fig, axes = plt.subplots(1, 3, figsize=(11.0, 3.5), sharey=True)
+C_BP, C_FLD, C_DATA = "#D55E00", "#0072B2", "#111111"
+plt.rcParams.update({"font.size": 10})
+fig, axes = plt.subplots(1, 3, figsize=(12.6, 4.2), sharey=True, sharex=True)
+LEV = np.linspace(Q.min(), Q.max(), 12)
 
-def _bg(ax, alpha=1.0):
-    im = ax.contourf(GX, GY, Q, levels=18, cmap="RdBu_r", alpha=alpha)
-    ax.axhspan(-0.05, 0.9, color="#7f7f7f", alpha=0.13, zorder=0)
+def _bg(ax):
+    im = ax.contourf(GX, GY, Q, levels=LEV, cmap="Reds", alpha=0.55)
+    ax.axhspan(-0.05, 1.0, color="#2ca02c", alpha=0.15, zorder=1)
+    ax.axhline(1.0, color="#2ca02c", lw=1.3, ls="--", alpha=0.85, zorder=2)
     return im
 
-# ---- (a) what the critic believes -------------------------------------
+def _data(ax, lab=True):
+    ax.scatter(dx, dy_, s=60, c=C_DATA, marker="o", edgecolors="white",
+               linewidths=0.9, zorder=6, label="expert actions" if lab else None)
+
+def _cloud(ax, snaps, color):
+    xs0, ys0 = manifold_coords(snaps[SNAPS[0]])
+    xsT, ysT = manifold_coords(snaps[SNAPS[-1]])
+    ax.scatter(xs0, ys0, s=50, facecolors="none", edgecolors="#555555",
+               linewidths=1.1, zorder=5, label="policy before RL")
+    for i in range(0, len(xs0), 3):
+        ax.annotate("", xy=(xsT[i], ysT[i]), xytext=(xs0[i], ys0[i]),
+                    arrowprops=dict(arrowstyle="->", color=color, lw=0.9,
+                                    alpha=0.5, shrinkA=2, shrinkB=2), zorder=4)
+    ax.scatter(xsT, ysT, s=80, c=color, marker="o", edgecolors="white",
+               linewidths=0.9, zorder=7, label="policy after RL")
+
+def _box(ax, stats, verdict, color):
+    q0, r0 = stats[SNAPS[0]]; qT, rT = stats[SNAPS[-1]]
+    txt = ("critic score: %.1f -> %.0f\n"
+           "true success: %.0f%% -> %.0f%%  %s") % (q0, qT, r0*100, rT*100, verdict)
+    ax.text(0.03, 0.97, txt, transform=ax.transAxes, fontsize=9.0,
+            ha="left", va="top", family="monospace", color=color,
+            bbox=dict(fc="white", ec=color, lw=1.0, alpha=0.96, pad=4.0), zorder=10)
+
+# --- (a) the critic's belief ---
 ax = axes[0]
-im = _bg(ax)
-ax.scatter(dx, dy_, s=14, c=C_DATA, zorder=4, label="expert data")
-qmax = np.unravel_index(Q.argmax(), Q.shape)
-ax.scatter(GX[qmax], GY[qmax], marker="*", s=230, c="#FFD700",
-           edgecolors="k", linewidths=0.7, zorder=5)
-ax.annotate("critic's best action\n(no data anywhere near)",
-            xy=(GX[qmax], GY[qmax]), xytext=(-0.2, YL * 0.60),
-            fontsize=8.5, ha="center", color="k",
-            arrowprops=dict(arrowstyle="->", lw=1.1, color="k"))
-ax.annotate("data lives here", xy=(0.0, 0.45), xytext=(1.5, 2.4),
-            fontsize=8.5, ha="center",
-            arrowprops=dict(arrowstyle="->", lw=1.0, color="#333333"))
-ax.set_title("(a) the critic is wrong off the data", fontsize=10.5)
-ax.set_ylabel("distance from expert data", fontsize=9.5)
-cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.02)
-cb.set_label("critic's predicted value", fontsize=8.5)
+im = _bg(ax); _data(ax)
+ax.annotate("", xy=(-2.6, YL * 0.92), xytext=(-2.6, YL * 0.22),
+            arrowprops=dict(arrowstyle="-|>", lw=2.4, color="k"), zorder=8)
+ax.text(-2.35, YL * 0.57, "the critic's score keeps\nrising the further you go\nfrom the data",
+        fontsize=10, ha="left", va="center", fontweight="bold", zorder=9)
+ax.annotate("all expert data is here", xy=(1.0, 0.7), xytext=(1.0, YL * 0.16),
+            fontsize=10, ha="center", color="#1a6b1a", fontweight="bold",
+            arrowprops=dict(arrowstyle="->", lw=1.4, color="#1a6b1a"), zorder=9)
+ax.set_title("(a) what the critic believes", fontsize=12.5, fontweight="bold")
+ax.set_ylabel("distance away from expert data", fontsize=11)
+ax.legend(loc="upper right", fontsize=9, framealpha=0.96)
 
-# ---- (b) backprop follows it ------------------------------------------
+# --- (b) backprop ---
 ax = axes[1]
-_bg(ax, alpha=0.30)
-ax.scatter(dx, dy_, s=10, c=C_DATA, alpha=0.5, zorder=2)
-for al, t in zip([0.25, 0.55, 1.0], SNAPS):
-    sx, sy = manifold_coords(g_snaps[t])
-    ax.scatter(sx, sy, s=15, c=C_BP, alpha=al, zorder=3, edgecolors="none")
-for i in range(0, len(Z_VIS), 6):
-    xs = [manifold_coords(g_snaps[t])[0][i] for t in SNAPS]
-    ys = [manifold_coords(g_snaps[t])[1][i] for t in SNAPS]
-    ax.plot(xs, ys, color=C_BP, lw=0.8, alpha=0.65, zorder=2)
-q0, r0 = g_stats[SNAPS[0]]; qT, rT = g_stats[SNAPS[-1]]
-ax.annotate("policy is dragged\noff the data", xy=(0.1, YL * 0.75),
-            xytext=(1.9, YL * 0.45), fontsize=8.5, ha="center", color=C_BP,
-            arrowprops=dict(arrowstyle="->", lw=1.2, color=C_BP))
-ax.text(0.5, 0.045, f"critic score  {q0:.1f} $\\rightarrow$ {qT:.0f}   (looks better)\n"
-                    f"true success  {r0:.2f} $\\rightarrow$ {rT:.2f}   (is worse)",
-        transform=ax.transAxes, fontsize=8.5, ha="center",
-        bbox=dict(fc="white", ec="#999999", alpha=0.92, pad=3.0))
-ax.set_title("(b) backpropagating the critic", fontsize=10.5)
+_bg(ax); _data(ax, lab=False); _cloud(ax, g_snaps, C_BP)
+ax.annotate("dragged far\noff the data", xy=(-1.3, YL * 0.70),
+            xytext=(1.4, YL * 0.55), fontsize=10.5, ha="center",
+            color=C_BP, fontweight="bold",
+            arrowprops=dict(arrowstyle="->", lw=1.6, color=C_BP), zorder=9)
+_box(ax, g_stats, "FAILS", C_BP)
+ax.set_title("(b) backpropagating the critic", fontsize=12.5, fontweight="bold")
+ax.legend(loc="center right", fontsize=9, framealpha=0.96)
 
-# ---- (c) the field update ---------------------------------------------
+# --- (c) ours ---
 ax = axes[2]
-_bg(ax, alpha=0.30)
-ax.scatter(dx, dy_, s=10, c=C_DATA, alpha=0.5, zorder=2)
-for al, t in zip([0.25, 0.55, 1.0], SNAPS):
-    sx, sy = manifold_coords(f_snaps[t])
-    ax.scatter(sx, sy, s=15, c=C_FLD, alpha=al, zorder=3, edgecolors="none")
-q0, r0 = f_stats[SNAPS[0]]; qT, rT = f_stats[SNAPS[-1]]
-ax.annotate("each step is capped,\nso the cloud stays put",
-            xy=(0.0, 0.55), xytext=(1.9, YL * 0.45), fontsize=8.5,
-            ha="center", color=C_FLD,
-            arrowprops=dict(arrowstyle="->", lw=1.2, color=C_FLD))
-ax.text(0.5, 0.045, f"critic score  {q0:.1f} $\\rightarrow$ {qT:.1f}\n"
-                    f"true success  {r0:.2f} $\\rightarrow$ {rT:.2f}   (held)",
-        transform=ax.transAxes, fontsize=8.5, ha="center",
-        bbox=dict(fc="white", ec="#999999", alpha=0.92, pad=3.0))
-ax.set_title("(c) our bounded field update", fontsize=10.5)
+_bg(ax); _data(ax, lab=False); _cloud(ax, f_snaps, C_FLD)
+ax.annotate("steps are capped:\nit stays on the data", xy=(0.5, 1.1),
+            xytext=(1.3, YL * 0.55), fontsize=10.5, ha="center",
+            color=C_FLD, fontweight="bold",
+            arrowprops=dict(arrowstyle="->", lw=1.6, color=C_FLD), zorder=9)
+_box(ax, f_stats, "HOLDS", C_FLD)
+ax.set_title("(c) our bounded field update", fontsize=12.5, fontweight="bold")
+ax.legend(loc="center right", fontsize=9, framealpha=0.96)
 
 for ax in axes:
-    ax.set_xlim(-XL, XL); ax.set_ylim(-0.05, YL)
-    ax.set_xlabel("action (projected onto the two expert modes)", fontsize=9.5)
-    ax.tick_params(labelsize=7.5)
-    ax.set_yticks([0, 4, 8, 12])
-
-fig.tight_layout()
+    ax.set_xlim(-XL, XL); ax.set_ylim(-0.05, YL * 1.02)
+    ax.set_xlabel("action", fontsize=11)
+    ax.tick_params(labelsize=9)
+cb = fig.colorbar(im, ax=axes, fraction=0.016, pad=0.022)
+cb.set_label("value the critic predicts", fontsize=10)
 out = os.path.join(OUT, "toy_intuition.pdf")
 fig.savefig(out, bbox_inches="tight", dpi=200)
 print("wrote", out)
