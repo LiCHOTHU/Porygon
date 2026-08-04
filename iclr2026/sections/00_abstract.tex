@@ -1,8 +1,9 @@
 % Keep to one paragraph, ~180 words. Refresh numbers when final endpoints land.
 One-step generative policies distill multimodal demonstration data into a
 single network evaluation, but fine-tuning them with reinforcement learning
-is structurally awkward: their likelihoods are intractable, ruling out
-policy-gradient ratios, and backpropagating a learned critic through the
+is structurally awkward: their likelihoods are intractable, so
+policy-gradient ratios require injecting noise into the deployed policy,
+and backpropagating a learned critic through the
 policy ties the size of every update to the magnitude of the critic's
 action-gradient --- a channel through which an overfit critic drives the
 policy off the data manifold. In a controlled two-regime experiment, we show that this failure is
