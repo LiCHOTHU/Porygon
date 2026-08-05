@@ -293,7 +293,10 @@ within noise of the untuned base ($0.671 \pm 0.014$). The flow-matching
 pipeline looks stronger in absolute terms ($0.735$--$0.756$) --- but its
 own base already scores $0.738 \pm 0.022$, so DICE-RL likewise extracts
 essentially nothing; its apparent lead on this benchmark is inherited
-entirely from pretraining. Three honest conclusions follow. First, the
+entirely from pretraining. Applying our \emph{final} recipe --- every fix and
+hyperparameter that yields $+9.4$ per task --- to this shared-critic setting
+changes nothing ($0.668$ versus base $0.671$), confirming that what fails here
+is the critic, not the update rule or its tuning. Three honest conclusions follow. First, the
 weak-critic regime is a \emph{no-gain} regime for every update rule we
 tested: when the shared critic's action-signal is this poor, neither
 backpropagating it nor transporting along it, at any resolution, converts
