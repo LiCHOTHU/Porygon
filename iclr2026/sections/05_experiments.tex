@@ -63,7 +63,11 @@ the update rule rather than tuning effort.
 \caption{robomimic success rate (300-episode evaluations, last-3-checkpoint
 average, per seed). Bold marks the best value in each column (ties within
 $0.005$). ``---'' = matched-budget run still in progress at
-submission-draft time; no provisional numbers are shown.}
+submission-draft time; no provisional numbers are shown.
+$^{\dagger}$ these two baseline runs terminated before $20$K steps, so their
+last-three-checkpoint averages are taken at $17$--$19$K (s42) and
+$14$--$16$K (s43); both curves are flat over that window, so the earlier
+window if anything favours the baseline.}
 \label{tab:robomimic}
 \small
 \begin{tabular}{lcccccc}
@@ -73,7 +77,7 @@ submission-draft time; no provisional numbers are shown.}
 method & s42 & s43 & s44 & s42 & s43 & s44 \\
 \midrule
 drift base (no RL)         & \multicolumn{3}{c}{0.877} & \multicolumn{3}{c}{0.382} \\
-backprop actor (same base) & --- & --- & 0.940 & 0.870 & 0.909 & 0.861 \\
+backprop actor (same base) & 0.970$^{\dagger}$ & 0.946$^{\dagger}$ & 0.940 & 0.870 & 0.909 & 0.861 \\
 FM + DICE-RL               & \textbf{0.989} & 0.979 & \textbf{0.986} & \textbf{0.934} & 0.923 & \textbf{0.930} \\
 \method{} (top-$k$)        & 0.924 & 0.920 & 0.910 & 0.562 & 0.525 & 0.562 \\
 \method{} (tilted)         & 0.949 & 0.947 & 0.919 & 0.578 & 0.584 & 0.560 \\
@@ -101,7 +105,7 @@ FM + DICE-RL               & \textbf{0.989} & 0.979 & \textbf{0.986} & \textbf{0
 the corresponding learning curves. On can, fine-tuning saturates the task:
 \method{} reaches $0.978$--$0.993$ from a base at $0.877$, the
 flow-matching pipeline reaches $0.979$--$0.989$, and the backprop actor
-trails slightly at $0.940$ --- the can task chiefly certifies
+trails slightly at $0.940$--$0.970$ --- the can task chiefly certifies
 that the field update preserves (and slightly extends) the base's
 competence at the ceiling. The discriminative task is square, where the drifting base solves
 only $0.382$ of episodes; \method{} adds $55$ points, reaching

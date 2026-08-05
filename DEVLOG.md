@@ -1134,3 +1134,16 @@ Seed replication (5 tasks): spreads .000/.003/.004/.019/.089 — negligible exce
   with the explicit link back to why the BC penalty failed.
 - **Algorithm now described in words**: propose → score and displace → freeze targets →
   regress, with the critic explicitly "queried, never differentiated through".
+
+## 2026-08-05 — can-A cells recovered; control eval split to survive preemption
+- **Embers cannot run the robomimic can-A cells**: 6 attempts (a100/h100, 8h cap) all
+  PREEMPTED at 2–4h, max 6K of 20K steps; official harness has no resume. Abandoned.
+- **Recovered instead from the original wave**: ft_dice_can_11199112 (s42) ran to 19K with
+  17/18/19K = 0.970/0.970/0.970 → **0.970**; ft_dice_can_11199109 (s43) ran to 16K with
+  14/15/16K = 0.930/0.950/0.957 → **0.946**. Both filled in tab:robomimic with a dagger
+  footnote disclosing the earlier evaluation window; both curves are flat there, and the
+  earlier window if anything FAVOURS the baseline, so the comparison is not flattered.
+  Table 1 now has zero blank cells.
+- **Multitask BS control eval** kept dying at 4h (needs ~7h). Split into three single-seed
+  jobs (scripts/powered_eval_split.sbatch, base_seed 1000/1001/1002, ~2.5h each →
+  survivable): 11688304-06. Combine to the 100x3 protocol number when all three land.
