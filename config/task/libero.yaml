@@ -17,6 +17,14 @@ demos_per_env: 50
 distractor_objects: false
 robot: Panda
 cam_shift: false
+# Appearance-only held-out shifts.  Both were already implemented in
+# LiberoWrapper (FixedDomainRandomizationWrapper, randomize_on_reset=True) but
+# were never reachable from config.  They are the cleanest test of a spectral
+# method: geometry, object layout and the task itself are untouched, so only the
+# band statistics of the image change.  A distractor object, by contrast, changes
+# the semantics of the scene as well.
+lighting_shift: false
+color_shift: false
 bimanual: false
 
 task_embedding_format: ${algo.encoder.task_embedding_format}
@@ -101,6 +109,8 @@ env_factory:
   abs_action: ${algo.abs_action}
   robot: ${task.robot}
   camera_pose_variations: ${task.cam_shift}
+  lighting_variations: ${task.lighting_shift}
+  color_variations: ${task.color_shift}
   device: ${device}
 
 env_runner:
@@ -111,6 +121,8 @@ env_runner:
   mode: ${task.mode}
   # obs_modality: ${task.dataset.obs_modality}
   rollouts_per_env: ${rollout.rollouts_per_env}
+  # without this the runner rolls out all 90 tasks regardless of what was trained
+  task_subset: ${task.task_subset}
   num_parallel_envs: ${rollout.num_parallel_envs}
   max_episode_length: ${rollout.max_episode_length}
   fps: 24

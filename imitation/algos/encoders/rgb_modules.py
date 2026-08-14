@@ -203,6 +203,13 @@ class SpatialProjection(nn.Module):
 
 
 class ResnetEncoder(nn.Module):
+    # Set by FlowMatchingPolicy when the SIB penalty is enabled.
+    # `sib_capture` is turned on first so the policy can learn the feature-map
+    # shape from a real forward; `sib_bands` is attached once it knows.
+    sib_capture = False
+    sib_bands = None
+    sib_z = None
+
     """
     A Resnet-18-based encoder for mapping an image to a latent vector
     From https://github.com/Lifelong-Robot-Learning/LIBERO/blob/master/libero/lifelong/models/modules/rgb_modules.py
@@ -378,6 +385,24 @@ class ResnetEncoder(nn.Module):
             )
             x = (1 + gamma) * x + beta
         if out is not None: out['res5'] = x
+
+        # --- SIB hook -------------------------------------------------------
+        # The spectral penalty needs the feature map while it still HAS a spatial
+        # layout, i.e. before the rearrange below turns it into tokens.  The round
+        # trip through the orthonormal DCT is an exact identity (F^T F = I), so the
+        # network function is unchanged; the point is that `z` becomes a node in
+        # the autograd graph and band-resolved Jacobians become available at all.
+        if getattr(self, "sib_capture", False) and x.dim() == 4:
+            if getattr(self, "sib_bands", None) is not None:
+                z = self.sib_bands.dct(x)
+                self.sib_z = z          # spectral coefficients, read by compute_loss
+                x = self.sib_bands.idct(z)
+            else:
+                self.sib_z = x          # bands not built yet: expose the raw map
+                                        # so the policy can read its shape
+        else:
+            self.sib_z = None
+        # --------------------------------------------------------------------
 
         if self.do_projection:
             x = self.projection_layer(x)

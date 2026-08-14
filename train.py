@@ -156,7 +156,24 @@ def main(cfg):
                 loss, info = model.compute_loss(data)
 
             scaler.scale(loss).backward()
-            
+
+            # SAM (Foret et al., ICLR 2021) needs a second forward/backward at a
+            # perturbed point, and the perturbation has to be applied and undone
+            # around the optimizer step -- so it lives here rather than inside
+            # compute_loss, which has no access to the optimizer.
+            sam_rho = getattr(model, "sam_rho", 0.0)
+            if sam_rho > 0 and getattr(model, "_sam_closure", None) is not None:
+                from imitation.algos.regularizers import sam_ascent, sam_descend
+                sam_params = [p for p in model.parameters() if p.grad is not None]
+                perturbations = sam_ascent(sam_params, sam_rho)
+                for optimizer in optimizers:
+                    optimizer.zero_grad()
+                with torch.autocast(device_type='cuda', dtype=torch.bfloat16,
+                                    enabled=train_cfg.use_amp):
+                    sam_loss = model._sam_closure()
+                scaler.scale(sam_loss).backward()
+                sam_descend(sam_params, perturbations)
+
             for optimizer in optimizers:
                 scaler.unscale_(optimizer)
             if train_cfg.grad_clip is not None:

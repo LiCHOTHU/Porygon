@@ -358,6 +358,10 @@ class LiberoWrapper(gymnasium.Env):
             # rotation_angle_deg = 10
             camera_name = 'agentview'
             cam_id = self.env.sim.model.camera_name2id(camera_name)
+            # reset() reapplies the pose every episode through self.cam_id; without
+            # this the wrapper raises AttributeError on the first reset, so
+            # camera_pose_variations could never actually be used
+            self.cam_id = cam_id
             old_position = self.env.sim.model.cam_pos[cam_id].copy()
             old_rotation = self.env.sim.model.cam_quat[cam_id].copy()
 

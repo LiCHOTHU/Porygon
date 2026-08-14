@@ -7,7 +7,11 @@ exp_name: debug #
 variant_name: null # This parameter is used to identify the variant within the experiment. It's main uses are file naming and wandb grouping
 seed: 10000
 device: cuda:0
-output_prefix: ./experiments
+# NOT './experiments' -- that is relative, so it resolves inside the repo, which
+# lives under the 20 GB home quota.  A multi-arm run at ~430 MB/checkpoint fills
+# it and then fails mid-write, corrupting whatever else is being written at the
+# time.  Checkpoints belong on scratch.
+output_prefix: /storage/scratch1/8/lwang831/imitation/experiments
 data_prefix: ./data
 make_unique_experiment_dir: false
 logging_folder: training

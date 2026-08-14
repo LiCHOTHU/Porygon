@@ -2,10 +2,10 @@ We showed that the natural update primitives for RL fine-tuning of one-step
 generative policies are, respectively, unavailable without modifying the
 policy and unsafe when the critic is imperfect, and that the policy class's
 own pretraining primitive --- field-target regression --- provides the
-missing update rule. \method{} expresses reward, trust region, and anchoring
-as composable velocity fields over action particles, provably bounds policy
-movement pointwise in action space, and recovers the backpropagated
-direction in the small-step limit.
+missing update rule. \method{} expresses reward and anchoring as composable velocity fields over
+action particles, and recovers the backpropagated direction in the
+small-step limit. Its working component is the anchor: a restoring pull that
+is silent within a radius of the frozen base and active beyond it.
 
 The experiments locate the advantage precisely. Given the \emph{same} base,
 critic, data and budget, the field-target form extracts far more than
@@ -23,11 +23,29 @@ makes likelihood ratios definable for a deterministic one-step generator in
 the first place. Ablations confirm the mechanism rather than the
 hyperparameters: removing the dead-zone anchor drops performance
 \emph{below} the untuned base, deleting the critic's gradient direction
-collapses gains to base level on both benchmarks, and the reward step can be
-doubled safely --- the trust region, not a small step size, is what buys the
-stability.
+collapses gains to base level on both benchmarks. Switching the guards on and
+off independently identifies which one matters: the anchor alone reproduces
+the full method, while the step bound alone does not prevent the drift at
+all.
 
-\textbf{Limitations.} The gains track how much a critic actually knows.
+\textbf{Limitations.}
+\label{sec:limitations}
+Three specific results run against our thesis and we state them
+plainly. On t81 the backpropagated actor ends above \method{}
+($0.653$ versus $0.635$); on two flow-matching tasks the
+\emph{un-finetuned} base beats every fine-tuner including ours ($0.917$
+on t53, $0.620$ on t75); and on robomimic can the flow-matching pipeline
+edges us on two of three seeds. Single-seed variation is also
+substantial on LIBERO --- repeating the frozen recipe on t65 with a
+second seed moves the result by $8.9$ points --- so per-task deltas
+smaller than roughly ten points, including our $\eta_Q$ and
+$\delta_{\mathrm{tot}}$ sweeps, indicate direction rather than magnitude.
+The claims that survive this variation are the ones separated by margins
+far larger than it: the $+9.4$ versus $+0.9$ mean gap, the
+non-overlapping step-size bands, and the below-base collapse when the
+critic's gradient is deleted.
+
+The gains track how much a critic actually knows.
 When a single critic is shared across all eight LIBERO tasks its
 action-gradient collapses and \emph{no} critic-based update --- ours or the
 state of the art's --- improves on its base; when a base is already near its
@@ -37,7 +55,32 @@ bases rather than for refining strong ones. Our critic-trust diagnosis is
 also post hoc: choosing the reward-field resolution online from critic-trust
 signals is the natural next step, as is testing whether the reward step
 should adapt per task. Finally, all results are state-based simulation on a
-single embodiment. The broader principle --- \emph{fine-tune a policy with
-the operator that pretrained it} --- applies to any generative policy class
-trained by target regression, and testing it beyond drifting models is the
-direction we find most promising.
+single embodiment.
+
+We should be precise about which part of the story generalizes, because two
+claims are easy to conflate. The \emph{update rule} is base-agnostic: it
+consumes a frozen noise-to-action map, a residual head and a critic, and
+never touches how the base draws its action --- which is why it transfers
+unchanged to a flow-matching base, where it also improves on the
+state-of-the-art fine-tuner. What does \emph{not} generalize is the
+economy of the construction. A drifting model is pretrained by
+field-target regression, so on that base the fine-tuner reuses machinery
+the policy class already has; a flow-matching model is pretrained by
+conditional velocity regression, so there the same update is bolted on
+rather than inherited (and costs one base forward pass per particle per
+integration step). The principle we can defend is therefore narrow: \emph{what keeps a
+critic-driven update on the data is a restoring force with a dead zone, not a
+limit on step size}. The distinction is not cosmetic. A step limit constrains
+speed, and a drift assembled from permitted small steps still arrives; in our
+isolation the limit alone leaves the policy at zero success. A
+behaviour-cloning penalty restores, but does so everywhere, including the
+region where the critic is reliable, and must therefore trade far-field
+containment against near-field progress with a single coefficient; it also
+fails alone. The dead zone separates those jobs.
+
+We deliberately claim no more than this. We have no principled rule for
+choosing $\rho$ --- it is tuned, not derived --- and the argument for why the
+dead zone should exist is an argument about matching the regularizer's
+spatial profile to the critic's reliability, not a bound. Deriving $\rho$
+from a measure of local critic reliability is the obvious next question, and
+we leave it open.

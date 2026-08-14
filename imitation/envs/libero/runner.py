@@ -29,6 +29,7 @@ class LiberoRunner():
                  task_embedding_format='clip',
                  test_inference_time=False,
                  init_offset=0,
+                 task_subset=None,
                  ):
         self.env_factory = env_factory
         self.benchmark = benchmark
@@ -36,6 +37,14 @@ class LiberoRunner():
         task_embs = lu.get_task_embs(task_embedding_format, descriptions)
         self.benchmark.set_task_embs(task_embs)
         self.env_names = self.benchmark.get_task_names()
+        # `env_names` must stay the FULL benchmark list: run_policy_in_env recovers
+        # the task id with `self.env_names.index(env_name)`, so filtering it in place
+        # would silently renumber the tasks and roll out the wrong ones.  The subset
+        # is kept separately and used only to choose what `run()` evaluates.
+        if task_subset is None:
+            self.eval_env_names = list(self.env_names)
+        else:
+            self.eval_env_names = [self.env_names[int(i)] for i in task_subset]
         self.test_inference_time = test_inference_time
         # ObsUtils.initialize_obs_utils_with_obs_specs({"obs": obs_modality})
 
@@ -64,7 +73,7 @@ class LiberoRunner():
             save_hdf5=False,
         ):
         if env_names is None:
-            env_names = self.env_names
+            env_names = self.eval_env_names
         if save_progress and os.path.exists(os.path.join(save_dir, 'progress.json')):
             progress_file = os.path.join(save_dir, 'progress.json')
             with open(progress_file, 'r') as f:

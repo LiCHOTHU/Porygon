@@ -13,6 +13,11 @@ class _BatchNorm1DHelper(nn.BatchNorm1d):
         return super().forward(x)
 
 
+from imitation.algos.sib import (ActionConditioner, BandEMA, SpectralBands, sib_penalty,
+                                 use_double_backward_safe_attention)
+from imitation.algos.regularizers import maybe_mixup, sam_ascent, sam_descend
+
+
 class FlowMatchingPolicy(ChunkPolicy):
     """
     Policy from https://dit-policy.github.io/ adapted for flow matching.
@@ -28,9 +33,29 @@ class FlowMatchingPolicy(ChunkPolicy):
         flow_alpha: float = 1.5,
         flow_beta: float = 1.,
         flow_sig_min: float = 0.001,
+        sib_beta: float = 0.0,
+        sib_n_bands: int = 8,
+        sib_code_dim: int = 8,
+        sib_stop_grad: bool = False,
+        sib_n_probes: int = 1,
+        mixup_alpha: float = 0.0,
+        sam_rho: float = 0.0,
         **kwargs,
     ):
         super().__init__(**kwargs)
+        self.sib_beta = sib_beta
+        self.sib_stop_grad = sib_stop_grad
+        self.sib_n_probes = sib_n_probes
+        self.mixup_alpha = mixup_alpha
+        self.sam_rho = sam_rho
+        self._sib_ready = False
+        self._sib_cfg = dict(n_bands=sib_n_bands, code_dim=sib_code_dim)
+        if self.sib_beta > 0:
+            use_double_backward_safe_attention()
+            # Turn on capture immediately.  The bands cannot be built until the
+            # feature-map size is known, and that is only known after a real
+            # forward -- so capture has to precede them.
+            self._set_encoder_flag("sib_capture", True)
 
         # initialize obs and img tokenizers
 
@@ -74,27 +99,99 @@ class FlowMatchingPolicy(ChunkPolicy):
         # final token post proc network
         self.post_proc = nn.Sequential(linear_proj, norm, nn.Dropout(dropout))
 
+    def _attach_sib(self, z_example, action_numel, device):
+        """Build the band/conditioner modules once the feature-map size is known."""
+        _, _, h, w = z_example.shape
+        self.sib_bands = SpectralBands(h, w, self._sib_cfg["n_bands"]).to(device)
+        self.sib_conditioner = ActionConditioner(
+            action_numel, code_dim=self._sib_cfg["code_dim"]
+        ).to(device)
+        self.sib_ema = BandEMA(self._sib_cfg["n_bands"]).to(device)
+        self._sib_ready = True
+
+    def _image_encoders(self):
+        encoders = getattr(self.encoder, "image_encoders", None)
+        if encoders is None:
+            return []
+        return list(encoders.values()) if hasattr(encoders, "values") else [encoders]
+
+    def _set_encoder_flag(self, name, value):
+        for enc in self._image_encoders():
+            setattr(enc, name, value)
+
+    def _enable_sib_hook(self):
+        """Point every image encoder at the shared band module."""
+        self._set_encoder_flag("sib_bands", getattr(self, "sib_bands", None))
+
+    def _collect_sib_z(self):
+        """Concatenate the exposed feature maps across cameras along the batch axis.
+
+        Both wrist and third-person views get the same treatment; stacking them
+        means one penalty over all views rather than a per-camera weighting we
+        would then have to justify.
+        """
+        zs = [e.sib_z for e in self._image_encoders() if getattr(e, "sib_z", None) is not None]
+        return zs or None
+
     def compute_loss(self, data):
         data = self.preprocess_input(data, train_mode=True)
-        cond = self.get_cond(data)
-        actions = data["abs_actions"] if self.abs_action else data["actions"]
+        actions_raw = data["abs_actions"] if self.abs_action else data["actions"]
 
-        B = cond.shape[0]
-        device = cond.device
+        # Mixup blends observations and action chunks with a shared coefficient.
+        # For a policy this is a stronger assumption than in classification -- it
+        # asserts the action is locally linear in the observation -- so it is
+        # reported as the weakest of the baseline arms.
+        data, actions_raw, lam = maybe_mixup(data, actions_raw, self.mixup_alpha)
 
-        t = self._sample_fm_time(B).to(device=actions.device)
-        x0 = torch.randn_like(actions)
-        x1 = torch.clamp(actions, -1, 1)
-        psi_t = self._psi_t(x0, x1, t)
+        def _flow_terms():
+            cond = self.get_cond(data)
+            actions = actions_raw
+            B = cond.shape[0]
+            t = self._sample_fm_time(B).to(device=actions.device)
+            x0 = torch.randn_like(actions)
+            x1 = torch.clamp(actions, -1, 1)
+            psi_t = self._psi_t(x0, x1, t)
+            _, v_psi = self.velocity_net(psi_t, t, cond)
+            d_psi = x1 - (1 - self.flow_sig_min) * x0
+            return torch.mean((v_psi - d_psi) ** 2), v_psi, x1, t
 
-        _, v_psi = self.velocity_net(psi_t, t, cond)
+        if self.sib_beta > 0 and not self._sib_ready:
+            # one throwaway forward to learn the feature-map size
+            with torch.no_grad():
+                self.get_cond(data)
+            probe = self._collect_sib_z()
+            if probe is None:
+                # A projection-style encoder has no spatial map, so the spectral
+                # penalty cannot be defined.  Fail loudly: silently running an
+                # unregularized policy under a name that says otherwise is how a
+                # null result gets mistaken for a real one.
+                raise RuntimeError(
+                    "sib_beta > 0 but no spatial feature map was captured. The SIB "
+                    "penalty needs an encoder that keeps (B,C,H,W) -- use "
+                    "'override encoder: rgb_no_pool' (do_projection: false)."
+                )
+            self._attach_sib(probe[0], actions_raw[0].numel(), actions_raw.device)
+            self._enable_sib_hook()
 
-        d_psi = x1 - (1 - self.flow_sig_min) * x0
-        loss = torch.mean((v_psi - d_psi) ** 2)
+        loss, v_psi, x1, t = _flow_terms()
+        info = {"loss": loss.item()}
 
-        info = {
-            "loss": loss.item(),
-        }
+        if self.sib_beta > 0:
+            zs = self._collect_sib_z()
+            if zs is not None:
+                penalty, sib_info = sib_penalty(
+                    zs, v_psi, x1, t,
+                    self.sib_bands, self.sib_conditioner, self.sib_ema,
+                    n_probes=self.sib_n_probes, stop_grad=self.sib_stop_grad,
+                )
+                loss = loss + self.sib_beta * penalty
+                info.update(sib_info)
+                info["loss"] = loss.item()
+
+        # SAM needs the caller to do two backward passes; the trainer handles it
+        # through `sam_step_fn` when sam_rho > 0.
+        if self.sam_rho > 0:
+            self._sam_closure = lambda: _flow_terms()[0]
         return loss, info
     
     def get_cond(self, data):

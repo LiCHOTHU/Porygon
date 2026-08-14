@@ -1,31 +1,31 @@
-% Keep to one paragraph, ~180 words. Refresh numbers when final endpoints land.
-One-step generative policies distill multimodal demonstration data into a
-single network evaluation, but fine-tuning them with reinforcement learning
-is structurally awkward: their likelihoods are intractable, so
-policy-gradient ratios require injecting noise into the deployed policy,
-and backpropagating a learned critic through the
-policy ties the size of every update to the magnitude of the critic's
-action-gradient --- a channel through which an overfit critic drives the
-policy off the data manifold. In a controlled two-regime experiment, we show that this failure is
-catastrophic precisely when critic data is scarce relative to the action
-dimension, and that behavior-cloning penalties do not prevent it. It
-disappears when the update is instead expressed as bounded particle
-transport. Building on this, we
-propose \method{}: reinforcement fine-tuning of a one-step drifting policy
-with the same field-target regression primitive that pretrained it. A frozen base proposes action
-particles; a residual head is regressed onto targets displaced by two
-velocity fields --- a clipped critic-gradient reward field and a restoring
-anchor. The clip acts pointwise in action space, so the policy can move
-only a bounded distance per update no matter how wrong the critic is.
-On robomimic, \method{} lifts a drifting base from $0.877$ to $0.99$ on can
-and from $0.382$ to $0.91$--$0.93$ on square --- ahead of the
-backpropagated update at the matched budget on every seed, and matching the
-flow-matching + DICE-RL pipeline on both tasks despite a base less than
-half as strong on square. On the eight hardest LIBERO-90 tasks it gains $+9.4$ points on average
-with one shared recipe --- improving on every task, by up to $+24$ ---
-where the backpropagated actor gains $+0.9$ and falls below its base on
-the two tasks with the most headroom, and matches a critic-free
-policy-gradient baseline at equal interaction budget without the noise
-injection that baseline requires. Ablations over lower-resolution reward fields (top-$k$,
-exponentially tilted) map exactly when the critic's gradient --- versus
-only its values --- should be trusted.
+% Structure: (1) problem, (2) method, (3) headline result, (4) mechanism.
+% The headline is the controlled margin; the anchor finding SUPPORTS it and
+% must not be allowed to become the headline again.
+Behaviour-cloned robot policies are capped by their demonstrations, and the
+usual way past that cap is to train a critic and fine-tune against it. This
+reliably goes wrong: the policy drifts away from the data the critic was fit
+to, its score rises, and its actual success collapses.
+
+We present an actor update that does not. A frozen base proposes a cloud of
+candidate actions; each is displaced along the critic's gradient; a restoring
+force returns any candidate that has strayed beyond a radius $\rho$ of the
+base; and a small residual head is regressed onto the displaced candidates.
+Nothing else in the pipeline changes --- the critic, replay, demonstrations,
+budget and evaluation are those of the state-of-the-art residual fine-tuner,
+byte for byte, so the only variable is the actor update.
+
+Under that control, the update gains $+9.4$ points on the eight hardest
+LIBERO-90 tasks where backpropagating $-Q$ gains $+0.9$, and lifts robomimic
+square from $0.382$ to $0.91$--$0.93$. It reaches the published
+flow-matching pipeline's performance from a base less than half as strong,
+and transfers unchanged to that flow-matching base.
+
+We then isolate which part is responsible, by switching each guard off
+independently. The restoring force is: without it the policy ends below its
+untuned base. A bound on step size, the more obvious remedy, is not --- on
+its own it leaves the policy at zero success, because a drift made of many
+individually permitted steps is still a drift. The reason appears to be that
+a restoring force with a dead zone is silent exactly where the critic is
+reliable, whereas the standard always-on behaviour-cloning penalty opposes
+the critic everywhere and must trade containment against progress with one
+coefficient.

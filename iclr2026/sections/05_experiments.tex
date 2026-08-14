@@ -2,12 +2,13 @@
 % measurement (300-ep robomimic / powered LIBERO). "---" = run in progress.
 % Provisional values live in DEVLOG.md, not here.
 
-Our experiments answer three questions. \textbf{Q1:} Does the field-target
-\emph{form} beat backpropagation given the \emph{same} reward signal and
-budget? \textbf{Q2:} Can a one-step drifting base fine-tuned with \method{}
-overtake the stronger flow-matching pipeline? \textbf{Q3:} When should the
-reward field use the critic's gradient versus only its values --- does the
-regime picture of \cref{sec:toy} hold on real benchmarks?
+Our experiments answer four questions. \textbf{Q1:} Given the \emph{same}
+critic, data and budget, does this actor update beat backpropagating $-Q$?
+\textbf{Q2:} Can a one-step drifting base fine-tuned this way match the
+stronger flow-matching pipeline? \textbf{Q3:} \emph{Which component is
+responsible} --- the restoring anchor, or the bound on step size?
+\textbf{Q4:} When should the reward field use the critic's gradient rather
+than only its values?
 
 \subsection{Setup}
 \label{sec:exp-setup}
@@ -50,10 +51,13 @@ varies.
   all.
 \end{itemize}
 Hyperparameters are \emph{family-shared} across \method{} and its two
-resolution variants ($\eta_Q{=}0.5$,
+resolution variants, so comparisons isolate the update rule rather than
+tuning effort. One recipe is used per benchmark and never per task:
 $\delta_{\mathrm{tot}}{=}0.15$, $\eta_{\mathrm{anc}}{=}1.0$, $\tau{=}1$,
-$k{=}4$; dead zone $\rho{=}0.05$ on LIBERO) so that comparisons isolate
-the update rule rather than tuning effort.
+$k{=}4$ throughout, with reward step $\eta_Q{=}0.5$ on robomimic and
+$\eta_Q{=}1.0$ on LIBERO, and a dead-zone radius $\rho{=}0.05$ in
+dimension-independent rms units on LIBERO (\cref{sec:exp-ablation} shows why
+the units matter).
 
 \subsection{Robomimic: the gradient regime}
 \label{sec:exp-robomimic}
@@ -81,7 +85,7 @@ backprop actor (same base) & 0.970$^{\dagger}$ & 0.946$^{\dagger}$ & 0.940 & 0.8
 FM + DICE-RL               & \textbf{0.989} & 0.979 & \textbf{0.986} & \textbf{0.934} & 0.923 & \textbf{0.930} \\
 \method{} (top-$k$)        & 0.924 & 0.920 & 0.910 & 0.562 & 0.525 & 0.562 \\
 \method{} (tilted)         & 0.949 & 0.947 & 0.919 & 0.578 & 0.584 & 0.560 \\
-\method{}                  & \textbf{0.988} & \textbf{0.993} & 0.978 & 0.912 & \textbf{0.930} & \textbf{0.929} \\
+\method{}                  & 0.988 & \textbf{0.993} & 0.978 & 0.912 & \textbf{0.930} & 0.929 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -118,9 +122,10 @@ flow-matching pipeline, \method{} reaches parity on both tasks
 --- but from a base less than half as strong on square (\textbf{Q2}): the
 safer update recovers the headroom the weaker base gives up.
 
-\emph{Why does the form win?} The trust region converts critic error
-from a stability threat into bounded noise: with policy motion capped at
-$\delta_{\mathrm{tot}}$ per update, \method{} tolerates a reward step
+\emph{Why does the form win?} The anchor decouples two jobs that a
+behaviour-cloning penalty must do with one knob. Inside the dead zone the
+critic is followed without opposition; outside it the policy is returned.
+That is what lets \method{} tolerate a reward step
 ($\eta_Q{=}0.5$) far above what the backprop actor can survive,
 and simply takes more, safer steps in the directions where the critic is
 consistent. The backprop actor must instead keep its effective step small
@@ -174,15 +179,15 @@ progress at draft time.}
  & t8 & t21 & t32 & t53 & t65 & t73 & t75 & t81 & mean \\
 \midrule
 drift base (no RL) & 0.818 & 0.690 & 0.610 & 0.785 & 0.573 & 0.648 & 0.578 & 0.588 & 0.661 \\
-backprop actor     & 0.820 & 0.703 & 0.587 & 0.800 & 0.550 & 0.663 & 0.583 & 0.653 & 0.670 \\
-\method{} ($\eta_Q{=}1$) & 0.831 & 0.737 & 0.694 & 0.842 & \textbf{0.826} & 0.710 & \textbf{0.657} & 0.607 & 0.738 \\
-\method{} ($\eta_Q{=}2$) & \textbf{0.857} & \textbf{0.752} & \textbf{0.729} & \textbf{0.853} & 0.812 & \textbf{0.752} & 0.648 & \textbf{0.635} & \textbf{0.755} \\
+backprop actor     & 0.820 & 0.703 & 0.587 & 0.800 & 0.550 & 0.663 & 0.583 & \textbf{0.653} & 0.670 \\
+\method{} ($\eta_Q{=}1$) & 0.831 & 0.737 & 0.694 & 0.842 & 0.826 & 0.710 & \textbf{0.657} & 0.607 & 0.738 \\
+\method{} ($\eta_Q{=}2$) & \textbf{0.857} & \textbf{0.752} & 0.729 & 0.853 & 0.812 & \textbf{0.752} & 0.648 & 0.635 & \textbf{0.755} \\
 \midrule
 \multicolumn{10}{l}{\emph{same protocol, flow-matching base (4 tasks measured)}} \\
-FM base (no RL)    & --- & --- & 0.690 & 0.917 & 0.787 & --- & 0.620 & --- & --- \\
+FM base (no RL)    & --- & --- & 0.690 & \textbf{0.917} & 0.787 & --- & 0.620 & --- & --- \\
 FM + DICE-RL       & --- & --- & 0.682 & 0.915 & 0.809 & --- & 0.592 & --- & --- \\
 FM + GRPO          & --- & --- & 0.700 & 0.897 & \textbf{0.883} & --- & 0.603 & --- & --- \\
-FM + \method{}     & --- & --- & \textbf{0.738} & 0.897 & \textbf{0.878} & --- & \textbf{0.608} & --- & --- \\
+FM + \method{}     & --- & --- & \textbf{0.738} & 0.897 & 0.878 & --- & 0.608 & --- & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -203,7 +208,7 @@ dimension-independent rms units (the vector-norm form silently
 re-activates the anchor at LIBERO's $S{=}112$ chunk dimension and
 freezes the residual), and the weaker critic gradient
 ($\|\nabla_a Q\|$ roughly $4\times$ smaller than robomimic's) requires
-the doubled reward step the trust region makes safe. Sweeping the reward step across all eight tasks confirms
+the doubled reward step the anchor makes safe. Sweeping the reward step across all eight tasks confirms
 this at the table level: $\eta_Q{=}2$ improves the mean from $0.738$ to
 $0.755$ and helps on six of eight tasks (the two exceptions, $-0.014$ and
 $-0.009$, are inside the seed spread), and the benefit is
@@ -280,7 +285,7 @@ backprop actor (same base) & 0.657 & 0.655 & 0.668 \\
 \method{}                  & 0.655 & --- & 0.659 \\
 \midrule
 flow-matching base (no RL) & \multicolumn{3}{c}{$0.738 \pm 0.022$} \\
-FM + DICE-RL               & 0.756 & 0.735 & 0.737 \\
+FM + DICE-RL               & \textbf{0.756} & \textbf{0.735} & \textbf{0.737} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -344,16 +349,16 @@ component. $\Delta$ is relative to the full recipe.}
 \cmidrule(lr){2-3}\cmidrule(lr){4-5}
 variant & success & $\Delta$ & success & $\Delta$ \\
 \midrule
-\textbf{full recipe} & \textbf{0.781} & --- & \textbf{0.684} & --- \\
+\textbf{full recipe} & 0.781 & --- & 0.684 & --- \\
 $-$ dimension-independent anchor (vector-norm $\rho$) & 0.662 & $-0.119$ & 0.655 & $-0.029$ \\
 $-$ dead zone ($\rho{=}0$) & 0.549 & $-0.232$ & --- & --- \\
 $-$ doubled reward step ($\eta_Q{=}0.5$) & 0.769 & $-0.012$ & 0.615 & $-0.069$ \\
 $-$ $3$-step returns ($n{=}1$) & 0.782 & $+0.001$ & 0.512 & $-0.172$ \\
-wider trust region ($\delta_{\mathrm{tot}}{=}0.25$) & --- & --- & 0.689 & $+0.005$ \\
-stronger reward step ($\eta_Q{=}2.0$) & --- & --- & \textbf{0.729} & $\mathbf{+0.045}$ \\
+wider trust region ($\delta_{\mathrm{tot}}{=}0.25$) & \textbf{0.874} & $\mathbf{+0.093}$ & 0.689 & $+0.005$ \\
+stronger reward step ($\eta_Q{=}2.0$) & 0.802 & $+0.021$ & \textbf{0.729} & $\mathbf{+0.045}$ \\
 \midrule
-reward field $\to$ top-$k$ (no gradient) & 0.577 & $-0.204$ & --- & --- \\
-reward field $\to$ tilted (no gradient) & 0.697 & $-0.084$ & --- & --- \\
+reward field $\to$ top-$k$ (no gradient) & 0.577 & $-0.204$ & 0.341 & $-0.343$ \\
+reward field $\to$ tilted (no gradient) & 0.697 & $-0.084$ & 0.378 & $-0.306$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -366,23 +371,73 @@ quantitative version of the toy's ``penalties lose to fields'' lesson ---
 and measuring the dead-zone radius in vector-norm rather than
 dimension-independent units costs $11.9$ points, because at LIBERO's
 $S{=}112$ chunk dimension the base residual already exceeds $\rho$ at
-initialisation, so the anchor is active from the first update. Second,
-\emph{deleting the critic's gradient direction is fatal here too}:
-top-$k$ transport falls to $0.577$ (base level) and tilted transport to
-$0.697$, mirroring the robomimic square result and answering
-\textbf{Q3} on both benchmarks. Third, the step-size and credit-horizon
-components are \emph{task-dependent in exactly the way the critic
-diagnostics predict}: on t32, whose critic carries a strong
-action-gradient ($\|\nabla_a Q\|\!\approx\!0.55$), $3$-step returns are
-worth $17$ points and the doubled step $7$; on t65, whose gradient is an
-order of magnitude weaker ($\approx\!0.035$), both are within noise. Pushing the
-reward step further on that task ($\eta_Q{=}2.0$) adds another $4.5$
-points ($0.729$), while widening the trust region alone
-($\delta_{\mathrm{tot}}{=}0.25$) changes nothing ($+0.5$): it is the
-\emph{reward} step, not the movement bound, that the strong-gradient task
-wants. What a bounded-step field update needs is therefore not one
-universal step size but a step matched to the signal the critic actually
-carries --- which the trust region is what makes safe to raise.
+initialisation, so the anchor is active from the first update.
+
+Second, and most decisively, \emph{deleting the critic's gradient
+direction is fatal, and the effect replicates}. On t65 top-$k$ transport
+falls to $0.577$ and tilted to $0.697$; on t32 the same two substitutions
+collapse to $0.341$ and $0.378$ --- not merely below the full recipe but
+far \emph{below the un-tuned base} ($0.610$), a $34$- and $31$-point
+deficit. Two tasks, two bases (\cref{tab:robomimic} shows the same
+ordering on robomimic square), one conclusion: the ranking information a
+critic can supply is not a substitute for its gradient, and \textbf{Q3}
+is answered the same way wherever we ask it. This is what separates the
+method from value-only transport such as critic-ranked top-$K$ drift.
+
+Third, the remaining knobs are \emph{task-dependent, and in a way that
+tracks the critic rather than the task's difficulty}. On t32, whose
+critic carries a strong action-gradient
+($\|\nabla_a Q\|\!\approx\!0.55$), $3$-step returns are worth $17$ points
+and a doubled reward step $4.5$ ($0.729$), while widening the movement
+bound alone ($\delta_{\mathrm{tot}}{=}0.25$) does nothing ($+0.5$): this
+task wants more \emph{reward} signal, not more room to move. On t65,
+whose gradient is an order of magnitude weaker ($\approx\!0.035$),
+the pattern inverts --- $3$-step returns and the doubled step are within
+noise, but widening the trust region is worth $+9.3$ points ($0.874$),
+the single largest positive ablation we measure. We report this as a
+regime difference rather than a tuned optimum: it is one seed, and t65
+carries a $\pm 9$-point seed spread (\cref{sec:limitations}), so the
+direction is trustworthy and the magnitude is not. What a bounded-step
+field update needs is therefore not one universal setting but one matched
+to what the critic actually carries --- and the trust region is what makes
+raising either knob safe to attempt.
+
+\paragraph{How often does the bound actually bind?}
+It would be easy to over-read our own mechanism, so we measured it. The clip
+in \cref{eq:update} only ever \emph{reduces} a displacement, so whenever a
+particle's proposed motion is already shorter than $\delta_{\mathrm{tot}}$ the
+update is exactly the unbounded one, and the critic is still setting the
+distance for that particle. In the \cref{sec:toy} setting, at our operating
+point ($\delta_{\mathrm{tot}}{=}0.15$, $\eta_Q{=}1$), the clip is active on
+$17.3\%$ of sampled actions, and the median proposed displacement is only
+$0.12\,\delta_{\mathrm{tot}}$. Tightening the cap to $0.05$ raises the
+binding rate to $26.3\%$; loosening it to $1.0$ drops it to $4.8\%$.
+
+These numbers are worth stating because they rule out the reading we
+initially favoured. If the cap were the mechanism, it would have to be doing
+its work through the $17\%$ of proposals it truncates --- yet removing the cap
+entirely, while keeping the restoring force, leaves the method unchanged, and
+keeping the cap while removing the restoring force destroys it
+(\cref{fig:intuition}b). The cap is a numerical safeguard. What holds the
+policy on the data is the anchor.
+
+\paragraph{Is the gap just a better step size?}
+The most economical explanation of \cref{tab:libero-single} would be that
+we simply tuned our update's step better than the baseline's. We tested
+that directly on t65 by sweeping each method's own step-size knob under
+the identical evaluation protocol, and the explanation fails. Sweeping
+the backpropagated actor's learning rate over a $10\times$ range gives
+$0.550$ ($10^{-4}$), $0.548$ ($3\!\times\!10^{-4}$) and $0.578$
+($10^{-3}$) --- every setting at or below the un-tuned base ($0.573$).
+Sweeping our reward step over an $8\times$ range gives $0.775$, $0.817$,
+$0.908$ and $0.750$ for $\eta_Q \in \{1,2,4,8\}$ --- every setting
+$18$--$33$ points \emph{above} that same base. The two bands do not
+overlap at any step size either method was given. A larger step does not
+convert the backpropagated update into the field update; the difference
+is the form, and it is what makes a large step survivable at all. (Both
+sweeps are single-seed and the within-band ordering should not be read as
+a tuned optimum --- the $\eta_Q{=}4$ peak sits close to this task's seed
+spread. The band \emph{separation}, at $18$ points minimum, does not.)
 
 \todo{Remaining ablation plots (\cref{fig:ablations}); robomimic-side
 items below:

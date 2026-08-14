@@ -1,63 +1,98 @@
 % P1 one-step policies -> P2 the fine-tuning gap -> P3 toy/flaw -> P4 key idea
 % -> P5 dial + results -> contributions.
 
-One-step generative policies are an appealing endpoint for imitation
-learning: a drifting model \citep{deng2026drifting} captures a multimodal
-demonstration distribution in a single network evaluation --- diffusion-quality
-action distributions at deployment-friendly cost. It is trained by a simple
-primitive: repeatedly transport a population of its own samples along a
-velocity field toward the data, and regress the network onto the transported
-targets. This paper is about what that primitive buys \emph{after}
-pretraining. Like any behavior-cloned policy, they plateau at the quality of
-their demonstrations, and the natural next step is reinforcement-learning
-fine-tuning with sparse task reward. That step, however, is structurally
-awkward for exactly this policy class.
+A behavior-cloned robot policy is only as good as its demonstrations. To
+push past them, the usual move is to learn a critic and fine-tune against
+it with reinforcement learning. This paper is about one design choice
+inside that loop, which we think is made wrongly almost everywhere: how
+much authority the critic is given.
 
-The two standard fine-tuning routes both break on this policy class.
-Likelihood-ratio methods (PPO/GRPO-style) need $\log\pi(a\mid s)$, which a
-deterministic one-step noise-to-action map does not expose; the chain-MDP
-reformulations that rescue multi-step diffusion policies
-\citep{ren2024dppo} have no analog when there is only one step. They can
-be applied only by \emph{changing the policy} --- injecting Gaussian noise
-around its output to define a surrogate likelihood
-\citep{reinflow2025} --- which alters the action distribution that is
-finally deployed. We use exactly that surrogate for our policy-gradient
-baseline, and it is a competitive one; the question this paper asks is
-what can be done \emph{without} modifying the policy at all. The remaining route --- learn a critic and backpropagate $-Q$
-through the actor, as the state-of-the-art residual fine-tuner DICE-RL
-\citep{dicerl2026} does --- silently ties the size of every policy update
-to the magnitude of the critic's action-gradient. A learned critic is
-trained to rank actions near its data; its gradient field off-manifold is
-unconstrained \citep{fujimoto2018td3,savo2025}. In a controlled toy
-(\cref{sec:toy}), this failure is total: with high-dimensional actions and
-scarce critic data, the backpropagated update drives true reward to zero
-while its internal $Q$-estimate rises by four orders of magnitude. Adding a
-BC penalty does not save it --- a penalty in the loss must out-shout an
-unbounded gradient, and loses. Yet in the complementary regime, where the critic
-generalizes, the same gradient is the \emph{best} available signal and
-value-only alternatives waste it. A useful update rule must be safe in the
-first regime without discarding the gradient in the second.
+A critic does two jobs in a standard update. It says which way the policy
+should move, and --- through the magnitude of its gradient --- how far. Only
+the first is a job it was trained for. A critic learns to rank actions in
+the region its data covers; outside that region nothing constrains it, and
+it is quite capable of being steep and wrong at the same time
+\citep{fujimoto2018td3,fujimoto2019bcq,savo2025}. The consequences of the
+two errors are not comparable. A slightly wrong direction gives a slightly
+wrong step. A wrongly large distance takes the policy off the data manifold
+in one update, and the further off it goes the better it looks to the
+critic that sent it there.
 
-The lesson we draw is blunt: \emph{a learned critic is a judge, and
-handing a judge a compass --- letting its gradient magnitude set the step ---
-is what breaks}. But discarding the compass everywhere, as
-critic-as-judge methods do \citep{peng2019awr,wang2020crr}, wastes the
-best signal available in the benign regime. The resolution is to change
-not the \emph{signal} but the \emph{form} of the update --- and the policy
-class itself already contains the right form. A drifting model is \emph{pretrained} by field-target
-regression: transport samples along a velocity field, regress the network
-onto the transported targets. \method{} fine-tunes with the very same
-primitive. We call the resulting method \method{}. A frozen base proposes action
-particles through a residual head;
-reward enters as a velocity field $V_Q$ --- by default the normalized critic
-gradient --- which is \emph{clipped pointwise in action space} and combined
-with a restoring anchor field before the residual is regressed onto the
-displaced targets. The trust region thus lives where the damage occurs: the
-policy provably moves at most $\delta$ per update at every particle,
-regardless of critic pathology, a guarantee parameter-space gradient
-clipping cannot give. No likelihood is ever needed, and in the small-step
-limit the update provably recovers the backpropagated direction
-(\cref{prop:equiv}) --- the safety is free.
+Our setting sharpens the problem, because it removes the usual escape
+route. We fine-tune \emph{one-step} generative policies --- a drifting
+model \citep{deng2026drifting} maps noise to a multimodal action in a
+single network evaluation --- and such a policy has no tractable
+likelihood, so the ratio-based toolbox is unavailable. It can be recovered
+only by injecting noise into the deployed policy \citep{reinflow2025},
+which changes what ships, or by assuming a denoising objective the policy
+does not have \citep{mcallister2025flowmatchingpolicygradients}
+(\cref{sec:failure-modes}). With likelihoods off the table, a critic is
+what remains --- which makes how we consume it the whole question.
+
+Both standard answers delegate the distance. Backpropagating $-Q$ through
+the actor, as the state-of-the-art residual fine-tuner DICE-RL
+\citep{dicerl2026} does, makes every parameter step proportional to
+$\|\nabla_a Q\|$. The action-gradient family
+\citep{dipo2024,psenka2024qsm} never differentiates through the policy, but
+moves each sampled action to wherever a gradient step lands and regresses
+onto that --- the same delegation, one level up. A controlled toy
+(\cref{sec:toy}) shows how bad this can get: with high-dimensional actions
+and scarce critic data, the backpropagated update drives true reward to
+zero while its own $Q$-estimate rises by four orders of magnitude. A
+behavior-cloning penalty does not save it, because a penalty in the loss
+must out-shout an unbounded gradient, and loses. Yet the gradient is not
+the problem. In the opposite regime, where the critic generalizes, it is
+the best signal available, and methods that discard it waste it. What is
+needed is a rule that keeps the direction in both regimes while capping how
+far any single step may carry the policy.
+
+The lesson we draw is narrow and we state it as such: \emph{a critic may be
+trusted with the direction of a policy update, and with its length only up to
+a bound}. We are not claiming the critic should be stripped of the step size
+entirely --- in our own method it still sets it for the majority of sampled
+actions (\cref{sec:exp-ablation}), and that is fine. The claim is that the
+\emph{tail} must be truncated, because that is where the critic is least
+constrained and where a single step can end the run.
+Discarding the direction, as critic-as-judge methods do
+\citep{peng2019awr,wang2020crr}, throws away the best signal available when
+the critic is trustworthy; letting the critic set the length hands it a
+quantity it was never trained to supply. Note that this indicts more than
+backpropagation. The \emph{action-gradient} family --- which improves
+actions along $\nabla_a Q$ and regresses the policy onto the improved
+actions \citep{dipo2024,psenka2024qsm} --- keeps the direction but still
+leaves the distance to the critic, and is reported to degrade exactly as
+one would predict, drifting off the behavior distribution when the critic's
+gradient is biased \citep{dprlsurvey2026}. What has been missing across
+both is not a better signal but a \emph{bound}, and one placed where the
+harm occurs: in action space, not parameter space. Gradient clipping
+constrains the parameter step, which says nothing about how far the
+resulting action moves.
+
+\method{} supplies that bound. A frozen base proposes action particles
+through a residual head, and reward enters as a velocity field $V_Q$ --- by
+default the normalized critic gradient. Two guards then act before anything
+is regressed. First, each particle's total displacement is \emph{clipped
+pointwise in action space}, so the policy provably moves at most $\delta$
+per update at every particle regardless of critic pathology --- a guarantee
+parameter-space gradient clipping cannot give, since a bounded parameter
+step says nothing about the distance the action travels. Second, a
+restoring anchor field with a dead zone pulls the residual back toward the
+base whenever it strays beyond a radius $\rho$, leaving it untouched
+inside. Only then is the residual regressed onto the displaced targets, and
+because the update rewrites nothing in the replay buffer, stored
+transitions remain consistent with the dynamics that produced them. No
+likelihood is ever needed, and in the small-step limit the update recovers
+the backpropagated direction exactly (\cref{prop:equiv}) --- so the safety
+costs nothing asymptotically.
+
+The construction is also economical on the policy class that motivated it.
+A drifting model \citep{deng2026drifting} is \emph{pretrained} by
+field-target regression --- transport samples along a velocity field,
+regress the network onto the transported targets --- so on that base the
+fine-tuner reuses machinery the policy already has. That economy is a
+convenience, not a requirement: the update assumes only a frozen
+noise-to-action map, and we verify it transfers unchanged to a multi-step
+flow-matching base.
 
 Because reward enters only as a field, the critic can also be consumed at
 lower resolution when its gradients cannot be trusted: transport toward
@@ -85,22 +120,33 @@ critic quality exactly as the toy predicts.
 
 Our contributions:
 \begin{itemize}
-  \item \textbf{A field-target RL update for one-step policies}
-  (\cref{sec:method}): reward, trust region, and anchoring expressed as
-  composable velocity fields, with a pointwise action-space movement bound
-  and a dead-zone restoring anchor; likelihood-free by construction and a
-  strict generalization of the backpropagated residual actor.
+  \item \textbf{A dead-zone restoring force for action-gradient policy
+  improvement} (\cref{sec:method}). Improving actions along $\nabla_a Q$ and
+  regressing the policy onto them is an established family \citep{dipo2024,
+  psenka2024qsm, dprlsurvey2026}, and we adopt it unchanged. What that family
+  lacks is anything holding the policy near the data, and the obvious
+  candidate --- a behaviour-cloning penalty applied at every step --- is the
+  wrong shape, because it opposes the critic in the region where the critic is
+  reliable. We instead apply a restoring pull that is \emph{silent} within a
+  radius $\rho$ of the frozen base and engages only beyond it, matching the
+  regularizer's spatial profile to the critic's: free rein where the critic
+  has data, a boundary where it does not. The update needs no likelihood.
   \item \textbf{A controlled diagnosis of critic exploitation}
   (\cref{sec:toy}): a two-regime toy showing the failure is real,
   regime-dependent, and \emph{not} fixed by BC penalties --- motivating
   trust regions in action space rather than loss space.
-  \item \textbf{Evidence that the form is what wins}
-  (\cref{sec:experiments}): under matched budgets and one shared recipe,
-  \method{} beats the backpropagated update \emph{on the same base with the
-  same reward signal} on both benchmarks and on both bases, lifts a weaker
+  \item \textbf{Evidence that the \emph{form}, not the signal or the step
+  size, is what wins} (\cref{sec:experiments}): holding base, critic, data
+  and budget fixed and varying only the actor update, \method{} beats the
+  backpropagated actor on both benchmarks and on both bases, lifts a weaker
   one-step base to match the stronger flow-matching + DICE-RL pipeline, and
   reaches parity with a critic-free policy-gradient baseline without
-  modifying the deployed policy. Leave-one-out ablations isolate what pays:
-  the action-space trust region and its dead-zone anchor, not the step size,
-  and the critic's gradient direction, not its ranking.
+  modifying the deployed policy. Two controls close the obvious
+  alternative explanations. Sweeping each method's own step size an order
+  of magnitude leaves the two in non-overlapping bands --- the
+  backpropagated actor never rises above its base at any learning rate,
+  ours never falls near it at any reward step --- so the gap is not
+  tuning. And deleting only the critic's gradient direction, keeping
+  everything else, collapses performance \emph{below} the untuned base on
+  two separate tasks --- so the gain is not simply caution.
 \end{itemize}

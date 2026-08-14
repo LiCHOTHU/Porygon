@@ -1147,3 +1147,147 @@ Seed replication (5 tasks): spreads .000/.003/.004/.019/.089 — negligible exce
 - **Multitask BS control eval** kept dying at 4h (needs ~7h). Split into three single-seed
   jobs (scripts/powered_eval_split.sbatch, base_seed 1000/1001/1002, ~2.5h each →
   survivable): 11688304-06. Combine to the 100x3 protocol number when all three land.
+
+## 2026-08-06 — robomimic tool_hang + transport opened up; official harness made preemption-safe
+
+### The two new robomimic tasks (user request)
+Neither task was runnable: `data_dir/robomimic/` held only `can`, `can-low-dim`,
+`square-low-dim`. Fetched from the authors' HF repos (low-dim only; the `-img`
+sets are far larger and unused by our table):
+`robomimic-pretrain-data` + `robomimic-finetune-data` → `{tool_hang,transport}-low-dim/
+ph_{pretrain,finetune}` (67 MB / 81 MB), and `robomimic-pretrain-checkpoints` →
+`pretrained_bc_policy_{tool_hang,transport}_low_dim` for the FM baseline row
+(note transport's released base is `state_4000.pt`, not 8000).
+
+Ported our three configs to both tasks by applying the exact can/square deltas
+(verified by diff, nothing else touched):
+- `pretrain/<t>/pre_drifting_mlp.yaml` — DriftingModel, flow_steps 1, drift_R_list
+- `finetune/<t>/ft_distill_residual_drift_mlp.yaml` — backprop actor on the drift base
+- `finetune/<t>/ft_distill_residual_drift_field_mlp.yaml` — Porygon, robomimic recipe
+  (field_pointwise / q_source=grad / q_step 0.5 / total_max_norm 0.15 / restore 1.0)
+
+### The reason 6/6 can attempts died: the official harness cannot resume
+Confirmed by reading the code, not guessed. `save_model()` writes model +
+optimizers; `load()` reads `checkpoint['replay_buffer']`, a key that is never
+written — so `load()` would KeyError and no relaunch ever continued a run. On an
+8h preemptible queue a 20K-step finetune therefore restarted from step 0 forever.
+Pretrain had no resume path at all (`self.epoch = 1` hard-coded).
+
+Fixed both, minimally:
+- `util/hybrid_replay_buffer.py`: `state_dict()`/`load_state_dict()` storing only
+  the filled prefix `[:size]` on CPU. The chunk arrays are preallocated at
+  max_size=5M (~3.3 GB); pickling the object would write GBs of zeros per save.
+- `train_distill_residual_flow_agent.py`: `save_resume()` writes one rolling
+  `resume_latest.pth` (atomic tmp+replace) at `save_freq`; `try_resume()` restores
+  model/optims/schedulers/buffer and returns the step. Base-policy eval and DAWN
+  warmup are skipped on resume. `save_resume` is wrapped so a failure warns and
+  continues — it must never kill a healthy long run.
+- `agent/pretrain/train_agent.py`: `save_model` additionally stores optimizer +
+  lr_scheduler (extra keys, old loaders unaffected); `try_resume_pretrain()` picks
+  the newest `state_<epoch>.pt`. FM agent loop starts from the resumed epoch.
+Gated behind `train.auto_resume=true`, so official-parity runs are unchanged.
+Resume smoke on can: 11711993 (→step 20) → 11711994 (must log `RESUMED ... at step 20`).
+
+### Launched
+- pretrains 11711961 (tool_hang) / 11711962 (transport), fixed `fixed_42` logdir
+- FM+DICE-RL baselines 11712024 / 11712025 (no pretrain dependency, released FM base)
+- Porygon + backprop arms 11712035-38, `afterok` on the matching pretrain
+- 18 powered evals 11712002-19 for the stability sweep (η_Q ∈ {4,8} on t65/t32,
+  backprop lr ∈ {3e-4,1e-3} on t65), iters 30/35/40 — all six arms reached iter 40.
+  These feed the left panel of fig:ablations.
+
+## 2026-08-07 — resume fix verified; stability window + backprop-lr control measured
+
+### Resume works (this was the blocker on every long official-harness run)
+Two-phase can smoke: 11711993 ran to step 20 and wrote `resume_latest.pth`;
+11711994 logged `RESUMED ... at step 20` and continued to 40. The buffer
+round-trip on real data is exercised by the FM baselines, whose resume files
+are 438 MB (tool_hang) / 458 MB (transport) at step 1000 — i.e. the filled
+prefix, not the 3.3 GB preallocation.
+
+### What the first robomimic segments cost
+- Both pretrains hit the 8h wall short of 8000 epochs (tool_hang reached 7099,
+  transport 6499) — TIMEOUT, not preemption. Relaunched with auto_resume
+  (11746885/86); ~900 and ~1500 epochs remain.
+- FM baselines were PREEMPTED at ~3h, having reached step 1000 of the 20K
+  protocol. Measured throughput: **~1000 steps / 90 min** (78 min of stepping +
+  ~12 min for the 300-episode eval at each 1000-step mark). Reaching 20K is
+  therefore ~30h per arm = 4-5 embers segments. All six arms relaunched as
+  5-segment `afterany` resume chains (11746908-11746939).
+- tool_hang is genuinely hard: FM+DICE eval at step 0 = 0.000, step 1000 = 0.310.
+- The 4 first-wave dependent arms (11712035-38) are dead on
+  `DependencyNeverSatisfied` because their pretrain TIMEOUTed; superseded by the
+  new chains, need scancel.
+
+### Stability window (fig:ablations left panel) — 18 powered evals, 100x3, iters 30/35/40
+Only `q_step_size` differs from the frozen recipe (verified in hydra overrides).
+
+| arm | it30 | it35 | it40 | last-3 |
+|---|---|---|---|---|
+| t65 eta_Q=4 | 0.917 | 0.823 | 0.900 | **0.880** |
+| t65 eta_Q=8 | 0.730 | 0.803 | 0.770 | 0.768 |
+| t32 eta_Q=4 | 0.723 | 0.710 | 0.730 | 0.721 |
+| t32 eta_Q=8 | 0.677 | 0.730 | 0.650 | 0.686 |
+
+Every point stays far above base (t65 0.573, t32 0.610) across an 8x range of
+the reward step — degradation is graceful, not knife-edge. eta_Q=1/2 evals
+relaunched at the same iters (11746981-90) so the curve is measured uniformly;
+note the `_local` arms lack iter 35, so the figure will average {30,40} for all
+six points rather than mixing 2- and 3-checkpoint means.
+
+### Backprop-lr control (the "maybe it just needed a bigger step" objection)
+Same protocol, `actor_mode=residual`, only `actor_lr` changed:
+lr 3e-4 -> **0.560**, lr 1e-3 -> **0.584** on t65 (base 0.573).
+Raising the backpropagated actor's step size does NOT recover the field update's
+gains — it stays at base level, while every Porygon eta_Q point is 0.77-0.88.
+This is the control that closes the objection, and it is a *within-protocol*
+comparison (all four numbers from the same eval config).
+
+## 2026-08-08 — DMC added as a standard-RL benchmark (controlled dense/sparse pair)
+
+Motivation: FPO (arXiv 2507.21053, McAllister et al.) frames the same
+likelihood problem as a general RL-algorithm paper and evaluates on DMC/Isaac.
+We cannot match that framing — our method is structurally a fine-tuner (it needs
+a frozen base to anchor to and bound movement from, so no from-scratch runs) —
+but we can answer "does this work outside manipulation".
+
+**Why DMC specifically.** cartpole swingup / swingup_sparse (and acrobot's pair)
+are the SAME dynamics under two reward densities. That is a controlled knob on
+critic quality, which is the axis the whole paper is about; our current
+benchmarks only sample that axis by accident. Measured with a random policy over
+200 steps: dense 1.05, sparse **exactly 0.00** — no signal at all, which also
+confirms why a pretrained base is required here.
+
+**Integration (uses the published implementation, not a reimplementation):**
+- `env/gym_utils/wrapper/dmc_lowdim.py` — dm_control TimeStep/OrderedDict/spec
+  bounds hidden behind the repo's gym-style Dict("state") interface.
+- `env_type: dmc` branch in `make_async`, placed BEFORE the generic path because
+  that path imports d4rl/mujoco_py, which DMC does not need and which fails here
+  (no legacy MuJoCo 2.1 binaries).
+- Verified end-to-end through dmc_lowdim -> multi_step -> SyncVectorEnv.
+
+**Base policy (per user's "use partially-run RL to pretrain it"):**
+`scripts/dmc_make_base_data.py` — SAC on the DENSE task, stopped early at 60k
+steps (return 632.7; swingup caps ~870), then demos harvested from 4 checkpoints
+x 3 noise levels: 100 episodes / 100k transitions, return mean 429.3, range
+208-729, std 172.1. SAC is only a data generator: both arms fine-tune from the
+same distilled base, so its weaknesses are shared. Multi-checkpoint + noise is
+deliberate — cloning a converged near-deterministic SAC policy would give a base
+with no multimodality and understate the drifting model's advantage.
+
+**Two corrections made during setup:**
+1. First pretrain config copied robomimic's 3000 epochs without noticing an
+   epoch here is 12x larger (100k transitions -> 390 updates/epoch vs 31). That
+   was an 8h run. Retuned to 600 epochs = ~250k gradient steps, matching the
+   robomimic drift recipe in gradient steps rather than epochs.
+2. The pretrain eval reports `np.max(reward_trajs, axis=1)` thresholded — "did it
+   ever succeed", correct for sparse binary manipulation, meaningless for dense
+   per-step reward. Added mean episode return alongside (summing all axes but the
+   env axis, since reward_venv is 1-D on some envs and 2-D on others). Success
+   rate left untouched so no existing benchmark changes.
+
+Pretrain resume verified in production (`RESUMED pretrain from epoch 100`).
+Remaining: finetune configs (Porygon vs backprop) on swingup_sparse.
+Expectation: cartpole may saturate for both arms; if so rerun the same pipeline
+on a harder sparse pair (acrobot swingup_sparse, finger turn_hard) — cheap now
+that the plumbing exists.
