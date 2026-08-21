@@ -20,12 +20,14 @@ square from $0.382$ to $0.91$--$0.93$. It reaches the published
 flow-matching pipeline's performance from a base less than half as strong,
 and transfers unchanged to that flow-matching base.
 
-We then isolate which part is responsible, by switching each guard off
-independently. The restoring force is: without it the policy ends below its
-untuned base. A bound on step size, the more obvious remedy, is not --- on
-its own it leaves the policy at zero success, because a drift made of many
-individually permitted steps is still a drift. The reason appears to be that
-a restoring force with a dead zone is silent exactly where the critic is
-reliable, whereas the standard always-on behaviour-cloning penalty opposes
-the critic everywhere and must trade containment against progress with one
-coefficient.
+We then ask which part is responsible, switching each guard off
+independently on two tasks. The answer is decisive in one direction only.
+Removing \emph{both} is catastrophic: success falls to exactly $0.000$ on
+both tasks, from bases of $0.573$ and $0.610$, so the unconstrained
+action-gradient update --- what prior work in this family runs --- does not
+merely underperform here, it destroys the policy. But either guard alone
+recovers essentially all of the gain ($0.671$--$0.803$ across configurations,
+against $0.781$ and $0.684$ for both together), and the gaps between them are
+smaller than this benchmark's seed-to-seed spread. We therefore claim only
+that a constraint tying the policy to its base is necessary; which
+constraint, at this budget, we cannot distinguish.

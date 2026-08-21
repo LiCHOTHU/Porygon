@@ -19,20 +19,29 @@ does not do, and what this section contributes, is constrain the
 displacement: in DIPO the improved action is wherever the gradient step
 lands, and the policy is then regressed onto it.
 
-The contribution is the \textbf{anchor field} $V_{\mathrm{anc}}$. It pulls
-the policy back toward its frozen base, but only once the residual has
-strayed beyond a radius $\rho$; inside that radius it is exactly zero, so it
-never competes with the reward signal in the region where the critic has
-data. \cref{sec:exp-ablation} isolates it: with the anchor and without the
-step bound the method is unchanged, and with the step bound and without the
-anchor it fails completely. The \textbf{reward field} $V_Q$ says which way
-each action should move to score better, and is norm-clipped for numerical
-safety --- we retain the clip, but report that it is not what makes the
-update work. Neither field is a
-loss term: both are displacements applied to actions before the
-regression, which is exactly why the anchor cannot be out-shouted the way
-a behavior-cloning penalty was in \cref{sec:toy}. No likelihood is
-required, and no critic gradient is ever backpropagated into the actor.
+The contribution is the \textbf{anchor field} $V_{\mathrm{anc}}$: a pull back
+toward the frozen base that is \emph{silent} while the residual stays within a
+radius $\rho$ and engages only outside it (\cref{sec:anchor} gives its form).
+It is not an ad hoc construction --- it is the negative gradient of a hinged
+radial potential, and at $\rho = 0$ it reduces to the ordinary quadratic
+residual regularizer the backpropagated control already uses. The dead zone is
+thus a \emph{hinge generalization} of standard $L_2$ residual regularization,
+and the experiments say that where $\rho$ sits on that interpolation decides
+whether fine-tuning works at all (\cref{sec:exp-ablation}).
+
+The \textbf{reward field} $V_Q$ says which direction improves each action. It
+is norm-clipped, and we keep the clip, but we do not attribute the method's
+behaviour to it: switching the clip off while retaining the anchor leaves
+performance unchanged, whereas switching the anchor off while retaining the
+clip removes the gains entirely (\cref{sec:exp-ablation}).
+
+Neither field is a loss term; both are displacements applied to actions before
+the regression. This does not make the anchor invincible --- where
+$\|V_Q\| > \|V_{\mathrm{anc}}\|$ the net displacement still points outward ---
+but it means the two compete as bounded magnitudes in action space rather than
+through an unbounded parameter gradient, as a behaviour-cloning penalty must
+(\cref{sec:toy}). No likelihood is required, and no critic gradient is ever
+backpropagated into the actor.
 
 \begin{figure}[t]
   \centering
@@ -89,15 +98,34 @@ mismatched objective drifts from the distribution its one-step map encodes
 operator family, \method{} changes only \emph{where} the targets sit, not
 \emph{what kind} of function the network is asked to represent.
 
-\paragraph{The step bound, and why it is not the mechanism.}
-It would be natural to assume the clip in \cref{eq:update} is what makes
-this safe. Under $\mathcal{L} = \mathbb{E}[-Q]$ the actor's step scales
-with $\|\nabla_a Q\|$, whereas here the policy provably moves at most
-$\delta_{\mathrm{tot}}$ per particle per update, a guarantee
-parameter-space gradient clipping cannot give. The guarantee is real. It is
-also, on its own, useless: a drift assembled from many individually
-permitted steps is still a drift, because the critic keeps pointing the same
-way and nothing returns the policy. Switching the clip off while keeping the
+\paragraph{What the clip does and does not guarantee.}
+The clip bounds \emph{target transport}, and only that:
+\begin{equation}
+  \|\tilde r_i - r_i\| \;\le\; \delta_{\mathrm{tot}}
+  \qquad\text{for every particle } i .
+  \label{eq:target-bound}
+\end{equation}
+It is tempting to read this as a bound on how far the \emph{policy} moves,
+and an earlier version of this work did. That inference is invalid. The
+targets are amortized through a shared network by a gradient step, so to
+first order the realized change at particle $i$ is
+\begin{equation}
+  \Delta r_i \;\approx\; \alpha \sum_j J_i J_j^{\top}\,(\tilde r_j - r_j),
+  \qquad J_i = \partial r_\theta(s,z_i)/\partial\theta ,
+  \label{eq:ntk-coupling}
+\end{equation}
+and the Jacobian coupling across particles carries no guarantee that
+$\|\Delta r_i\| \le \delta_{\mathrm{tot}}$. This is precisely the
+objection we raise against parameter-space gradient clipping
+(\cref{sec:failure-modes}), and it applies to target-space clipping too:
+bounding what the network is \emph{asked} for does not bound what it
+\emph{does}. A per-particle guarantee would require an output-space proximal
+step, exact interpolation, or a tabular actor --- none of which we impose.
+
+The distinction matters less than it might, because the clip turns out not
+to be the operative component in any case. A drift assembled from many
+individually permitted steps is still a drift, since the critic keeps
+pointing the same way and nothing returns the policy. Switching the clip off while keeping the
 anchor leaves the method unchanged; switching the anchor off while keeping
 the clip destroys it (\cref{sec:exp-ablation}). We therefore keep the clip
 for numerical safety and attribute the behaviour to the anchor.
@@ -168,12 +196,28 @@ is a \emph{restoring} field with a dead zone,
   \label{eq:anchor}
 \end{equation}
 which is inert inside the trust radius $\rho$ and pulls back only the
-excess residual norm beyond it. Unlike a $\lambda\|r\|^2$ penalty ---
+excess residual norm beyond it. Equivalently, \cref{eq:anchor} is the
+negative gradient of a hinged radial potential,
+\begin{equation}
+  U(r) \;=\; \tfrac{1}{2}\,\eta_{\mathrm{anc}}\big(\|r\| - \rho\big)_{+}^{2},
+  \qquad V_{\mathrm{anc}}(r) \;=\; -\nabla_r U(r),
+  \label{eq:anchor-potential}
+\end{equation}
+so it removes exactly the radial excess and nothing else. Setting $\rho = 0$
+gives $U(r) = \tfrac{1}{2}\eta_{\mathrm{anc}}\|r\|^{2}$ --- the quadratic
+residual regularizer of the backpropagated control --- so the dead zone is a
+hinge generalization of that penalty, with $\rho$ interpolating between them. Unlike a $\lambda\|r\|^2$ penalty ---
 which competes with an unbounded gradient and loses
 (\cref{sec:toy}) --- \cref{eq:anchor} composes with the clipped reward
-field as a velocity, so the equilibrium residual scale is set
-geometrically ($\|r\| \approx \rho + \delta_Q/\eta_{\mathrm{anc}}$)
-rather than by a loss-weight arms race. Setting $\rho = 0$ recovers the
+field as a velocity, so the residual scale is set geometrically rather than
+by a loss-weight arms race. Heuristically, if the reward field were
+stationary, radially outward and saturated at $\|V_Q\| = \delta_Q$, balancing
+it against the anchor outside the dead zone gives
+$\delta_Q = \eta_{\mathrm{anc}}(\|r\| - \rho)$, i.e.\ $\|r\| = \rho +
+\delta_Q/\eta_{\mathrm{anc}}$. We use this only as a scale estimate when
+choosing $\eta_{\mathrm{anc}}$: a learned critic's field varies in direction
+and magnitude with $r$, so there may be several fixed points, cycles, or
+none, and we claim no unique equilibrium.
 pointwise pull $-\eta_{\mathrm{anc}} r$, whose fixed point reproduces
 the DICE-RL anchor; the dead zone matters exactly when the reward field
 is weak (\cref{sec:experiments}, LIBERO).

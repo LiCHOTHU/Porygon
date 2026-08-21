@@ -72,10 +72,10 @@ resulting action moves.
 through a residual head, and reward enters as a velocity field $V_Q$ --- by
 default the normalized critic gradient. Two guards then act before anything
 is regressed. First, each particle's total displacement is \emph{clipped
-pointwise in action space}, so the policy provably moves at most $\delta$
-per update at every particle regardless of critic pathology --- a guarantee
-parameter-space gradient clipping cannot give, since a bounded parameter
-step says nothing about the distance the action travels. Second, a
+pointwise in action space}, bounding how far the regression target may move
+--- though not, as we are careful to establish in \cref{sec:field-update},
+how far the network's output actually moves once those targets are amortized
+through shared parameters. Second, a
 restoring anchor field with a dead zone pulls the residual back toward the
 base whenever it strays beyond a radius $\rho$, leaving it untouched
 inside. Only then is the residual regressed onto the displaced targets, and
@@ -120,17 +120,29 @@ critic quality exactly as the toy predicts.
 
 Our contributions:
 \begin{itemize}
-  \item \textbf{A dead-zone restoring force for action-gradient policy
+  \item \textbf{An action-space trust region for action-gradient policy
   improvement} (\cref{sec:method}). Improving actions along $\nabla_a Q$ and
   regressing the policy onto them is an established family \citep{dipo2024,
-  psenka2024qsm, dprlsurvey2026}, and we adopt it unchanged. What that family
-  lacks is anything holding the policy near the data, and the obvious
+  psenka2024qsm, dprlsurvey2026}, and we adopt that form unchanged. What the
+  family lacks is anything holding the policy near the data, and the obvious
   candidate --- a behaviour-cloning penalty applied at every step --- is the
   wrong shape, because it opposes the critic in the region where the critic is
-  reliable. We instead apply a restoring pull that is \emph{silent} within a
-  radius $\rho$ of the frozen base and engages only beyond it, matching the
-  regularizer's spatial profile to the critic's: free rein where the critic
-  has data, a boundary where it does not. The update needs no likelihood.
+  reliable; measured, it lands at base level ($0.549$ and $0.601$ against
+  bases of $0.573$ and $0.610$). We therefore place the constraint where the
+  harm occurs, in action space, and we test two forms of it: a pointwise clip
+  on each particle's displacement, and a restoring anchor that is
+  \emph{silent} within a radius $\rho$ of the frozen base and engages only
+  beyond it. We are deliberate about what this buys. Removing \emph{both}
+  is catastrophic --- success falls to exactly $0.000$ on both tasks --- while
+  either one alone recovers essentially all of the gain, and deleting the
+  anchor entirely is not merely survivable but among our best settings
+  ($0.803$ on t65). We therefore claim that \emph{some} action-space
+  constraint is necessary, and explicitly not that ours is the right one
+  (\cref{sec:exp-ablation}). Two further choices separate our instantiation
+  from the family: targets are formed from \emph{freshly drawn} particles off
+  a frozen base rather than from buffer actions mutated in place, so stored
+  transitions stay consistent with the dynamics that produced them, and the
+  update needs no likelihood.
   \item \textbf{A controlled diagnosis of critic exploitation}
   (\cref{sec:toy}): a two-regime toy showing the failure is real,
   regime-dependent, and \emph{not} fixed by BC penalties --- motivating

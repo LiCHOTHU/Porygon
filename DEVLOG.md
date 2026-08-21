@@ -1291,3 +1291,87 @@ Remaining: finetune configs (Porygon vs backprop) on swingup_sparse.
 Expectation: cartpole may saturate for both arms; if so rerun the same pipeline
 on a harder sparse pair (acrobot swingup_sparse, finger turn_hard) — cheap now
 that the plumbing exists.
+
+## 2026-08-17/18 — Official diffusion-RL baselines: three failed launches, two real bugs
+
+Goal: fill the empty baseline block in Table 1 with DIPO / QSM / DQL / IDQL / AWR from the
+official code (user constraint: use the official implementation, do not reimplement).
+
+**Launch 1 (embers, single jobs) — total loss.** All five died: three preempted at 4.5-5.7h,
+two hit the 8h wall, reaching iterations 25-53 of 300 (8-18% trained). Worse, they left nothing
+recoverable: `save_model_freq: 100` means a run preempted at iteration 36 has written only
+`state_0.pt`. The official harness has no resume, so relaunching would restart from zero and die
+at the same wall indefinitely.
+
+**Launch 2 (embers + my resume) — reached iters 141-222, then discarded.** Added generic
+`save_resume`/`try_resume` to the base `TrainAgent` (inherited by all five, since none override
+`save_model`), `save_model_freq` 100 -> 5, CPUs 4 -> 12 (cluster caps CPU:GPU at 12:1). Verified
+resume locally on the H200 for all five: train, kill, resume at the right iteration, continuous
+losses.
+
+Two bugs killed it anyway:
+
+1. *Numba cache (environment).* Every chain segment past the first died in ~15s with
+   `cannot cache function 'mat2quat': no locator available`. Root cause: `~/.bashrc:57` sets
+   `NUMBA_CACHE_DIR=${XDG_CACHE_HOME}/numba`, and `XDG_CACHE_HOME` is unset in batch jobs, so it
+   resolves to the unwritable `/numba`. Interactively `XDG_CACHE_HOME` *is* set, so no local
+   smoke test could ever reproduce it. First patch exported the var *before* sourcing
+   `~/.bashrc`, which promptly clobbered it -- caught only because the test job echoed
+   `NUMBA_CACHE_DIR=/numba`. Must be set *after* sourcing. Verified on a real gpu-l40s node.
+
+2. *Replay-buffer wipe (mine, and the important one).* The resume restored model + optimizer but
+   NOT the replay buffers, which are `deque` locals inside `run()` with `buffer_size: 1000000`.
+   Every preemption therefore wiped up to 1M transitions and resumed training against ~20K fresh
+   samples. Fingerprint in the logs: DQL critic loss 0.08 -> 39.4 -> 67.2 (Q divergence), QSM
+   actor loss -> 0.0000 (collapse), while AWR (2.24 -> 3.54) and DIPO (2.24 -> 2.60) -- the two
+   least dependent on a long buffer -- *improved*. All numbers from these runs discarded: they
+   measured the bug, not the baselines.
+
+**Ruled out before blaming the buffer** (worth recording, all clean): base loading -- every
+pretrained tensor lands in every baseline actor, 0 mismatches, 0 orphans (an earlier "108 params
+left random" reading was wrong; `self.actor = self.network`, so those were state_dict aliases);
+normalization -- pretrain and finetune paths differ but are byte-identical in content;
+architecture -- base is `time_dim=32`, matching the baseline configs; base quality -- 0.278/0.279
+measured locally, against DPPO's own ~0.4 for square (weaker, but cannot explain an exact 0.000).
+
+**Resolution: delete my code, change the infrastructure.** Reverted all five agents and the base
+`TrainAgent` to official code (our own harness keeps its resume, which *does* persist its
+buffer). Solved the wall-clock problem with allocation instead: GPU partitions allow 3 days and
+`inferno` is non-preemptible, so each baseline runs start-to-finish in a single 30h job with no
+resume at all. Lesson: a checkpoint/resume shim is not neutral infrastructure for an off-policy
+learner -- the buffer is part of the algorithm's state.
+
+## 2026-08-19 — Baselines running clean; QSM collapse is real
+
+`inferno` on the default account was exhausted (`AssocGrpBillingMinutes`); `prepaid`,
+`ideas_l40s` and `ideasci23_dgx` still schedule. Relaunched on `ideas_l40s`.
+
+- **DIPO**: COMPLETED 300/300 in 14h52m, in-training eval **0.267** vs its base **0.279** --
+  i.e. slightly *below* where it started after ~24M env steps.
+- **QSM**: COMPLETED 300/300 in 13h11m, **0.000**. Unmodified official code, single job, no
+  resume, full 1M buffer, full budget. So the collapse is genuine and not an artifact of the
+  Launch-2 resume bug -- and it matches DPPO's reported finding that DQL/IDQL/QSM are unstable
+  in sparse-reward, high-dimensional environments.
+- **DQL / IDQL / AWR**: FAILED in ~30s with `No CUDA GPUs are available`, all three on node
+  `atl1-1-01-002-8-0`; both successes ran on `atl1-1-01-002-4-0`. Pure node fault. Relaunched
+  with that node excluded.
+
+Budget disclosure recorded in `05_experiments.tex`: the baselines get 300 x 400 x 50 x 4 = 24M
+env steps at their published settings, against our 12,000 x 4 x 4 = 192K -- ~125x more
+interaction than we use. Deliberate (their settings, favours them), but the caption must say so
+and must not call these rows "matched budget".
+
+**Paper self-consistency fix.** The contribution list headlined the dead-zone anchor as the
+novelty while our own rho sweep shows the anchor is removable at no cost (rho=inf -> 0.803 on
+t65, better than the shipped 0.05 -> 0.781). Rewrote contribution 1 as an *action-space trust
+region* and corrected three false sentences in the conclusion ("Its working component is the
+anchor", "removing the dead-zone anchor drops performance below the untuned base", "the anchor
+alone reproduces the full method, while the step bound alone does not prevent the drift at all"
+-- the last two are contradicted by the sweep). Abstract already stated the honest version;
+the two now agree.
+
+Also verified via literature check that the field-target form itself is **DIPO's** (critic-
+updated sampled actions, actor regressed onto them). Remaining novelty is narrower and specific:
+bounded displacement of *freshly drawn* particles off a frozen base, regressed into a residual
+head, with the replay buffer left untouched (DIPO mutates stored actions in place). That claim is
+only demonstrated if we beat DIPO/QSM head-to-head -- which is exactly what these runs test.

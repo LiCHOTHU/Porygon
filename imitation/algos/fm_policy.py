@@ -38,6 +38,7 @@ class FlowMatchingPolicy(ChunkPolicy):
         sib_code_dim: int = 8,
         sib_stop_grad: bool = False,
         sib_n_probes: int = 1,
+        sib_ablate_v: bool = False,
         mixup_alpha: float = 0.0,
         sam_rho: float = 0.0,
         **kwargs,
@@ -46,6 +47,7 @@ class FlowMatchingPolicy(ChunkPolicy):
         self.sib_beta = sib_beta
         self.sib_stop_grad = sib_stop_grad
         self.sib_n_probes = sib_n_probes
+        self.sib_ablate_v = sib_ablate_v
         self.mixup_alpha = mixup_alpha
         self.sam_rho = sam_rho
         self._sib_ready = False
@@ -183,6 +185,7 @@ class FlowMatchingPolicy(ChunkPolicy):
                     zs, v_psi, x1, t,
                     self.sib_bands, self.sib_conditioner, self.sib_ema,
                     n_probes=self.sib_n_probes, stop_grad=self.sib_stop_grad,
+                    ablate_v=self.sib_ablate_v,
                 )
                 loss = loss + self.sib_beta * penalty
                 info.update(sib_info)

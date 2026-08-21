@@ -158,26 +158,49 @@ matched re-eval); GRPO FM+drift (checkpoints exist, matched re-eval); plain resi
 
 ## Results
 
-See [`DEVLOG.md`](DEVLOG.md) for the full experiment log. Headlines (as of 2026-07-26):
+See [`DEVLOG.md`](DEVLOG.md) for the full experiment log, and `iclr2026/` for the paper.
+Status as of **2026-08-19**. Only completed, matched-protocol measurements are listed;
+runs still in flight are called out as such rather than reported early.
 
-- **The field-target-regression update on the drifting base ("B": V_Q = clipped analytic ∇ₐQ +
-  restore anchor, applied as a regression target instead of backprop-through-critic) beats both
-  plain DICE-RL on the same base and the FM + DICE-RL baseline on robomimic**: can 0.99
-  (base 0.877, FM-DICE 0.957), square 0.92–0.94 across 3 seeds at the full 20K budget
-  (FM-DICE best ≈ 0.86–0.90). First complete-budget square runs ever (paid-QOS wave).
-- **Q-source ablation (ABCT)**: with residual health verified, the value-only field variants —
-  zeroth-order top-k (C) and exp(Q/τ)-tilted transport (T) — reach only ~0.57–0.61 on square
-  vs B's ~0.93. The analytic gradient wins wherever the critic's ∇ₐQ is trustworthy; the
-  value-only transports are competitive only in the weak-critic regime (LIBERO hard-8, where
-  C-guarded ties B at 0.738; two-regime toy demo shows the mechanism).
-- LIBERO hard-8: field arms at 0.738 vs FM-DICE 0.757 — competitive, not yet ahead; tuned
-  chains still running.
-- Earlier findings (GRPO study): RL gain is inverted-U in demo count; GRPO > DICE-RL on the
-  over-dispersed 1-step drift policy, DICE-RL stronger on K=10 flow matching; LIBERO-90
-  multi-task BC saturates ~91%, so hard tasks are where methods separate.
+**What we beat, stated precisely.** The controlled claim is against the *backprop actor* —
+the DICE-RL residual actor run on our base, with the same critic, data, and budget, so the
+actor update is the only variable:
 
-Robomimic numbers are 300-episode evals (last-3 average); hard-8 numbers are 20-episode
-checkpoint evals (±11pp) pending powered evals (100 rollouts × 3 seeds); see the log.
+| | square s42/43/44 | LIBERO hard-8 mean |
+|---|---|---|
+| base (no RL) | 0.382 | 0.661 |
+| backprop actor | 0.870 / 0.909 / 0.861 | 0.670 |
+| **field-target update (ours)** | **0.912 / 0.930 / 0.929** | **0.755** |
+
+Every seed, both benchmarks. On LIBERO that is +9.4 over base where backprop gets +0.9.
+
+**Against the published FM + DICE-RL pipeline we are at parity, not ahead.** Across the six
+robomimic cells it is two wins each and two ties (FM+DICE 0.989/0.979/0.986 on can and
+0.934/0.923/0.930 on square). The honest framing is that we *match* that pipeline from a base
+less than half as strong on square (0.382 vs its FM base), not that we beat it.
+
+**Which guard does the work: we cannot say, and the sweep says so.** Sweeping the dead-zone
+radius over two orders of magnitude is flat (0.771-0.863 on t65), and removing the anchor
+entirely while keeping the step bound is among the *best* settings (0.803). What is decisive is
+removing *both*: success falls to exactly 0.000 on both tasks, from bases of 0.573 and 0.610.
+So an action-space constraint is necessary; the particular one is not established. Note also
+that rho=0 -- exactly an always-on BC penalty -- falls back to base level (0.549/0.601), which
+is why the constraint is shaped in action space rather than added to the loss.
+
+**Q-source ablation.** The value-only field variants (top-k, exp(Q/tau)-tilted) reach only
+~0.53-0.58 on square vs ~0.93 for the gradient field. The analytic gradient wins wherever the
+critic's grad_a Q is trustworthy; value-only transport is competitive only in the weak-critic
+regime.
+
+**Classic diffusion-RL baselines (DIPO / QSM / DQL / IDQL / AWR): in progress.** Run from the
+official code, unmodified, at their published budget (300 iters x 400 steps x 50 envs, ~24M env
+steps -- roughly 125x our own environment interaction). Two have finished training: DIPO ends at
+0.267 against its own base of 0.279, and QSM collapses to 0.000 -- consistent with DPPO's own
+report that Q-learning-based diffusion methods are unstable on sparse-reward robomimic. Matched
+300-episode evaluations are pending, so no cells are published yet.
+
+Robomimic numbers are 300-episode evaluations (last-3-checkpoint average); LIBERO numbers are
+powered evaluations (100 rollouts x 3 seeds).
 
 ## Framework
 

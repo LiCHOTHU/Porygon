@@ -48,7 +48,7 @@ echo "=== ${ARM} on $(hostname) at $(date -Is) ==="
 # cam_shift first: if the window runs out, the number that matters already exists.
 python scripts/sib_eval_shift.py \
     --arms "${ARM}" \
-    --shifts cam_shift clean \
+    --shifts cam_shift_medium \
     --rollouts 5 \
-    --out "/storage/scratch1/8/lwang831/imitation/sib_shift_${ARM}.jsonl"
+    --out "/storage/scratch1/8/lwang831/imitation/sib_severity_${ARM}.jsonl"
 echo "=== done $(date -Is) ==="

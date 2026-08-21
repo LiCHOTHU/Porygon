@@ -4,8 +4,10 @@ policy and unsafe when the critic is imperfect, and that the policy class's
 own pretraining primitive --- field-target regression --- provides the
 missing update rule. \method{} expresses reward and anchoring as composable velocity fields over
 action particles, and recovers the backpropagated direction in the
-small-step limit. Its working component is the anchor: a restoring pull that
-is silent within a radius of the frozen base and active beyond it.
+small-step limit. Its working component is the action-space trust region:
+the critic sets the direction, while a bound --- a pointwise clip on each
+particle's displacement, a restoring pull outside a radius of the frozen
+base, or both --- sets how far any single update may carry the policy.
 
 The experiments locate the advantage precisely. Given the \emph{same} base,
 critic, data and budget, the field-target form extracts far more than
@@ -21,12 +23,17 @@ mean on LIBERO; $0.878$ versus $0.883$ on the flow-matching base's one
 high-headroom task) --- while requiring none of the noise injection that
 makes likelihood ratios definable for a deterministic one-step generator in
 the first place. Ablations confirm the mechanism rather than the
-hyperparameters: removing the dead-zone anchor drops performance
-\emph{below} the untuned base, deleting the critic's gradient direction
-collapses gains to base level on both benchmarks. Switching the guards on and
-off independently identifies which one matters: the anchor alone reproduces
-the full method, while the step bound alone does not prevent the drift at
-all.
+hyperparameters, and they constrain what we may claim. Replacing the
+dead-zone with an always-on penalty ($\rho{=}0$, exactly a behaviour-cloning
+term) falls back to base level ($0.549$ and $0.601$ against bases of $0.573$
+and $0.610$), so the constraint must be shaped in action space rather than
+added to the loss. Switching the two guards on and off independently is
+decisive in one direction only: removing \emph{both} collapses success to
+exactly $0.000$ on both tasks, while either alone recovers essentially all of
+the gain --- indeed removing the anchor and keeping only the step bound is
+among our strongest settings ($0.803$ on t65). We therefore claim the
+necessity of an action-space constraint, and not the superiority of the
+particular one we ship.
 
 \textbf{Limitations.}
 \label{sec:limitations}

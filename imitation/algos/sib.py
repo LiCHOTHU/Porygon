@@ -210,7 +210,8 @@ def reliance_band_energy(zs: list[Tensor], velocity: Tensor, bands: SpectralBand
 
 def sib_penalty(zs: list[Tensor], velocity: Tensor, actions: Tensor, t: Tensor,
                 bands: SpectralBands, conditioner: ActionConditioner, ema: BandEMA,
-                n_probes: int = 1, eps: float = 1e-8, stop_grad: bool = False):
+                n_probes: int = 1, eps: float = 1e-8, stop_grad: bool = False,
+                ablate_v: bool = False):
     """``sum_k sqrt(S_k V_k + eps)``, plus diagnostics.
 
     ``stop_grad=False`` by default, which is **not** the published Equation (12).
@@ -232,6 +233,18 @@ def sib_penalty(zs: list[Tensor], velocity: Tensor, actions: Tensor, t: Tensor,
     v_k = sum(
         bands.band_energy(conditioner.residual(z, actions, t)).mean(dim=0) for z in zs
     ) / len(zs)
+    if ablate_v:
+        # Ablation: charge sqrt(S_k) alone, dropping the bottleneck factor.
+        #
+        # The band profile of the trained policy showed S varying 1140x across
+        # bands while V varied 4.8x, and sqrt(S) alone reproduced band 4's 79.7%
+        # share as 75.7% -- i.e. reliance picks the band and V contributes ~4
+        # points.  That profile is measured at convergence, so it cannot rule out
+        # V having done its work earlier in training and flattened since.  This
+        # flag settles it: if shift performance is unchanged, the penalty is a
+        # reliance concentration term and the information-bottleneck framing is
+        # not what makes it work.
+        v_k = torch.ones_like(v_k)
     s_live = reliance_band_energy(zs, velocity, bands, n_probes, create_graph=not stop_grad)
     s_used = ema.update(s_live) if stop_grad else s_live
     penalty = torch.sqrt(s_used * v_k + eps).sum()
