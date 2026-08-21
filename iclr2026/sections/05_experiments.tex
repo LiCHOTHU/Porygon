@@ -102,6 +102,57 @@ FM + DICE-RL               & \textbf{0.989} & 0.979 & \textbf{0.986} & \textbf{0
 \end{tabular}
 \end{table}
 
+\begin{table}[t]
+\centering
+\caption{Classic diffusion-RL fine-tuners on robomimic square, run from the
+official implementations without modification and from their own diffusion
+base (seed 42). These methods are \emph{not} run at our budget: at their
+published settings each consumes $300\times400\times50\times4 \approx 24$M
+environment steps, roughly $125\times$ the $192$K our own runs use, so the
+comparison is generous to them. Success is the same 300-episode protocol used
+throughout. ``---'' = training still in progress. \method{} is listed for
+reference only and starts from a different (drifting) base, which is why the
+base row for each column is given separately.}
+\label{tab:dppo-baselines}
+\small
+\begin{tabular}{lcc}
+\toprule
+method & base it starts from & square (300 ep) \\
+\midrule
+diffusion base (no RL)   & ---            & 0.279 \\
+DIPO \citep{dipo2024}     & diffusion base & 0.283 \\
+QSM \citep{psenka2024qsm} & diffusion base & 0.000 \\
+DQL                       & diffusion base & --- \\
+IDQL                      & diffusion base & --- \\
+AWR                       & diffusion base & --- \\
+\midrule
+\method{} \emph{(reference; drifting base $0.382$)} & drifting base & 0.912--0.930 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two of these have finished. DIPO ends at $0.283$ against its own base of $0.279$ --- a gain of
+$0.4$ points after $24$M environment steps, inside evaluation noise. QSM collapses to
+exactly $0.000$ in all six evaluation blocks. We checked the obvious explanation
+first: every hyperparameter in our QSM configuration matches the published one
+($n_{\mathrm{critic\ warmup}}{=}5$, actor/critic learning rates $10^{-5}/10^{-3}$,
+$q_{\mathrm{grad}}$ coefficient $10$, $\tau{=}0.005$, buffer $5000$, replay ratio
+$16$, batch $1000$), and we give it more training than published, not less
+($300$ against $201$ iterations). The collapse is also immediate rather than
+gradual: success is at base level ($0.284$) at iteration $0$ and at zero by
+iteration $10$, where it remains for the following $290$ iterations. Both losses
+\emph{converge} (actor $0.002$, critic $0.01$) rather than diverging, which is
+the signature of a degenerate fixed point --- once the policy stops succeeding,
+every reward is zero, the critic correctly learns $Q\approx 0$ everywhere, and
+$\nabla_a Q$ carries no signal with which to recover. QSM aligns the policy's
+score \emph{to} $\nabla_a Q$ rather than adding a bounded correction to it, and
+nothing in the update ties the result to the base; this is the failure our
+constraint is meant to exclude. We note one caveat against reading too much into
+the magnitude: our diffusion base scores $0.279$ where the original authors
+report roughly $0.4$ on this task, and a weaker base implies a worse early
+critic, so we do not claim our $0.000$ reproduces any published number.
+
+
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/robomimic_curves.pdf}
