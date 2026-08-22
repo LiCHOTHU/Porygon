@@ -50,7 +50,7 @@ The lesson we draw is narrow and we state it as such: \emph{a critic may be
 trusted with the direction of a policy update, and with its length only up to
 a bound}. We are not claiming the critic should be stripped of the step size
 entirely --- in our own method it still sets it for the majority of sampled
-actions (\cref{sec:exp-ablation}), and that is fine. The claim is that the
+actions (\cref{sec:exp-robustness}), and that is fine. The claim is that the
 \emph{tail} must be truncated, because that is where the critic is least
 constrained and where a single step can end the run.
 Discarding the direction, as critic-as-judge methods do
@@ -138,7 +138,7 @@ Our contributions:
   anchor entirely is not merely survivable but among our best settings
   ($0.803$ on t65). We therefore claim that \emph{some} action-space
   constraint is necessary, and explicitly not that ours is the right one
-  (\cref{sec:exp-ablation}). Two further choices separate our instantiation
+  (\cref{sec:exp-constraint}). Two further choices separate our instantiation
   from the family: targets are formed from \emph{freshly drawn} particles off
   a frozen base rather than from buffer actions mutated in place, so stored
   transitions stay consistent with the dynamics that produced them, and the

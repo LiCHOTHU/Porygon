@@ -19,21 +19,35 @@ does not do, and what this section contributes, is constrain the
 displacement: in DIPO the improved action is wherever the gradient step
 lands, and the policy is then regressed onto it.
 
-The contribution is the \textbf{anchor field} $V_{\mathrm{anc}}$: a pull back
-toward the frozen base that is \emph{silent} while the residual stays within a
-radius $\rho$ and engages only outside it (\cref{sec:anchor} gives its form).
-It is not an ad hoc construction --- it is the negative gradient of a hinged
-radial potential, and at $\rho = 0$ it reduces to the ordinary quadratic
-residual regularizer the backpropagated control already uses. The dead zone is
-thus a \emph{hinge generalization} of standard $L_2$ residual regularization,
-and the experiments say that where $\rho$ sits on that interpolation decides
-whether fine-tuning works at all (\cref{sec:exp-ablation}).
+The contribution is what happens between the critic and the regression: the
+proposed displacement is \textbf{constrained in action space, on the target,
+before anything is fitted}. The critic proposes an improvement; an explicit
+action-space trust region limits how much of that proposal the actor is asked
+to learn; only the constrained target is regressed. This is the difference
+from the backpropagated control, which admits the same proposal into a loss
+and lets it compete there against a regularizer
+(\cref{sec:critic}).
 
-The \textbf{reward field} $V_Q$ says which direction improves each action. It
-is norm-clipped, and we keep the clip, but we do not attribute the method's
-behaviour to it: switching the clip off while retaining the anchor leaves
-performance unchanged, whereas switching the anchor off while retaining the
-clip removes the gains entirely (\cref{sec:exp-ablation}).
+We instantiate the constraint two ways and claim neither over the other: a
+pointwise clip on each particle's displacement, and an \textbf{anchor field}
+$V_{\mathrm{anc}}$ --- a pull back toward the frozen base that is \emph{silent}
+while the residual stays within a radius $\rho$ and engages only outside it
+(\cref{sec:anchor} gives its form). The anchor is not an ad hoc construction:
+it is the negative gradient of a hinged radial potential, and at $\rho = 0$ it
+reduces exactly to the quadratic residual regularizer the backpropagated
+control already uses. The dead zone is thus a \emph{hinge generalization} of
+standard $L_2$ residual regularization --- which makes $\rho$ an explicit
+interpolation between the loss-space regularizer of prior work and the
+constraint we advocate, and lets us measure the two against each other inside
+one implementation (\cref{sec:exp-locus}).
+
+The \textbf{reward field} $V_Q$ says which direction improves each action, and
+its magnitude enters the target before either bound acts. We do not attribute
+the method's behaviour to any single one of these components: what the
+experiments establish is that \emph{some} action-space bound must be present
+(without one, success is exactly $0.000$), and that within a wide band its
+particular form is not distinguishable at this budget
+(\cref{sec:exp-constraint}).
 
 Neither field is a loss term; both are displacements applied to actions before
 the regression. This does not make the anchor invincible --- where
@@ -122,13 +136,15 @@ bounding what the network is \emph{asked} for does not bound what it
 \emph{does}. A per-particle guarantee would require an output-space proximal
 step, exact interpolation, or a tabular actor --- none of which we impose.
 
-The distinction matters less than it might, because the clip turns out not
-to be the operative component in any case. A drift assembled from many
-individually permitted steps is still a drift, since the critic keeps
-pointing the same way and nothing returns the policy. Switching the clip off while keeping the
-anchor leaves the method unchanged; switching the anchor off while keeping
-the clip destroys it (\cref{sec:exp-ablation}). We therefore keep the clip
-for numerical safety and attribute the behaviour to the anchor.
+The distinction matters, but it does not undermine the construction, because a
+per-particle guarantee is not what the update needs. A drift assembled from
+many individually permitted steps is still a drift, since the critic keeps
+pointing the same way and nothing returns the policy --- which is why the
+constraint that matters is one whose strength grows with the displacement
+already accumulated, rather than one that merely rate-limits each step. What
+we establish empirically is narrower and sufficient: with no action-space
+bound of any kind the update destroys the policy, and with either bound
+present it does not (\cref{sec:exp-constraint}).
 
 \subsection{The reward field $V_Q$}
 \label{sec:reward-field}
@@ -250,7 +266,7 @@ particle}, which is the quantity that off-manifold failure depends on
 (\cref{sec:toy}). Moreover, only the regression form makes the two other
 components expressible at all: a dead-zone anchor and a value-only $V_Q$
 have no loss-gradient counterpart. The ablations in
-\cref{sec:exp-ablation} test each distinction in isolation.
+\cref{sec:exp-locus} test each distinction in isolation.
 The critic is unchanged from DICE-RL: ensemble TD with a CQL-style
 penalty pushing $Q$ down at policy actions and up at data actions;
 field construction never leaks gradients into the critic

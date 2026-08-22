@@ -1375,3 +1375,135 @@ updated sampled actions, actor regressed onto them). Remaining novelty is narrow
 bounded displacement of *freshly drawn* particles off a frozen base, regressed into a residual
 head, with the replay buffer left untouched (DIPO mutates stored actions in place). That claim is
 only demonstrated if we beat DIPO/QSM head-to-head -- which is exactly what these runs test.
+
+## 2026-08-21 — Reframing: constrained action-space target transport (thesis, not anchor)
+
+**Story simplified to one thesis** (user call, after rereading the draft): the paper sells
+*constrained critic-guided field-target regression* — the critic proposes an action-space
+improvement, an explicit action-space trust region limits how much of that proposal the actor
+is asked to learn, and only the constrained target is regressed. The anchor is ONE
+implementation of the constraint, not the headline. Porygon vs DICE is therefore
+**where critic control is imposed**: action-space target construction vs loss-space
+competition (`-Q + lambda*R`).
+
+Claims reorganized as H1 form matters / H2 constraint necessary / H3 where the constraint goes
+(action vs loss vs parameter space) / H4 how much critic information / H5 generality across
+one-step generator families.
+
+**Bug found in our own ablation (this is the important part).** The rho sweep does NOT isolate
+the two guards, so "clip-only works" was never measured. Every Porygon arm ships
+`bc_step_size=0.05`, and in `field_pointwise` mode `bc_field = -old_res`
+(`distill_rl.py:905`) with `unit_normalize`/`adaptive_bc` both false, so the update is
+
+    total_delta = clip( q_step*V_Q + 0.05*(-r) + restore_delta , total_max_norm )
+
+`restore_radius -> inf` only zeroes `restore_delta`; the `-0.05*r` pull survives. So the
+rho=inf row (0.803 t65 / 0.671 t32) is *clip + a weak always-on anchor*, not clip-only, and the
+anchor-only row is contaminated symmetrically. The only genuinely unconstrained row is the
+0.000 one. Consequence: the 2026-08-19 "self-consistency fix" retracted true sentences on the
+strength of a mislabelled row — but the new framing is robust to the ambiguity in a way the
+anchor-centric framing was not ("some action-space constraint" covers every working cell).
+
+**H3 is cheaper than expected.** `dice.grad_clip: 1.0` is applied to the actor unconditionally
+(`dice_train.py:388`), so the backprop control ALREADY has a parameter-space trust region and
+still gains only +0.9. H3 is a sweep of an existing knob, not a missing feature. Two of the
+three rungs are already in hand: rho=0 is the loss-space regularizer (exactly, via
+`prop:equiv`) at 0.549/0.601, and control-A runs a literal `bc_loss_weight=100`.
+
+**Added (`scripts/field_single_task.sbatch`): clean H2 2x2**, everything else = frozen B recipe.
+"Clip off" must disable BOTH `q_max_norm` and `total_max_norm` (1e9, verified an exact no-op in
+`clip_field_norm`), else V_Q stays bounded at 1.0 and the corner is contaminated the same way
+rho=inf was. "Anchor off" must set `bc_step_size=0` AND `restore_step_size=0`.
+
+| arm | clip | anchor |
+|---|---|---|
+| `B` (frozen recipe) | on | on |
+| `B_CLIP` | on | off |
+| `B_ANC` | off | on |
+| `B_NONE` | off | off | -> the unconstrained action-gradient update (what DIPO/QSM run) |
+
+    sbatch scripts/field_single_task.sbatch B_CLIP 65 10000
+    sbatch scripts/field_single_task.sbatch B_ANC  65 10000
+    sbatch scripts/field_single_task.sbatch B_NONE 65 10000   # expect ~0.000
+    # repeat for t32; B cells already measured (0.781 / 0.684)
+
+**Paper corrections landed** (all were contradicted by our own tables): `tab:rho-sweep` caption
+and row label no longer claim rho=inf "removes the anchor entirely"; the sweep paragraph now
+says the constraint must exist *and* must not be always-on; the "how often does the bound bind"
+paragraph no longer adjudicates cap-vs-anchor and instead reads the 17.3% binding rate as
+evidence the trust region is a TAIL control (which supports the thesis rather than apologizing
+for it); `04_method.tex` no longer opens with "the contribution is the anchor field" and no
+longer asserts clip-off/anchor-off asymmetry in two places.
+
+Remaining: restructure `05_experiments.tex` around H1-H5; reframe abstract + contribution list
+to the thesis; run the H2 2x2 and the H3 grad_clip sweep.
+
+### 2026-08-21 (later) — experiment section restructured around H1-H4; plan written
+
+`05_experiments.tex` rebuilt so baseline comparison and mechanism ablation are separate jobs
+(they were mixed: the old `tab:robomimic` carried the H2 control, the FM reference AND the
+resolution dial in one table). New spine, with every measured number preserved verbatim:
+
+- **5.2 H1 positioning** — `tab:baselines`, new. All external fine-tuners with *their own base*
+  and Delta over it, since absolute success confounds fine-tuner with base. H1 is deliberately
+  NOT a superiority claim (we are at parity with FM+DICE and GRPO; claiming otherwise invites
+  rejection on our weakest axis). Reframed so DIPO/QSM read as *the unconstrained corner of our
+  own design space, measured externally at 125x our budget* — feeding H3 instead of competing.
+- **5.3 H2 form** — `tab:matched` (was `tab:robomimic`, now control-only: base / backprop /
+  Porygon), `tab:libero-single`, `fig:curves`. Multitask shared-critic table kept as an explicit
+  *boundary condition* on H2 rather than a loose negative result.
+- **5.4 H3 constraint** — `tab:constraint` (new 2x2) + `fig:containment` (new, reserved).
+  `tab:rho-sweep` demoted to a robustness paragraph inside H3.
+- **5.5 H4 locus** — `tab:locus`, new: DICE L2 / DICE+hinge / grad clip / rho=0 / hard
+  projection / anchor. Two rows already fill from existing runs.
+- **5.6-5.8 supporting** — resolution dial (`tab:resolution`, new, pulls the dial rows out of the
+  ablation table), generality across generator classes, robustness.
+
+Cross-refs repointed (`sec:exp-ablation` -> `sec:exp-constraint`/`sec:exp-locus`/
+`sec:exp-robustness`; `tab:robomimic` -> `tab:matched`) across intro/method/problem/repro.
+Verified: 0 dangling refs, braces balanced, all environments paired, no tabular column-count
+mismatches. No LaTeX locally — needs a compile.
+
+**`EXPERIMENT_PLAN.md` added** (README's stale July Tier-1/2/3 plan now points at it): hypothesis
+-> table map, launch commands, three waves, deferred list with reasons, and decision rules
+written *before* the runs — including the two that would sink the thesis (`B_NONE` >> 0, or
+`DICE+hinge` ~ `B_ANC`).
+
+**Discrepancy to resolve (not silently fixed):** the backprop-lr control numbers differ between
+sources. Paper says 0.550 / 0.548 / 0.578 for lr 1e-4 / 3e-4 / 1e-3; the 2026-08-07 entry above
+says 0.560 (3e-4) and 0.584 (1e-3). Possibly endpoint vs last-3 average. Both were left as-is;
+the paper's values are what 5.5 and 5.8 currently print.
+
+### 2026-08-21 (later still) — hypotheses restated as claims; two fabricated cells removed
+
+**Hypotheses are now falsifiable statements, not questions**, in both `05_experiments.tex` and
+`EXPERIMENT_PLAN.md`. Each subsection opens with `\textbf{Claim.}` + `\textbf{Verdict.}` so a
+reviewer can scan what is asserted and whether it holds. H4 gained an explicit "the experiment
+that would overturn this claim" pointer (DICE+hinge).
+
+**Two cells I had invented, now blank.** Caught while enforcing "leave it blank if we do not
+have it":
+1. `tab:baselines` listed FM+DICE-RL's own base on square as **0.857**. That number is an
+   FM+DICE *result* from the 2026-07-25 harvest ("FM best ~0.857-0.896"), not a base. **We have
+   never measured the flow-matching base on robomimic square.** Base and Delta are now `---`.
+2. `tab:locus` listed "gradient norm clipping" as a row separate from the DICE control with the
+   lr-sweep range 0.550-0.578. But `grad_clip=1.0` is on in that same control -- they are the
+   *same run*, and the lr sweep is a different knob. Merged into one honest row: "L2 penalty +
+   grad clip (DICE-RL), loss + parameters, 0.550 / 0.587" (the actual control numbers from
+   `tab:libero-single`). The point is now sharper anyway: **DICE-RL as shipped already
+   constrains in both of the two places we argue are wrong, and still lands at base level.**
+
+**Baseline roles made explicit** (new section 1b of the plan). Three different jobs, three
+different homes:
+- backprop actor = *control*, not baseline -> H2; proves the gain is causal.
+- FM+DICE-RL = external reference -> H1; proves competitiveness from a weaker base.
+- DIPO/QSM/DQL/IDQL/AWR = *family members lacking our mechanism* -> H1 table, argument lands in
+  H3; they are external replication of our `B_NONE` corner and are **not there to be beaten**.
+  Framed as competitors, the 125x budget is an objection; framed as the corner, it is what makes
+  the point strong.
+- GRPO = alternative paradigm -> H2 prose.
+- top-k / tilted = our own dial, not baselines -> S1.
+
+Also disclosed in the `tab:baselines` caption that the classic diffusion-RL baselines are
+robomimic-only (their official implementations do not support LIBERO), rather than leaving that
+gap silent.

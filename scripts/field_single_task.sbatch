@@ -28,6 +28,45 @@ case "${EXP}" in
   B0) RL_NAME="field_st_B0_t${TASK}${TAG}_s${SEED}"; ACTOR=(dice.actor_mode=field_pointwise dice.field.q_source=grad
        dice.field.q_step_size=0.5 dice.field.bc_step_size=0.05 dice.field.total_max_norm=0.15
        +dice.field.restore_step_size=1.0 +dice.field.restore_radius=0.05) ;;
+  # ---------------------------------------------------------------------------
+  # H2: is an ACTION-SPACE CONSTRAINT necessary?  Clean 2x2 over
+  #     (clip on/off) x (anchor on/off), everything else = the frozen B recipe.
+  #
+  # WHY THESE EXIST: the published rho-sweep does NOT isolate the two guards.
+  # Every Porygon arm ships bc_step_size=0.05, and in field_pointwise mode
+  # bc_field = -old_res (distill_rl.py:905) with unit_normalize/adaptive_bc both
+  # false, so the update is
+  #     total_delta = clip( q_step*V_Q + 0.05*(-r) + restore_delta , total_max_norm )
+  # restore_radius->inf only zeroes restore_delta; the -0.05*r pull SURVIVES.
+  # So "rho=inf" is clip + a weak always-on anchor, not clip-only. Removing the
+  # anchor requires bc_step_size=0 AND restore_step_size=0, which is what B_CLIP
+  # and B_NONE do below.
+  #
+  # "clip" = BOTH action-space displacement bounds (q_max_norm on V_Q itself and
+  # total_max_norm on the summed displacement). Turning the clip off must turn
+  # off both, else V_Q is still bounded at 1.0 and the corner is contaminated the
+  # same way rho=inf was. 1e9 is a no-op in clip_field_norm (scale clamps to 1.0).
+  #
+  #   B      = clip ON,  anchor ON   (the frozen recipe; already above)
+  #   B_CLIP = clip ON,  anchor OFF
+  #   B_ANC  = clip OFF, anchor ON
+  #   B_NONE = clip OFF, anchor OFF  -> the unconstrained action-gradient update,
+  #                                     i.e. what the DIPO/QSM family runs
+  B_CLIP) RL_NAME="field_st_BCLIP_t${TASK}${TAG}_s${SEED}"; ACTOR=(dice.actor_mode=field_pointwise dice.field.q_source=grad
+       dice.field.q_step_size=1.0 dice.field.bc_step_size=0.0 dice.field.total_max_norm=0.15
+       dice.field.q_max_norm=1.0
+       +dice.field.restore_step_size=0.0 +dice.field.restore_radius=0.05
+       ++dice.field.restore_radius_rms=true ++dice.use_n_step=true ++dice.n_step=3) ;;
+  B_ANC)  RL_NAME="field_st_BANC_t${TASK}${TAG}_s${SEED}";  ACTOR=(dice.actor_mode=field_pointwise dice.field.q_source=grad
+       dice.field.q_step_size=1.0 dice.field.bc_step_size=0.0 dice.field.total_max_norm=1e9
+       dice.field.q_max_norm=1e9
+       +dice.field.restore_step_size=1.0 +dice.field.restore_radius=0.05
+       ++dice.field.restore_radius_rms=true ++dice.use_n_step=true ++dice.n_step=3) ;;
+  B_NONE) RL_NAME="field_st_BNONE_t${TASK}${TAG}_s${SEED}"; ACTOR=(dice.actor_mode=field_pointwise dice.field.q_source=grad
+       dice.field.q_step_size=1.0 dice.field.bc_step_size=0.0 dice.field.total_max_norm=1e9
+       dice.field.q_max_norm=1e9
+       +dice.field.restore_step_size=0.0 +dice.field.restore_radius=0.05
+       ++dice.field.restore_radius_rms=true ++dice.use_n_step=true ++dice.n_step=3) ;;
   *) echo "unknown EXP=${EXP}"; exit 1 ;;
 esac
 RESUME_FLAG=""

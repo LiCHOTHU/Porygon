@@ -1,239 +1,252 @@
 % Numbers policy: a cell is filled ONLY with a completed, matched-protocol
-% measurement (300-ep robomimic / powered LIBERO). "---" = run in progress.
-% Provisional values live in DEVLOG.md, not here.
+% measurement (300-ep robomimic / powered LIBERO). "---" = NOT MEASURED.
+% Never infer a cell from a related run. Provisional values live in DEVLOG.md.
+%
+% SECTION LOGIC (restructured 2026-08-21). Baseline comparison and mechanism
+% ablation are different jobs and are separated:
+%   H1 (5.2) positioning vs existing fine-tuners      -> tab:baselines
+%   H2 (5.3) is the gain from the update FORM?        -> tab:matched, tab:libero-single
+%   H3 (5.4) is an action-space constraint necessary? -> tab:constraint, fig:containment
+%   H4 (5.5) does it matter WHERE the constraint is?  -> tab:locus
+% then supporting analyses: critic resolution, generality, robustness.
+% Each hypothesis is stated as a falsifiable CLAIM, not a question, and each
+% subsection opens with that claim and the verdict on it.
 
-Our experiments answer four questions. \textbf{Q1:} Given the \emph{same}
-critic, data and budget, does this actor update beat backpropagating $-Q$?
-\textbf{Q2:} Can a one-step drifting base fine-tuned this way match the
-stronger flow-matching pipeline? \textbf{Q3:} \emph{Which component is
-responsible} --- the restoring anchor, or the bound on step size?
-\textbf{Q4:} When should the reward field use the critic's gradient rather
-than only its values?
+We test four claims. The first asks how the method compares to what a
+practitioner could use today. The second is the causal claim, and is the
+paper's main result. The third and fourth ask which part of the method is
+responsible for it.
+
+\begin{itemize}
+  \item[\textbf{H1}] \emph{\method{} matches the strongest existing
+  fine-tuners. The methods closest to it, which have no action-space
+  constraint, do not improve their base at all.}
+  \item[\textbf{H2}] \emph{Change only the actor update, and \method{} gets
+  more out of the same critic than backpropagating $-Q$ does.}
+  \item[\textbf{H3}] \emph{Take the action-space constraint away, and the
+  update destroys the policy.}
+  \item[\textbf{H4}] \emph{The constraint has to act on the action target.
+  The same shape placed in the loss, or on the parameter gradient, does not
+  work.}
+\end{itemize}
+
+Two supporting analyses follow: how much of the critic the update should
+consume (\cref{sec:exp-resolution}), and whether the result depends on the
+generator class the update is attached to (\cref{sec:exp-generality}).
+
+Throughout, ``\,---\,'' means \emph{not measured}. No cell is inferred from a
+related run.
 
 \subsection{Setup}
 \label{sec:exp-setup}
 
-\textbf{Benchmarks.} (i) \emph{robomimic} can and square (state-based;
-300-episode evaluations, average of the last three checkpoints; 3 seeds),
-run inside the official DICE-RL harness with only the actor update
-replaced --- critic, replay, demonstrations, and evaluation protocol are
-byte-identical to the baseline. (ii) The \emph{eight hardest tasks of
-LIBERO-90} (multitask drifting base; 100 RL iterations; final numbers use
-powered evaluation: 100 rollouts $\times$ 3 evaluation seeds).
+\textbf{Benchmarks.} Two, chosen because their critics differ.
+\emph{robomimic} can and square are state-based, single-task, and densely
+covered, so the critic generalizes well; we report 300-episode evaluations
+averaged over the last three checkpoints, on 3 seeds. The \emph{eight
+hardest tasks of LIBERO-90} are image-based and sparsely rewarded, so the
+critic is far weaker; we report powered evaluation --- 100 rollouts $\times$
+3 evaluation seeds. Both run inside the official DICE-RL harness with only
+the actor update replaced, so critic, replay, demonstrations and evaluation
+are byte-identical to the baseline.
 \todo{appendix table: env details, horizons, demo counts, budgets.}
 
-\textbf{Compared methods.} Each comparison is chosen to isolate one of the
-three questions; every method on the drifting base shares the residual
-parameterization, critic, data, and budget, so only the actor update
-varies.
-\begin{itemize}
-  \item \textbf{\method{}}: \cref{eq:update} with the gradient reward
-  field $V_Q^{\mathrm{grad}}$.
-  \item \textbf{Backprop actor} (the controlled comparison for
-  \textbf{Q1}): the DICE-RL residual actor \citep{dicerl2026} ---
-  backpropagated $-Q$ with a filtered BC penalty --- run on \emph{our}
-  drifting base. It consumes the identical critic through the identical
-  residual head, so any gap to \method{} is attributable to the update
-  \emph{form}, not to the base, the reward signal, or the data.
-  \item \textbf{FM + DICE-RL} (the external reference for \textbf{Q2}):
-  the unmodified state-of-the-art pipeline on its own flow-matching base
-  \citep{dicerl2026}. It answers whether the one-step base plus \method{}
-  competes with the strongest published system, not merely with its own
-  control.
-  \item \textbf{\method{} (top-$k$)} and \textbf{\method{} (tilted)}
-  (resolution ablations for \textbf{Q3}, not baselines): the same update
-  with the reward field built from the critic's \emph{rankings}
-  (transport toward the top-$k$ particles) or its \emph{soft values}
-  ($\exp(Q/\tau)$-weighted self-attraction). Each deletes the critic's
-  gradient direction while changing nothing else, measuring how much of
-  \method{}'s gain flows through that one channel --- and, in the
-  weak-critic LIBERO regime, whether the gradient is worth consuming at
-  all.
-\end{itemize}
-Hyperparameters are \emph{family-shared} across \method{} and its two
-resolution variants, so comparisons isolate the update rule rather than
-tuning effort. One recipe is used per benchmark and never per task:
-$\delta_{\mathrm{tot}}{=}0.15$, $\eta_{\mathrm{anc}}{=}1.0$, $\tau{=}1$,
-$k{=}4$ throughout, with reward step $\eta_Q{=}0.5$ on robomimic and
-$\eta_Q{=}1.0$ on LIBERO, and a dead-zone radius $\rho{=}0.05$ in
-dimension-independent rms units on LIBERO (\cref{sec:exp-ablation} shows why
-the units matter).
+\textbf{How we report success.} Fine-tuners in this literature start from
+different pretrained policies, so absolute success confounds the fine-tuner
+with its base. Where methods do not share a base we give each method's own
+base next to its result, and compare
+$\Delta = \text{fine-tuned} - \text{its own base}$. Only in
+\cref{sec:exp-form}, where every row is literally the same checkpoint, do we
+compare absolute numbers.
 
-\subsection{Robomimic: the gradient regime}
-\label{sec:exp-robomimic}
+\textbf{Methods.} Every method on the drifting base shares the residual
+parameterization, critic, data and budget, so only the actor update varies.
+
+\begin{itemize}
+  \item \textbf{\method{}} --- \cref{eq:update} with the gradient reward
+  field $V_Q^{\mathrm{grad}}$.
+  \item \textbf{Backprop actor} --- the DICE-RL residual actor
+  \citep{dicerl2026}: backpropagated $-Q$ with a filtered behaviour-cloning
+  penalty, run on \emph{our} drifting base. It reads the identical critic
+  through the identical residual head, so any gap is attributable to the
+  update form. Note that it already carries two constraints of its own: the
+  BC penalty in its loss, and gradient-norm clipping at $1.0$ on the actor.
+  Both matter in \cref{sec:exp-locus}.
+  \item \textbf{FM + DICE-RL} --- the published pipeline, unmodified, on its
+  own flow-matching base.
+  \item \textbf{Classic diffusion-RL fine-tuners} (DIPO, QSM, DQL, IDQL,
+  AWR) --- official implementations, unmodified, from their own diffusion
+  base at their own published budget.
+  \item \textbf{\method{} (top-$k$)} and \textbf{(tilted)} --- the same
+  update with the reward field built from the critic's rankings or its soft
+  values instead of its gradient (\cref{sec:exp-resolution}).
+\end{itemize}
+
+\textbf{Hyperparameters} are shared across \method{} and its variants, one
+recipe per benchmark and never per task: $\delta_{\mathrm{tot}}{=}0.15$,
+$\eta_{\mathrm{anc}}{=}1.0$, $\tau{=}1$, $k{=}4$, with reward step
+$\eta_Q{=}0.5$ on robomimic and $\eta_Q{=}1.0$ on LIBERO, and a dead-zone
+radius $\rho{=}0.05$ in dimension-independent rms units on LIBERO.
+
+\subsection{H1: where the method stands among existing fine-tuners}
+\label{sec:exp-baselines}
 
 % BUDGET DISCLOSURE (verified 2026-08-17, do not lose):
 %   "matched budget" is accurate ONLY for the DICE-RL backprop control, which
-%   runs in OUR harness at OUR budget. The DPPO-family baselines (DIPO, QSM,
-%   DQL, IDQL, AWR) run in THEIR harness at THEIR published budget, which is
-%   far larger:
-%     ours      : 12,000 train steps x n_envs 4  x act_steps 4 =    192,000 env steps
-%     baselines : 300 iters x n_steps 400 x n_envs 50 x act_steps 4 = 24,000,000 env steps
-%   => the baselines receive ~125x MORE environment interaction than we do.
-%   This is deliberate (their published settings; conservative, favours them),
-%   but the caption must say so plainly and must NOT call these rows
-%   "matched budget". Phrase as: baselines at their published budget, ~125x
-%   our environment interaction.
+%   runs in OUR harness at OUR budget. The DPPO-family baselines run in THEIR
+%   harness at THEIR published budget:
+%     ours      : 12,000 steps x n_envs 4  x act_steps 4 =    192,000 env steps
+%     baselines : 300 iters x 400 x 50 x 4              = 24,000,000 env steps
+%   => ~125x MORE interaction than we use. Deliberate (their settings, favours
+%   them), but never call these rows "matched budget".
+
+\textbf{Claim.} \method{} matches the strongest existing fine-tuners, and
+the methods closest to it --- those with no action-space constraint --- do
+not improve their base at all.
+
+\textbf{Verdict.} Both halves hold. We \emph{match} the strongest pipeline
+rather than beating it, and we say so.
+
 \begin{table}[t]
 \centering
-\caption{robomimic success rate (300-episode evaluations, last-3-checkpoint
-average, per seed). Bold marks the best value in each column (ties within
-$0.005$). ``---'' = matched-budget run still in progress at
-submission-draft time; no provisional numbers are shown.
-$^{\dagger}$ these two baseline runs terminated before $20$K steps, so their
-last-three-checkpoint averages are taken at $17$--$19$K (s42) and
-$14$--$16$K (s43); both curves are flat over that window, so the earlier
-window if anything favours the baseline.}
-\label{tab:robomimic}
+\caption{Fine-tuners on robomimic square, each from its own pretrained base.
+The classic diffusion-RL methods run from official implementations without
+modification, at their published settings, which give them
+$300\times400\times50\times4 \approx 24$M environment steps against our
+$192$K --- roughly $125\times$ our interaction. This is deliberately generous
+to them and is \emph{not} a matched-budget comparison. They are also robomimic-only: their official
+implementations do not support LIBERO, so the LIBERO comparison in
+\cref{tab:libero-single} is carried by FM + DICE-RL and GRPO instead.
+Success uses the same 300-episode protocol throughout. ``---'' = not measured; we have not run the
+flow-matching base on square, so its $\Delta$ is unavailable.}
+\label{tab:baselines}
+\small
+\begin{tabular}{llccc}
+\toprule
+method & policy class & own base & fine-tuned & $\Delta$ \\
+\midrule
+DIPO \citep{dipo2024}     & diffusion & 0.279 & 0.283 & $+0.004$ \\
+QSM \citep{psenka2024qsm} & diffusion & 0.279 & 0.000 & $-0.279$ \\
+DQL                       & diffusion & 0.279 & ---   & --- \\
+IDQL                      & diffusion & 0.279 & ---   & --- \\
+AWR                       & generic   & 0.279 & ---   & --- \\
+\midrule
+FM + DICE-RL \citep{dicerl2026} & flow matching & --- & 0.923--0.934 & --- \\
+\method{}                       & one-step drifting & 0.382 & 0.912--0.930 & $+0.53$--$0.55$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Against the published flow-matching pipeline we reach parity, not
+superiority: $0.912$--$0.930$ against $0.923$--$0.934$ across three seeds.
+What we can say is that we reach it from a base of $0.382$.
+
+The two finished rows above the line are the ones that matter for this
+paper. DIPO ends at $0.283$ against its own base of $0.279$ --- four tenths
+of a point after $24$M environment steps, inside evaluation noise. QSM
+collapses to exactly $0.000$ in all six evaluation blocks.
+
+We checked our own setup before reporting a collapse. Every hyperparameter
+matches the published configuration ($n_{\mathrm{critic\ warmup}}{=}5$,
+actor/critic learning rates $10^{-5}/10^{-3}$, $q_{\mathrm{grad}}$
+coefficient $10$, $\tau{=}0.005$, buffer $5000$, replay ratio $16$, batch
+$1000$), and it gets more training than published, not less ($300$ against
+$201$ iterations). The failure is immediate rather than gradual: base level
+($0.284$) at iteration $0$, zero by iteration $10$, unchanged for the next
+$290$. Both losses \emph{converge} (actor $0.002$, critic $0.01$) rather
+than diverging. That is the signature of a degenerate fixed point --- once
+the policy stops succeeding every reward is zero, the critic correctly
+learns $Q\approx 0$ everywhere, and $\nabla_a Q$ carries no signal with
+which to recover. One caveat: our diffusion base scores $0.279$ where the
+original authors report roughly $0.4$, and a weaker base implies a worse
+early critic, so we do not claim this reproduces any published QSM number.
+
+The reading that matters is this. DIPO and QSM use the update form we adopt.
+They run in their authors' own code, at $125\times$ our interaction budget,
+and \emph{neither improves its base}. They are the unconstrained corner of
+our own design space, measured externally --- and \cref{sec:exp-constraint}
+reproduces exactly that behaviour inside our system by switching our
+constraint off. What separates \method{} from them is not the signal, the
+budget, or the policy class.
+
+\subsection{H2: the update form is what converts critic signal into success}
+\label{sec:exp-form}
+
+\textbf{Claim.} Change only the actor update, and \method{} gets more out of
+the same critic than backpropagating $-Q$ does.
+
+\textbf{Verdict.} Holds on both benchmarks, on every seed, on both bases.
+This is the paper's main result.
+
+\begin{table}[t]
+\centering
+\caption{Matched actor-update comparison on robomimic (300-episode
+evaluations, last-3-checkpoint average, per seed). Every row shares the same
+base checkpoint, critic, data, replay and budget; only the actor update
+differs. $^{\dagger}$ these two runs ended before $20$K steps, so their
+last-three averages are taken at $17$--$19$K (s42) and $14$--$16$K (s43);
+both curves are flat there, so the earlier window if anything favours the
+baseline.}
+\label{tab:matched}
 \small
 \begin{tabular}{lcccccc}
 \toprule
  & \multicolumn{3}{c}{can} & \multicolumn{3}{c}{square} \\
 \cmidrule(lr){2-4}\cmidrule(lr){5-7}
-method & s42 & s43 & s44 & s42 & s43 & s44 \\
+actor update & s42 & s43 & s44 & s42 & s43 & s44 \\
 \midrule
-drift base (no RL)         & \multicolumn{3}{c}{0.877} & \multicolumn{3}{c}{0.382} \\
-backprop actor (same base) & 0.970$^{\dagger}$ & 0.946$^{\dagger}$ & 0.940 & 0.870 & 0.909 & 0.861 \\
-FM + DICE-RL               & \textbf{0.989} & 0.979 & \textbf{0.986} & \textbf{0.934} & 0.923 & \textbf{0.930} \\
-\method{} (top-$k$)        & 0.924 & 0.920 & 0.910 & 0.562 & 0.525 & 0.562 \\
-\method{} (tilted)         & 0.949 & 0.947 & 0.919 & 0.578 & 0.584 & 0.560 \\
-\method{}                  & 0.988 & \textbf{0.993} & 0.978 & 0.912 & \textbf{0.930} & 0.929 \\
+none (frozen base)        & \multicolumn{3}{c}{0.877} & \multicolumn{3}{c}{0.382} \\
+backprop $-Q$             & 0.970$^{\dagger}$ & 0.946$^{\dagger}$ & 0.940 & 0.870 & 0.909 & 0.861 \\
+field-target + constraint & \textbf{0.988} & \textbf{0.993} & \textbf{0.978} & \textbf{0.912} & \textbf{0.930} & \textbf{0.929} \\
 \bottomrule
 \end{tabular}
 \end{table}
-
-\begin{table}[t]
-\centering
-\caption{Classic diffusion-RL fine-tuners on robomimic square, run from the
-official implementations without modification and from their own diffusion
-base (seed 42). These methods are \emph{not} run at our budget: at their
-published settings each consumes $300\times400\times50\times4 \approx 24$M
-environment steps, roughly $125\times$ the $192$K our own runs use, so the
-comparison is generous to them. Success is the same 300-episode protocol used
-throughout. ``---'' = training still in progress. \method{} is listed for
-reference only and starts from a different (drifting) base, which is why the
-base row for each column is given separately.}
-\label{tab:dppo-baselines}
-\small
-\begin{tabular}{lcc}
-\toprule
-method & base it starts from & square (300 ep) \\
-\midrule
-diffusion base (no RL)   & ---            & 0.279 \\
-DIPO \citep{dipo2024}     & diffusion base & 0.283 \\
-QSM \citep{psenka2024qsm} & diffusion base & 0.000 \\
-DQL                       & diffusion base & --- \\
-IDQL                      & diffusion base & --- \\
-AWR                       & diffusion base & --- \\
-\midrule
-\method{} \emph{(reference; drifting base $0.382$)} & drifting base & 0.912--0.930 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Two of these have finished. DIPO ends at $0.283$ against its own base of $0.279$ --- a gain of
-$0.4$ points after $24$M environment steps, inside evaluation noise. QSM collapses to
-exactly $0.000$ in all six evaluation blocks. We checked the obvious explanation
-first: every hyperparameter in our QSM configuration matches the published one
-($n_{\mathrm{critic\ warmup}}{=}5$, actor/critic learning rates $10^{-5}/10^{-3}$,
-$q_{\mathrm{grad}}$ coefficient $10$, $\tau{=}0.005$, buffer $5000$, replay ratio
-$16$, batch $1000$), and we give it more training than published, not less
-($300$ against $201$ iterations). The collapse is also immediate rather than
-gradual: success is at base level ($0.284$) at iteration $0$ and at zero by
-iteration $10$, where it remains for the following $290$ iterations. Both losses
-\emph{converge} (actor $0.002$, critic $0.01$) rather than diverging, which is
-the signature of a degenerate fixed point --- once the policy stops succeeding,
-every reward is zero, the critic correctly learns $Q\approx 0$ everywhere, and
-$\nabla_a Q$ carries no signal with which to recover. QSM aligns the policy's
-score \emph{to} $\nabla_a Q$ rather than adding a bounded correction to it, and
-nothing in the update ties the result to the base; this is the failure our
-constraint is meant to exclude. We note one caveat against reading too much into
-the magnitude: our diffusion base scores $0.279$ where the original authors
-report roughly $0.4$ on this task, and a weaker base implies a worse early
-critic, so we do not claim our $0.000$ reproduces any published number.
-
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/robomimic_curves.pdf}
   \caption{robomimic learning curves (300-episode evaluations every 1K
-  steps; mean and min--max band over seeds; dashed vertical line marks the
-  matched 20K budget). On square, \method{} overtakes the backprop actor
-  by 7K steps and holds a $4$--$7$-point lead through the
-  matched budget; the value-only variants (top-$k$, tilted) flatline near
-  $0.55$. On can,
-  \method{} and the flow-matching pipeline both approach the ceiling
-  ($\geq 0.98$). \todo{regenerate with the s44 and can-baseline reruns
-  when they finish.}}
+  steps; mean and min--max band over seeds; dashed line marks the matched
+  20K budget). On square \method{} overtakes the backprop actor by 7K steps
+  and holds a $4$--$7$-point lead through the matched budget; the value-only
+  variants flatline near $0.55$. On can both approach the ceiling.
+  \todo{regenerate with the s44 and can-baseline reruns when they finish.}}
   \label{fig:curves}
 \end{figure}
 
-\Cref{tab:robomimic} gives the per-seed results, and \cref{fig:curves}
-the corresponding learning curves. On can, fine-tuning saturates the task:
-\method{} reaches $0.978$--$0.993$ from a base at $0.877$, the
-flow-matching pipeline reaches $0.979$--$0.989$, and the backprop actor
-trails slightly at $0.940$--$0.970$ --- the can task chiefly certifies
-that the field update preserves (and slightly extends) the base's
-competence at the ceiling. The discriminative task is square, where the drifting base solves
-only $0.382$ of episodes; \method{} adds $55$ points, reaching
-$0.91$--$0.93$ on every seed. The backprop actor --- same base,
-same critic, same data, same budget --- reaches $0.86$--$0.91$
-(\textbf{Q1}): given the identical reward signal, the field-target form
-extracts strictly more progress at the matched budget. Against the
-flow-matching pipeline, \method{} reaches parity on both tasks
-($0.91$--$0.93$ vs.\ $0.92$--$0.93$ on square; $0.99$ vs.\ $0.99$ on can)
---- but from a base less than half as strong on square (\textbf{Q2}): the
-safer update recovers the headroom the weaker base gives up.
+Can is close to saturated and mainly checks that nothing breaks: \method{}
+reaches $0.978$--$0.993$ from a base of $0.877$, the backprop actor
+$0.940$--$0.970$. Square is the discriminative task. Its base solves only
+$0.382$ of episodes; \method{} adds $55$ points to reach $0.91$--$0.93$ on
+every seed, where the backprop actor reaches $0.86$--$0.91$. Same critic,
+same data, same budget, different update: the field-target form extracts
+more, on every seed of both tasks.
 
-\emph{Why does the form win?} The anchor decouples two jobs that a
-behaviour-cloning penalty must do with one knob. Inside the dead zone the
-critic is followed without opposition; outside it the policy is returned.
-That is what lets \method{} tolerate a reward step
-($\eta_Q{=}0.5$) far above what the backprop actor can survive,
-and simply takes more, safer steps in the directions where the critic is
-consistent. The backprop actor must instead keep its effective step small
-enough for its \emph{worst} critic errors, and it pays in speed:
-\method{} reaches $0.91$ on every seed by $15$K steps --- a level the
-backprop actor needs another $5$--$10$K steps to reach. Its
-matched-budget endpoint trails \method{}'s on every seed, and the gap
-closes only near $40$K, where both converge to $0.97$--$0.99$. The form's advantage on this benchmark is therefore a
-faster, never-worse path to the same asymptote --- exactly what a
-bounded-step update should buy \todo{quantify further with the
-stability-window ablation (\cref{sec:exp-ablation}, iii)}.
+\Cref{fig:curves} shows the difference is in speed as much as in endpoint.
+\method{} reaches $0.91$ on every seed by $15$K steps; the backprop actor
+needs another $5$--$10$K steps to get there, trails at the matched budget on
+every seed, and catches up only near $40$K where both converge to
+$0.97$--$0.99$. A bounded update buys a faster, never-worse path to the same
+asymptote.
 
-The dial answers \textbf{Q3} in its first regime: with a critic that
-generalizes (robomimic critics see dense, single-task data), the value-only
-reward fields preserve can ($0.91$--$0.95$) but collapse on square
-($0.53$--$0.58$ versus \method{}'s $0.91$--$0.93$), despite
-verified-healthy residuals and longer training. Deleting the gradient
-direction throws away exactly the
-signal that solves the harder task --- the real-benchmark mirror of the
-toy's easy regime, where the compass wins.
-
-\subsection{LIBERO hard-8: the weak-critic regime}
-\label{sec:exp-libero}
-
-On the eight hardest tasks of LIBERO-90 we deploy \method{} as a
-\emph{routing system}: one frozen multitask drifting base, one small
-per-task residual head and critic fine-tuned by \method{} on each task's
-own interactions, and task-ID routing at deployment --- the architecture
-every published LIBERO RL fine-tuner effectively uses. One recipe is
-shared across all tasks with no per-task tuning ($\eta_Q{=}1.0$,
-dead-zone anchor with a dimension-independent rms radius $\rho{=}0.05$,
-$3$-step returns, $40$ iterations of $16$ episodes).
+\paragraph{LIBERO hard-8.} Here we deploy \method{} as a routing system: one
+frozen multitask drifting base, one small per-task residual head and critic
+fine-tuned on each task's own interactions, and task-ID routing at
+deployment. This is the architecture every published LIBERO RL fine-tuner
+effectively uses. One recipe is shared across all eight tasks with no
+per-task tuning.
 
 \begin{table}[t]
 \centering
-\caption{LIBERO hard-8, per-task fine-tuning from the shared drifting
-base (success under powered evaluation: $100$ rollouts $\times$ $3$
-evaluation seeds; \method{} rows average the last three training
-checkpoints, and two training seeds on t32/t53/t65). One recipe across
-all tasks. Across the five tasks trained with two seeds the spread is
-$0.000$, $0.003$, $0.004$, $0.019$ and $0.089$ (t75, t73, t53, t32,
-t65): negligible except on the highest-headroom task, so on all tasks
-but t65 differences of a few points are meaningful, while on t65 only
-gaps above $\sim\!9$ points are. ``---'' = run still in
-progress at draft time.}
+\caption{LIBERO hard-8, per-task fine-tuning from the shared drifting base.
+Powered evaluation: 100 rollouts $\times$ 3 evaluation seeds; \method{} rows
+average the last three training checkpoints, and two training seeds on
+t32/t53/t65. One recipe across all tasks. Across the five tasks trained with
+two seeds the spread is $0.000$, $0.003$, $0.004$, $0.019$ and $0.089$ (t75,
+t73, t53, t32, t65) --- negligible except on t65, where only gaps above
+$\sim\!9$ points are meaningful. The lower block repeats the comparison on a
+flow-matching base (\cref{sec:exp-generality}); its blanks are unrun cells,
+and a row mean is withheld until all eight are measured.}
 \label{tab:libero-single}
 \small
 \setlength{\tabcolsep}{4.2pt}
@@ -246,7 +259,7 @@ backprop actor     & 0.820 & 0.703 & 0.587 & 0.800 & 0.550 & 0.663 & 0.583 & 0.6
 \method{} ($\eta_Q{=}1$) & 0.831 & 0.737 & 0.694 & 0.842 & 0.826 & 0.710 & \textbf{0.657} & 0.607 & 0.738 \\
 \method{} ($\eta_Q{=}2$) & 0.857 & \textbf{0.752} & 0.729 & 0.853 & 0.812 & \textbf{0.752} & 0.648 & 0.635 & \textbf{0.755} \\
 \midrule
-\multicolumn{10}{l}{\emph{same protocol, flow-matching base (4 tasks measured)}} \\
+\multicolumn{10}{l}{\emph{same protocol, flow-matching base}} \\
 FM base (no RL)    & \textbf{0.897} & 0.700 & 0.690 & \textbf{0.917} & 0.787 & 0.683 & 0.620 & \textbf{0.733} & 0.753 \\
 FM + DICE-RL       & 0.873 & --- & 0.682 & 0.915 & 0.809 & 0.690 & 0.592 & 0.708 & --- \\
 FM + GRPO          & --- & --- & 0.700 & 0.897 & \textbf{0.883} & --- & 0.603 & --- & --- \\
@@ -255,86 +268,45 @@ FM + \method{}     & --- & --- & \textbf{0.738} & 0.897 & 0.878 & --- & 0.608 & 
 \end{tabular}
 \end{table}
 
-\Cref{tab:libero-single} gives the verdict across all eight tasks:
-\method{} gains $+3.9$ to $+23.9$ points per task (mean $+9.4$ at
-$\eta_Q{=}2$, $+7.7$ at $\eta_Q{=}1$), improving on the base for
-\emph{every} task at both settings --- on the highest-headroom task it reaches $0.781$,
-above the best previously recorded result on that task by any method ---
-while the backpropagated actor consuming the \emph{same} per-task
-critics averages $+0.9$, going \emph{below base} on the two
-highest-headroom tasks. The robomimic ordering (\textbf{Q1}) transfers
-intact to the harder benchmark: identical reward signal, and only the
-field-target form converts it into gains without ever falling below the
-base. Two implementation findings were load-bearing and are ablated in
-\cref{sec:exp-ablation}: the anchor's dead zone must be defined in
-dimension-independent rms units (the vector-norm form silently
-re-activates the anchor at LIBERO's $S{=}112$ chunk dimension and
-freezes the residual), and the weaker critic gradient
-($\|\nabla_a Q\|$ roughly $4\times$ smaller than robomimic's) requires
-the doubled reward step the anchor makes safe. Sweeping the reward step across all eight tasks confirms
-this at the table level: $\eta_Q{=}2$ improves the mean from $0.738$ to
-$0.755$ and helps on six of eight tasks (the two exceptions, $-0.014$ and
-$-0.009$, are inside the seed spread), and the benefit is
-\emph{uncorrelated} with the critic's action-gradient magnitude --- the
-task with the deadest critic (t81, $\|\nabla_a Q\|\!=\!0.007$) gains
-$+2.8$, as much as the strongest-gradient tasks. The reward step therefore
-acts mainly by reducing the anchor's drag rather than by exploiting more
-first-order signal, and the trust region is what keeps the larger step
-safe: no setting on any task falls below its base.
+The verdict spans all eight tasks. \method{} gains $+3.9$ to $+23.9$ points
+per task (mean $+9.4$ at $\eta_Q{=}2$, $+7.7$ at $\eta_Q{=}1$) and improves
+on the base for every one. The backprop actor, reading the \emph{same}
+per-task critics, averages $+0.9$ and drops below base on the two
+highest-headroom tasks. The robomimic ordering transfers intact to the
+harder benchmark.
 
-The flow-matching rows settle \textbf{Q1} independently of the base. On
-its own, stronger base the state-of-the-art pipeline extracts essentially
-nothing per task: FM + DICE-RL scores $-0.8$, $-0.2$, $+2.2$ and $-2.8$
-points relative to the FM base on t32, t53, t65 and t75 (mean $-0.4$),
-the same near-zero extraction its actor shows on the drifting base
-($+0.9$). Swapping only the actor update helps on three of the four tasks:
-\method{} on the \emph{identical} flow-matching base and budget beats
-FM + DICE-RL by $+5.6$ (t32), $+6.9$ (t65) and $+1.6$ (t75), reaching
-$0.738$ and $0.878$ on the first two --- $+4.8$ and $+9.1$ over that base.
-The exception is instructive: on t53 the flow-matching base already scores
-$0.917$ and \emph{neither} update improves it ($-1.8$ for \method{},
-$-0.2$ for DICE-RL). Indeed the never-below-base behaviour \method{}
-shows on all eight drifting-base tasks does not carry over to this base:
-on t53 and t75 it ends $2.0$ and $1.2$ points below its starting point.
-Fine-tuning a base that is already near its ceiling is a different problem
-from lifting a weak one, and our trust region is calibrated for the
-latter.
+Two implementation details were load-bearing and are ablated in
+\cref{sec:exp-robustness}. The dead zone must be measured in
+dimension-independent rms units: in vector-norm units the base residual
+already exceeds $\rho$ at LIBERO's $S{=}112$ chunk dimension, so the anchor
+is active from the first update and freezes the residual. And the weaker
+critic gradient here rewards a doubled reward step, which the constraint
+makes safe to take: $\eta_Q{=}2$ lifts the mean from $0.738$ to $0.755$ and
+helps on six of eight tasks, with no setting on any task falling below its
+base.
 
-Adding the critic-free policy-gradient baseline at the same budget
-completes the picture. On the one task with real headroom from the
-flow-matching base, GRPO and \method{} extract essentially the same
-amount ($0.883$ and $0.878$ on t65, both $\approx\!+9.5$) while the
-backpropagated actor manages $+2.2$; on t32 \method{} leads ($0.738$ vs.\
-$0.700$); on the two tasks where no method gains, all three sit together.
-The separation on this benchmark is therefore not \method{} against the
-world but \emph{update form} against backpropagation-through-the-critic:
-the field update matches what a policy-gradient method extracts, without
-requiring the noise-injection surrogate that makes likelihood ratios
-available for a one-step generator in the first place. The field-target form,
-not the base and not the reward signal, is what converts critic signal
-into success. It also puts the \textbf{Q2} comparison in perspective:
-\method{} on the weak one-step base reaches $0.781$ on t65 against the
-flow-matching pipeline's $0.809$ --- within three points, from a base
-$21$ points lower --- and \emph{exceeds} it on t75 ($0.657$ vs.\ $0.592$)
-and on t32 once the reward step is matched to that task's stronger critic
-gradient ($0.729$ vs.\ $0.682$).
+\paragraph{Comparison to a critic-free policy gradient.} On the one
+flow-matching task with real headroom, GRPO and \method{} extract the same
+amount ($0.883$ and $0.878$ on t65, both about $+9.5$) while the backprop
+actor manages $+2.2$. On t32 \method{} leads ($0.738$ against $0.700$). On
+the tasks where nothing gains, all three sit together. So the separation on
+this benchmark is not \method{} against the world; it is update form against
+backpropagation-through-the-critic. \method{} matches what a policy-gradient
+method extracts without needing the noise-injection surrogate that makes
+likelihood ratios definable for a one-step generator in the first place.
 \todo{per-task figure; remaining FM cells and matched-budget FM + GRPO.}
 
-\paragraph{Why not one shared critic? The multitask control.}
-The alternative to routing is a single policy and critic trained on all
-eight tasks jointly. This setting flips the critic's situation: our
-diagnostics show the shared critic's action-gradient collapses on most
-tasks (per-task $\|\nabla_a Q\|$ spanning $0.003$ to $0.55$), and the
-toy predicts the resolution dial should compress.
+\paragraph{Where H2 stops: the shared-critic control.} The alternative to
+routing is one policy and one critic trained on all eight tasks jointly.
+This flips the critic's situation --- our diagnostics show the shared
+critic's action-gradient collapsing on most tasks, with per-task
+$\|\nabla_a Q\|$ spanning $0.003$ to $0.55$.
 
 \begin{table}[t]
 \centering
-\caption{LIBERO hard-8 mean success under powered evaluation ($100$
-rollouts $\times$ $3$ evaluation seeds per cell; one column per training
-seed; $100$ RL iterations). Neither base is moved by \emph{any}
-fine-tuner: the weak multitask critic supports no extractable gain, for
-backpropagation and field transport alike. ``---'' = evaluation still
-running.}
+\caption{LIBERO hard-8 mean success under powered evaluation (100 rollouts
+$\times$ 3 evaluation seeds per cell; one column per training seed; 100 RL
+iterations). Neither base is moved by \emph{any} fine-tuner.}
 \label{tab:libero}
 \small
 \begin{tabular}{lccc}
@@ -348,62 +320,282 @@ backprop actor (same base) & 0.657 & 0.655 & 0.668 \\
 \method{}                  & 0.655 & --- & 0.659 \\
 \midrule
 flow-matching base (no RL) & \multicolumn{3}{c}{$0.738 \pm 0.022$} \\
-FM + DICE-RL               & \textbf{0.756} & \textbf{0.735} & \textbf{0.737} \\
+FM + DICE-RL               & 0.756 & 0.735 & 0.737 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The powered numbers (\cref{tab:libero}) deliver a verdict that noisy
-small-sample readouts had obscured: \emph{nothing wins here}. On the
-drifting base, the backprop actor ($0.655$--$0.668$), \method{}
-($0.655$--$0.659$), and every resolution variant ($0.66$--$0.70$) all sit
-within noise of the untuned base ($0.671 \pm 0.014$). The flow-matching
-pipeline looks stronger in absolute terms ($0.735$--$0.756$) --- but its
-own base already scores $0.738 \pm 0.022$, so DICE-RL likewise extracts
-essentially nothing; its apparent lead on this benchmark is inherited
-entirely from pretraining. Applying our \emph{final} recipe --- every fix and
-hyperparameter that yields $+9.4$ per task --- to this shared-critic setting
-changes nothing ($0.668$ versus base $0.671$), confirming that what fails here
-is the critic, not the update rule or its tuning. Three honest conclusions follow. First, the
-weak-critic regime is a \emph{no-gain} regime for every update rule we
-tested: when the shared critic's action-signal is this poor, neither
-backpropagating it nor transporting along it, at any resolution, converts
-it into task success. Second, the dial compresses exactly as the toy
-predicts --- gradient, ranking, and soft-value sources become
-indistinguishable --- though in the starkest possible form. Third, every
-drift-base arm \emph{preserves} the base within noise: the failure mode of
-\cref{fig:intuition} does not appear even for the backprop actor,
-consistent with the diagnosis that this critic is action-blind rather than
-action-exploitable --- there is no steep hallucinated gradient to ride.
-Small-sample evaluations told a different, wrong story (single-seed
-$20$-episode endpoints ranged $0.63$--$0.78$ across these same arms);
-powered evaluation collapses that spread to the base value.
-\todo{per-task breakdown figure (\texttt{scripts/plot\_libero\_pertask.py})
-once the remaining seed evaluations land; include the guarded BC-filter
-interaction in the appendix.}
+Nothing wins here. On the drifting base the backprop actor
+($0.655$--$0.668$), \method{} ($0.655$--$0.659$) and every resolution
+variant ($0.66$--$0.70$) all sit within noise of the untuned base
+($0.671 \pm 0.014$). The flow-matching pipeline looks stronger in absolute
+terms ($0.735$--$0.756$), but its own base already scores
+$0.738 \pm 0.022$, so it too extracts essentially nothing; its apparent lead
+is inherited from pretraining. Applying our \emph{final} recipe --- every
+fix and hyperparameter behind the $+9.4$ --- changes nothing here ($0.668$
+against base $0.671$).
 
-\subsection{Ablations: which component pays where}
-\label{sec:exp-ablation}
+This bounds H2 rather than contradicting it. The update form converts critic
+signal into success; where there is no usable signal there is nothing to
+convert. It is also worth noting that every drift-base arm \emph{preserves}
+the base within noise, including the backprop actor --- consistent with a
+critic that is action-blind rather than action-exploitable. There is no
+steep hallucinated gradient here to ride. Finally, a methodological note:
+single-seed 20-episode endpoints ranged $0.63$--$0.78$ across these same
+arms, and powered evaluation collapses that spread to the base value.
+\todo{per-task breakdown figure once the remaining seed evaluations land.}
 
-\begin{figure}[t]
-  \centering
-  \figplaceholder{3.6cm}{\textbf{[Figure reserved: two ablation panels.]}
-  Left --- \emph{stability window}: final square success vs.\ reward step
-  $\eta_Q$ for \method{} and for the backpropagated control (A + gradient
-  clipping); the claim is a wide flat optimum for the field form vs.\ a
-  narrow peak for backpropagation. Right --- \emph{dispersion retention}:
-  action dispersion and best-of-$N$ curve before/after fine-tuning for
-  \method{} vs.\ A.}
-  \caption{Ablations: where the trust region and update form pay.
-  \todo{runs in progress}}
-  \label{fig:ablations}
-\end{figure}
+\subsection{H3: the action-space constraint is what makes the form viable}
+\label{sec:exp-constraint}
+
+\textbf{Claim.} Take the action-space constraint away, and the update
+destroys the policy.
+
+\textbf{Verdict.} The decisive cell is measured and unambiguous: success
+falls to exactly $0.000$. The other three cells are running.
+
+\method{} bounds the target's motion two ways: a pointwise clip on each
+particle's displacement, and the dead-zone anchor. We claim neither over the
+other. The hypothesis is that \emph{some} action-space constraint is
+necessary, so the experiment is the full factorial.
 
 \begin{table}[t]
 \centering
-\caption{LIBERO ablations: leave-one-out on the frozen recipe, two tasks,
-powered evaluation (last-3 checkpoints). Every row changes exactly one
-component. $\Delta$ is relative to the full recipe.}
+\caption{Constraint factorial on the frozen LIBERO recipe, powered
+evaluation (last-3 checkpoints). ``Clip off'' disables \emph{both}
+displacement bounds ($\delta_Q$ and $\delta_{\mathrm{tot}}$); ``anchor off''
+disables \emph{both} restoring terms. The $(\times,\times)$ row is the
+unconstrained action-gradient update --- the form DIPO and QSM run
+(\cref{tab:baselines}). ``---'' = not measured.}
+\label{tab:constraint}
+\small
+\begin{tabular}{cclcc}
+\toprule
+clip & anchor & configuration & t65 (base $0.573$) & t32 (base $0.610$) \\
+\midrule
+$\times$ & $\times$ & unconstrained transport & 0.000 & 0.000 \\
+$\checkmark$ & $\times$ & step containment only & --- & --- \\
+$\times$ & $\checkmark$ & base-restoring only   & --- & --- \\
+$\checkmark$ & $\checkmark$ & \textbf{full \method{}} & \textbf{0.781} & \textbf{0.684} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \figplaceholder{4.0cm}{\textbf{[Figure reserved: containment dynamics.]}
+  Left --- success against training iteration for the four rows of
+  \cref{tab:constraint} plus the backprop control. Right --- distance of the
+  policy from its frozen base,
+  $D_{\mathrm{base}}(t)=\mathbb{E}_{s,z}\|r_\theta(s,z)\|_{\mathrm{rms}}$,
+  and the fraction of particles outside the trust radius
+  $P_{\mathrm{out}}(t)$, for the same arms. The prediction is that the
+  unconstrained arm's $D_{\mathrm{base}}$ grows without bound as its success
+  falls to zero, while every constrained arm holds $D_{\mathrm{base}}$
+  stationary.}
+  \caption{Containment, measured rather than assumed. \todo{runs launched.}}
+  \label{fig:containment}
+\end{figure}
+
+With no constraint at all, success is exactly $0.000$ on both tasks, from
+bases of $0.573$ and $0.610$. The unconstrained action-gradient update
+destroys the policy. This reproduces inside our own system --- our critic,
+our data, our budget --- the behaviour DIPO and QSM show in their authors'
+code at $125\times$ the interaction. That is the paper's central negative
+result, and it is why we claim the constraint rather than the transport.
+
+\Cref{fig:containment} is where the mechanism becomes visible instead of
+inferred. Endpoint success tells us that constrained arms work; the residual
+trajectory tells us whether the policy was held near its base throughout, or
+merely happened to end near it.
+
+\paragraph{The constraint's shape is not critical; its presence is.}
+\Cref{tab:rho-sweep} sweeps the dead-zone radius over two orders of
+magnitude. Every interior setting lands between $0.771$ and $0.863$ on t65
+and between $0.671$ and $0.734$ on t32 --- a spread no larger than this
+benchmark's seed-to-seed variation.
+
+The two endpoints behave differently, and the difference is the point. At
+$\rho{=}0$ the anchor becomes an always-on behaviour-cloning penalty and
+performance falls to roughly base level on both tasks: an always-on pull
+erases the residual. At $\rho{\to}\infty$ the dead-zone term goes inert,
+but this is \emph{not} an unconstrained run --- the weak pointwise restoring
+component and the displacement clip both remain, so it is a re-shaped
+constraint rather than an absent one. The genuinely unconstrained
+configuration is the first row of \cref{tab:constraint}.
+
+So a constraint must exist, and it must not be always-on. Between those two
+failure modes the setting is not critical, and we claim no preferred radius:
+$\rho{=}0.05$ sits inside a wide flat region, not at an optimum.
+
+\begin{table}[t]
+\centering
+\caption{Dead-zone radius sweep, single seed, powered evaluation (last-3
+checkpoints). $\rho$ varies the \emph{shape} of the restoring field, not its
+presence. The genuinely unconstrained configuration is
+\cref{tab:constraint}'s first row.}
+\label{tab:rho-sweep}
+\small
+\begin{tabular}{lcc}
+\toprule
+dead-zone radius $\rho$ & t65 (base $0.573$) & t32 (base $0.610$) \\
+\midrule
+$0$ \;(always-on penalty)      & 0.549 & 0.601 \\
+$0.02$                         & \textbf{0.863} & \textbf{0.734} \\
+$0.05$ \;(recipe)              & 0.781 & 0.684 \\
+$0.10$                         & 0.812 & 0.694 \\
+$0.20$                         & 0.771 & 0.671 \\
+$\infty$ \;(dead zone inert; weak pull + clip remain) & 0.803 & 0.671 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{H4: the constraint has to act on the action target}
+\label{sec:exp-locus}
+
+\textbf{Claim.} The constraint has to act on the action target. The same
+shape placed in the loss, or on the parameter gradient, does not work.
+
+\textbf{Verdict.} Two rows support it. The decisive row --- giving the
+backpropagated actor our exact dead-zone shape inside its loss --- is not yet
+run. We name it below as the experiment that would overturn this claim.
+
+The most economical objection to this paper is that \method{} is DICE-RL
+with a differently shaped regularizer, and that putting the constraint on
+the action target rather than in the loss is presentation rather than
+mechanism. \Cref{tab:locus} is built to test exactly that.
+
+\begin{table}[t]
+\centering
+\caption{Where the constraint acts, at matched geometry. All rows share
+base, critic, data and budget. The first row is DICE-RL as shipped, which
+already constrains in \emph{two} places at once --- a behaviour-cloning
+penalty in the loss and gradient-norm clipping at $1.0$ on the actor --- so
+it is the joint loss-space/parameter-space entry rather than two separate
+rows. ``DICE $+$ hinge'' gives that same actor \method{}'s anchor potential
+$(\|r\|-\rho)_{+}^{2}$ as a loss term: by \cref{prop:equiv} it shares
+\method{}'s first-order gradient and differs only in the update form.
+``---'' = not measured.}
+\label{tab:locus}
+\small
+\begin{tabular}{llcc}
+\toprule
+constraint & where it acts & t65 (base $0.573$) & t32 (base $0.610$) \\
+\midrule
+$L_2$ penalty $+$ grad clip (DICE-RL) & loss $+$ parameters & 0.550 & 0.587 \\
+hinge $(\|r\|-\rho)_{+}^{2}$ penalty  & loss                & --- & --- \\
+\midrule
+always-on pull (\method{}, $\rho{=}0$) & action target      & 0.549 & 0.601 \\
+hard projection $\Pi_{\|r\|\le\rho}$   & action target      & --- & --- \\
+dead-zone anchor (\method{})           & action target      & \textbf{0.781} & \textbf{0.684} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two rows are filled and they agree. The first is DICE-RL exactly as
+published, and it is worth being precise about what it already contains: a
+behaviour-cloning penalty in the loss \emph{and} gradient-norm clipping at
+$1.0$ on every actor step of every run in this paper. It constrains in both
+of the two places we say are wrong, and it still reaches only $0.550$ and
+$0.587$ against bases of $0.573$ and $0.610$.
+
+The $\rho{=}0$ row makes the same point from inside our own method, and the
+correspondence is exact rather than analogous: by \cref{prop:equiv},
+\method{} at $\rho{=}0$ with the clips removed \emph{is} the DICE-RL
+residual actor's update. Give the constraint the always-on quadratic shape
+that prior work uses and the policy returns to base level. This is the
+quantitative form of the toy's finding that a penalty inside a loss must
+out-shout an unbounded gradient, and loses.
+
+What remains is the sharpest version of the objection, and we state it as an
+open cell rather than a result. \emph{DICE $+$ hinge} gives the
+backpropagated actor our dead-zone geometry inside its loss. It therefore
+shares \method{}'s first-order gradient and differs only in the update form
+--- multi-particle detached target regression against a single
+backpropagated loss. If it matches \method{}, the geometry is the whole
+story and the form is presentation. If it fails where the base-restoring row
+of \cref{tab:constraint} succeeds, the form is the mechanism. The experiment
+is two-sided by construction and we will report it either way.
+
+\subsection{How much of the critic should the update consume?}
+\label{sec:exp-resolution}
+
+\textbf{Claim.} The critic's gradient direction matters. \method{} is not
+winning just by moving less.
+
+\textbf{Verdict.} Holds on both benchmarks and both tasks.
+
+Because reward enters only as a field, the critic can be consumed at lower
+resolution: transport toward its top-$k$ ranked particles, or toward the
+cloud's own $\exp(Q/\tau)$-tilted density. Both delete the gradient
+direction and change nothing else.
+
+\begin{table}[t]
+\centering
+\caption{Deleting the critic's gradient direction. Square is the 3-seed
+range from \cref{tab:matched}'s protocol; LIBERO cells are powered
+evaluations on the frozen recipe.}
+\label{tab:resolution}
+\small
+\begin{tabular}{lccc}
+\toprule
+reward field $V_Q$ & square (3 seeds) & t65 (base $0.573$) & t32 (base $0.610$) \\
+\midrule
+gradient (\method{})    & \textbf{0.912--0.930} & \textbf{0.781} & \textbf{0.684} \\
+top-$k$ (ranking only)  & 0.525--0.562 & 0.577 & 0.341 \\
+tilted ($\exp(Q/\tau)$) & 0.560--0.584 & 0.697 & 0.378 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The answer is the same wherever we ask it. On robomimic, where the critic
+generalizes, the value-only fields preserve can ($0.91$--$0.95$) but
+collapse on square, despite verified-healthy residuals and longer training.
+On LIBERO the same two substitutions fall to $0.577$ and $0.697$ on t65, and
+to $0.341$ and $0.378$ on t32 --- not merely below the full recipe but far
+\emph{below the untuned base}, deficits of $34$ and $31$ points.
+
+Two benchmarks, two bases, one conclusion: the ranking information a critic
+can supply is not a substitute for its gradient. \method{} keeps the
+critic's most informative signal and bounds only how far that signal may
+carry the policy in one step. Conservatism alone would not produce these
+numbers --- it would produce the base.
+
+\subsection{Generality across generator classes}
+\label{sec:exp-generality}
+
+\textbf{Claim.} The update needs only a frozen noise-to-action map, so it
+transfers to other generator types.
+
+\textbf{Verdict.} Holds on the four flow-matching tasks measured so far.
+Four remain, so we withhold a row mean.
+
+On its own, stronger flow-matching base the published pipeline extracts
+essentially nothing per task: FM + DICE-RL scores $-0.8$, $-0.2$, $+2.2$ and
+$-2.8$ points relative to that base on t32, t53, t65 and t75 (mean $-0.4$)
+--- the same near-zero extraction its actor shows on the drifting base
+($+0.9$). Swapping only the actor update helps on three of the four:
+\method{} on the \emph{identical} base and budget beats FM + DICE-RL by
+$+5.6$ (t32), $+6.9$ (t65) and $+1.6$ (t75), reaching $0.738$ and $0.878$ on
+the first two, which is $+4.8$ and $+9.1$ over that base.
+
+The exception is instructive. On t53 the flow-matching base already scores
+$0.917$ and \emph{neither} update improves it ($-1.8$ for \method{}, $-0.2$
+for DICE-RL). More generally, the never-below-base behaviour \method{} shows
+on all eight drifting-base tasks does not carry over here: on t53 and t75 it
+ends $2.0$ and $1.2$ points below where it started. Fine-tuning a base that
+is already near its ceiling is a different problem from lifting a weak one,
+and our trust region is calibrated for the latter.
+
+\subsection{Robustness, and what the bound actually does}
+\label{sec:exp-robustness}
+
+\begin{table}[t]
+\centering
+\caption{Recipe sensitivity: leave-one-out on the frozen LIBERO recipe,
+powered evaluation (last-3 checkpoints). Each row changes exactly one
+component; $\Delta$ is relative to the full recipe. Resolution-dial rows are
+in \cref{tab:resolution}. ``---'' = not measured.}
 \label{tab:libero-ablation}
 \small
 \begin{tabular}{lcccc}
@@ -419,141 +611,55 @@ $-$ doubled reward step ($\eta_Q{=}0.5$) & 0.769 & $-0.012$ & 0.615 & $-0.069$ \
 $-$ $3$-step returns ($n{=}1$) & 0.782 & $+0.001$ & 0.512 & $-0.172$ \\
 wider trust region ($\delta_{\mathrm{tot}}{=}0.25$) & \textbf{0.874} & $\mathbf{+0.093}$ & 0.689 & $+0.005$ \\
 stronger reward step ($\eta_Q{=}2.0$) & 0.802 & $+0.021$ & \textbf{0.729} & $\mathbf{+0.045}$ \\
-\midrule
-reward field $\to$ top-$k$ (no gradient) & 0.577 & $-0.204$ & 0.341 & $-0.343$ \\
-reward field $\to$ tilted (no gradient) & 0.697 & $-0.084$ & 0.378 & $-0.306$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\Cref{tab:libero-ablation} isolates each component. Three findings
-matter. First, \emph{the anchor geometry is load-bearing}: removing the
-dead zone entirely ($\rho{=}0$) drops t65 to $0.549$, \emph{below} the
-un-tuned base --- the un-gated restoring pull erases the residual, the
-quantitative version of the toy's ``penalties lose to fields'' lesson ---
-and measuring the dead-zone radius in vector-norm rather than
-dimension-independent units costs $11.9$ points, because at LIBERO's
-$S{=}112$ chunk dimension the base residual already exceeds $\rho$ at
-initialisation, so the anchor is active from the first update.
+The remaining knobs are task-dependent, and they track the critic rather
+than the task's difficulty. On t32, whose critic carries a strong
+action-gradient ($\|\nabla_a Q\|\!\approx\!0.55$), $3$-step returns are
+worth $17$ points and a doubled reward step $4.5$, while widening the
+movement bound alone does nothing: this task wants more \emph{reward}
+signal, not more room to move. On t65, whose gradient is an order of
+magnitude weaker ($\approx\!0.035$), the pattern inverts --- returns and
+step size are within noise, but widening the trust region is worth $+9.3$
+points. We report this as a regime difference, not a tuned optimum: it is
+one seed, and t65 carries a $\pm 9$-point spread, so the direction is
+trustworthy and the magnitude is not.
 
-Second, and most decisively, \emph{deleting the critic's gradient
-direction is fatal, and the effect replicates}. On t65 top-$k$ transport
-falls to $0.577$ and tilted to $0.697$; on t32 the same two substitutions
-collapse to $0.341$ and $0.378$ --- not merely below the full recipe but
-far \emph{below the un-tuned base} ($0.610$), a $34$- and $31$-point
-deficit. Two tasks, two bases (\cref{tab:robomimic} shows the same
-ordering on robomimic square), one conclusion: the ranking information a
-critic can supply is not a substitute for its gradient, and \textbf{Q3}
-is answered the same way wherever we ask it. This is what separates the
-method from value-only transport such as critic-ranked top-$K$ drift.
+\paragraph{Is the gap just a better step size?} We tested this directly on
+t65 by sweeping each method's own step-size knob under the identical
+protocol. The backpropagated actor's learning rate over a $10\times$ range
+gives $0.550$, $0.548$ and $0.578$ --- every setting at or below the untuned
+base ($0.573$). Our reward step over an $8\times$ range gives $0.775$,
+$0.817$, $0.908$ and $0.750$ for $\eta_Q \in \{1,2,4,8\}$ --- every setting
+$18$--$33$ points \emph{above} that same base. The two bands do not overlap
+at any step size either method was given. A larger step does not turn the
+backpropagated update into the field update. (Both sweeps are single-seed,
+so the ordering within each band should not be read as a tuned optimum; the
+band \emph{separation}, at $18$ points minimum, is well outside seed noise.)
 
-Third, the remaining knobs are \emph{task-dependent, and in a way that
-tracks the critic rather than the task's difficulty}. On t32, whose
-critic carries a strong action-gradient
-($\|\nabla_a Q\|\!\approx\!0.55$), $3$-step returns are worth $17$ points
-and a doubled reward step $4.5$ ($0.729$), while widening the movement
-bound alone ($\delta_{\mathrm{tot}}{=}0.25$) does nothing ($+0.5$): this
-task wants more \emph{reward} signal, not more room to move. On t65,
-whose gradient is an order of magnitude weaker ($\approx\!0.035$),
-the pattern inverts --- $3$-step returns and the doubled step are within
-noise, but widening the trust region is worth $+9.3$ points ($0.874$),
-the single largest positive ablation we measure. We report this as a
-regime difference rather than a tuned optimum: it is one seed, and t65
-carries a $\pm 9$-point seed spread (\cref{sec:limitations}), so the
-direction is trustworthy and the magnitude is not. What a bounded-step
-field update needs is therefore not one universal setting but one matched
-to what the critic actually carries --- and the trust region is what makes
-raising either knob safe to attempt.
+\paragraph{How often does the bound actually bind?} The clip only ever
+\emph{reduces} a displacement, so whenever a particle's proposed motion is
+already shorter than $\delta_{\mathrm{tot}}$ the update is exactly the
+unbounded one. In the \cref{sec:toy} setting at our operating point, the
+clip is active on $17.3\%$ of sampled actions and the median proposed
+displacement is only $0.12\,\delta_{\mathrm{tot}}$. Tightening the cap to
+$0.05$ raises the binding rate to $26.3\%$; loosening it to $1.0$ drops it
+to $4.8\%$.
 
-\begin{table}[t]
-\centering
-\caption{Dead-zone radius sweep, single seed, powered evaluation
-(last-3 checkpoints). $\rho{=}0$ is an always-on behaviour-cloning penalty;
-$\rho{\to}\infty$ removes the anchor entirely. Performance is flat across two
-orders of magnitude of $\rho$ and collapses only at the endpoints, so what
-matters is that a dead zone exists, not its precise size.}
-\label{tab:rho-sweep}
-\small
-\begin{tabular}{lcc}
-\toprule
-dead-zone radius $\rho$ & t65 (base $0.573$) & t32 (base $0.610$) \\
-\midrule
-$0$ \;(always-on penalty)      & 0.549 & 0.601 \\
-$0.02$                         & \textbf{0.863} & \textbf{0.734} \\
-$0.05$ \;(recipe)              & 0.781 & 0.684 \\
-$0.10$                         & 0.812 & 0.694 \\
-$0.20$                         & 0.771 & 0.671 \\
-$\infty$ \;(no anchor)         & 0.803 & 0.671 \\
-\midrule
-no anchor \emph{and} no step bound & 0.000 & 0.000 \\
-\bottomrule
-\end{tabular}
-\end{table}
+These numbers say what kind of object the trust region is. It is not a
+step-size controller: for most proposals the critic's own magnitude still
+sets the distance, exactly as in the unconstrained update. What the
+constraint governs is the \emph{tail} --- the minority of proposals where an
+imperfect critic asks for a displacement far outside anything its data
+supports, and which, left alone, are enough to end the run
+(\cref{tab:constraint}, first row). That is why our claim is about where the
+critic's proposal is mediated, not about how far the policy travels on
+average. It is also why we do not adjudicate between the two implementations
+of the constraint: both truncate the same tail.
 
-\paragraph{Does the size of the dead zone matter?}
-\cref{tab:rho-sweep} sweeps $\rho$ over two orders of magnitude. Every
-interior setting lands between $0.771$ and $0.863$ on t65 and between $0.671$
-and $0.734$ on t32 --- a spread no larger than this benchmark's seed-to-seed
-variation --- while the $\rho{=}0$ endpoint, which is exactly an always-on
-behaviour-cloning penalty, falls to roughly base level on both tasks. Removing
-the anchor entirely ($\rho{\to}\infty$) is \emph{not} similarly fatal, because
-the step bound is still present. Removing both is: performance is exactly
-$0.000$ on both tasks. We read this as follows. Some constraint tying the
-policy to its base is necessary, and its absence is catastrophic rather than
-merely costly. Beyond that, at this budget we cannot distinguish between the
-available constraints, and we do not claim a preferred radius; $\rho{=}0.05$
-is a choice inside a wide flat region, not an optimum.
-
-\paragraph{How often does the bound actually bind?}
-It would be easy to over-read our own mechanism, so we measured it. The clip
-in \cref{eq:update} only ever \emph{reduces} a displacement, so whenever a
-particle's proposed motion is already shorter than $\delta_{\mathrm{tot}}$ the
-update is exactly the unbounded one, and the critic is still setting the
-distance for that particle. In the \cref{sec:toy} setting, at our operating
-point ($\delta_{\mathrm{tot}}{=}0.15$, $\eta_Q{=}1$), the clip is active on
-$17.3\%$ of sampled actions, and the median proposed displacement is only
-$0.12\,\delta_{\mathrm{tot}}$. Tightening the cap to $0.05$ raises the
-binding rate to $26.3\%$; loosening it to $1.0$ drops it to $4.8\%$.
-
-These numbers are worth stating because they rule out the reading we
-initially favoured. If the cap were the mechanism, it would have to be doing
-its work through the $17\%$ of proposals it truncates --- yet removing the cap
-entirely, while keeping the restoring force, leaves the method unchanged, and
-keeping the cap while removing the restoring force destroys it
-(\cref{fig:intuition}b). The cap is a numerical safeguard. What holds the
-policy on the data is the anchor.
-
-\paragraph{Is the gap just a better step size?}
-The most economical explanation of \cref{tab:libero-single} would be that
-we simply tuned our update's step better than the baseline's. We tested
-that directly on t65 by sweeping each method's own step-size knob under
-the identical evaluation protocol, and the explanation fails. Sweeping
-the backpropagated actor's learning rate over a $10\times$ range gives
-$0.550$ ($10^{-4}$), $0.548$ ($3\!\times\!10^{-4}$) and $0.578$
-($10^{-3}$) --- every setting at or below the un-tuned base ($0.573$).
-Sweeping our reward step over an $8\times$ range gives $0.775$, $0.817$,
-$0.908$ and $0.750$ for $\eta_Q \in \{1,2,4,8\}$ --- every setting
-$18$--$33$ points \emph{above} that same base. The two bands do not
-overlap at any step size either method was given. A larger step does not
-convert the backpropagated update into the field update; the difference
-is the form, and it is what makes a large step survivable at all. (Both
-sweeps are single-seed and the within-band ordering should not be read as
-a tuned optimum --- the $\eta_Q{=}4$ peak sits close to this task's seed
-spread. The band \emph{separation}, at $18$ points minimum, does not.)
-
-\todo{Remaining ablation plots (\cref{fig:ablations}); robomimic-side
-items below:
-(i) \textbf{trust-region locus} --- the backprop actor + parameter-space
-gradient
-clipping vs.\ B's action-space clip at equal effective step (isolates the
-central claim);
-(ii) \textbf{anchor geometry} --- $\rho{=}0$ silently erases the residual
-under weak reward fields (measured residual RMS collapses $\sim$5$\times$
-and performance reverts to base-plus-selection), the quantitative version
-of the toy's ``penalties lose to fields'' lesson;
-(iii) \textbf{step/clip sweep} --- the 21-configuration square sweep behind the
-family recipe: stability window of $\eta_Q$ under \cref{eq:update} vs.\
-backpropagation;
-(iv) \textbf{dispersion retention} --- action dispersion and best-of-$N$
-gains after fine-tuning, vs.\ control (does the field update preserve the
+\todo{Remaining: \cref{fig:containment} panels; robomimic dispersion
+retention (action dispersion and best-of-$N$ before and after fine-tuning
+against the backprop control --- does the field update preserve the
 multimodality the base was trained for?).}

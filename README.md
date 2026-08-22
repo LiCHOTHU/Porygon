@@ -129,32 +129,27 @@ uv run scripts/process_libero_data.py task=libero_90_data  # → repo training f
 
 Data is assumed to live under `data/` in the repo root; symlink if you store it elsewhere.
 
-## Experiment plan — hard-8 baseline comparison
+## Experiment plan
 
-Full comparison on the 8 hardest LIBERO-90 tasks `[8,21,32,53,65,73,75,81]`, multitask bases
-(FM BC 0.744 / drift BC 0.637), official DICE budget (100 iters × 32 ep × 800 grad steps),
-scored by powered eval (100 rollouts × 3 eval seeds). Launcher:
-`scripts/rl_hard8_dice_tier1.sbatch <FM|DRIFT> <hard|guarded> <SEED>`.
+The active plan lives in [`EXPERIMENT_PLAN.md`](EXPERIMENT_PLAN.md): hypotheses H1-H4, which
+table each fills, launch commands, and decision rules written before the runs.
+
+**Thesis.** For one-step generative policies, critic-guided RL should be performed as
+*constrained action-space target transport*, not direct critic backpropagation. Porygon =
+constrained critic-guided field-target regression; the dead-zone anchor is one implementation of
+the constraint, not the headline.
+
+Full comparison on the 8 hardest LIBERO-90 tasks `[8,21,32,53,65,73,75,81]` from a multitask
+drifting base (BC 0.637; FM BC 0.744), scored by powered evaluation (100 rollouts x 3 eval
+seeds). Launchers: `scripts/field_single_task.sbatch` (per-task arms, including the H3
+constraint factorial `B_CLIP`/`B_ANC`/`B_NONE`) and `scripts/field_hard8_drift.sbatch`
+(multitask chains).
 
 Note on filter naming: the paper's Eq. 6 filter (**guarded**: drop the BC anchor where the
 critic endorses the edit *and* is not overestimating vs. the MC return) maps to
 `use_soft_q_filtering=true`; our **hard** variant keeps only the advantage condition; the
-officially *released* configs ship the filter disabled entirely — which is the no-filter
+officially *released* configs ship the filter disabled entirely -- which is the no-filter
 baseline row, and the setting all pre-2026-07 runs unknowingly used.
-
-**Tier 1 — method arms (running):**
-
-| arm | base × seeds | status |
-|---|---|---|
-| DICE, hard filter | FM+drift × {10000,10001,10002} | seed 10000 mid-run; +2 seeds launched 2026-07-06 |
-| DICE, guarded filter (paper Eq. 6) | FM+drift × {10000,10001,10002} | launched 2026-07-06 |
-
-**Tier 2 — baselines:** BC (done); no-filter DICE = released-default (pre-fix RLPD runs, needs
-matched re-eval); GRPO FM+drift (checkpoints exist, matched re-eval); plain residual RL
-(ResFit/act_sim-style, to launch); DSRL (not implemented — decide vs. citing their LIBERO curve).
-
-**Tier 3 — analysis:** K ∈ {1,4,16} on drift; best-of-N off; finetunability metrics
-(GoodCov/BadCov/BadEnt) for FM vs drift bases (local GPU).
 
 ## Results
 
