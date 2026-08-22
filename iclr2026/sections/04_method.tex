@@ -11,13 +11,22 @@ hinge on.
 The vehicle for that bound is an existing primitive, which we adopt rather
 than claim: \emph{move action samples along a velocity field, then regress
 the network onto the moved samples}. This is how the action-gradient family
-improves a policy \citep{dipo2024,psenka2024qsm}, and --- not by
-coincidence --- also how a drifting model is pretrained
-\citep{deng2026drifting}, so on such a base fine-tuning is one more field
-added to a transport the policy class already performs. What that family
-does not do, and what this section contributes, is constrain the
-displacement: in DIPO the improved action is wherever the gradient step
-lands, and the policy is then regressed onto it.
+improves a policy \citep{dipo2024,psenka2024qsm}. What that family does not
+do, and what this section contributes, is constrain the displacement: in
+DIPO the improved action is wherever the gradient step lands, and the policy
+is then regressed onto it.
+
+Nothing below is specific to a policy class. The update needs a frozen map
+from noise to actions, the ability to draw $K$ samples from it, and a
+critic; it never needs a likelihood, a denoising objective, or access to the
+generator's internals. It therefore applies to a one-step map, a few-step
+flow-matching sampler, or a many-step diffusion policy without modification,
+and we verify two of these empirically (\cref{sec:exp-generality}). One
+convenience is worth noting without leaning on it: a drifting model is
+itself \emph{pretrained} by field-target regression
+\citep{deng2026drifting}, so on that particular base the fine-tuner reuses
+machinery the policy already has. That is an implementation economy, not a
+requirement, and none of our claims depend on it.
 
 The contribution is what happens between the critic and the regression: the
 proposed displacement is \textbf{constrained in action space, on the target,
@@ -65,10 +74,10 @@ backpropagated into the actor.
   fields at each particle --- clipped critic gradient $V_Q$ (with the top-$k$
   / tilted alternatives inset), dead-zone anchor $V_{\mathrm{anc}}$ --- and
   the total-motion clip $\delta_{\mathrm{tot}}$. Right: the regression of
-  $r_\theta$ onto the displaced targets; the same schematic as drifting
-  pretraining with one extra field. To be drawn (TikZ or Figma).}
-  \caption{\method{} overview: reinforcement fine-tuning as one more velocity
-  field in the pretraining transport. \todo{draw}}
+  $r_\theta$ onto the displaced targets. To be drawn (TikZ or Figma).}
+  \caption{\method{} overview: the critic proposes a displacement, an
+  action-space bound limits it, and the residual head is regressed onto the
+  bounded targets. The base is any frozen noise-to-action map. \todo{draw}}
   \label{fig:method}
 \end{figure}
 
@@ -270,12 +279,12 @@ have no loss-gradient counterpart. The ablations in
 The critic is unchanged from DICE-RL: ensemble TD with a CQL-style
 penalty pushing $Q$ down at policy actions and up at data actions;
 field construction never leaks gradients into the critic
-(gradients w.r.t.\ actions only). \Cref{alg:porygon} summarizes one joint
+(gradients w.r.t.\ actions only). \Cref{alg:cast} summarizes one joint
 update.
 
 \begin{algorithm}[t]
 \caption{\method{}: one update ($V_Q^{\mathrm{grad}}$ variant)}
-\label{alg:porygon}
+\label{alg:cast}
 \begin{algorithmic}[1]
 \Require frozen base $\pi_0$; residual $r_\theta$; critic $Q_\phi$;
   steps $\eta_Q, \eta_{\mathrm{anc}}$; clips $\delta_Q, \delta_{\mathrm{tot}}$;

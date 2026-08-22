@@ -20,13 +20,13 @@
 \newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
 % Reserved space for a figure/plot not yet generated: \figplaceholder{height}{description}
 \newcommand{\figplaceholder}[2]{\fbox{\parbox[c][#1][c]{0.96\linewidth}{\centering\small\color{gray}#2}}}
-\newcommand{\method}{Porygon}  % working method name; rename in one place
+\newcommand{\method}{CAST}  % Constrained Action-Space Transport; rename in one place
 
-% Title alternatives:
-%  - Porygon: Field-Target Reinforcement Learning for One-Step Generative Policies
-%  - Don't Hand the Critic a Compass: Field-Target RL for Drifting Policies
-\title{An Anchored Field-Target Update for \\
-Critic-Guided Fine-Tuning of Generative Policies}
+% Title: names the mechanism (a bound in ACTION space, on the regression
+% target) and commits to no generator class. The old title headlined the
+% anchor, which our own rho sweep shows is removable (tab:rho-sweep).
+\title{Constrain the Target, Not the Loss: \\
+Action-Space Trust Regions for Critic-Guided Policy Fine-Tuning}
 
 % Authors must not appear in the submitted version. They should be hidden
 % as long as the \iclrfinalcopy macro remains commented out below.

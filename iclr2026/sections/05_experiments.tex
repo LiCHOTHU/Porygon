@@ -19,8 +19,9 @@ responsible for it.
 
 \begin{itemize}
   \item[\textbf{H1}] \emph{\method{} matches the strongest existing
-  fine-tuners. The methods closest to it, which have no action-space
-  constraint, do not improve their base at all.}
+  fine-tuners. The methods that, like it, let the critic \emph{displace}
+  actions --- but with no action-space constraint --- do not improve their
+  base at all.}
   \item[\textbf{H2}] \emph{Change only the actor update, and \method{} gets
   more out of the same critic than backpropagating $-Q$ does.}
   \item[\textbf{H3}] \emph{Take the action-space constraint away, and the
@@ -127,9 +128,9 @@ method & policy class & own base & fine-tuned & $\Delta$ \\
 \midrule
 DIPO \citep{dipo2024}     & diffusion & 0.279 & 0.283 & $+0.004$ \\
 QSM \citep{psenka2024qsm} & diffusion & 0.279 & 0.000 & $-0.279$ \\
-DQL                       & diffusion & 0.279 & ---   & --- \\
-IDQL                      & diffusion & 0.279 & ---   & --- \\
-AWR                       & generic   & 0.279 & ---   & --- \\
+DQL                       & diffusion & 0.279 & 0.000 & $-0.279$ \\
+IDQL                      & diffusion & 0.279 & 0.041 & $-0.238$ \\
+AWR                       & generic   & 0.279 & 0.407 & $+0.128$ \\
 \midrule
 FM + DICE-RL \citep{dicerl2026} & flow matching & --- & 0.923--0.934 & --- \\
 \method{}                       & one-step drifting & 0.382 & 0.912--0.930 & $+0.53$--$0.55$ \\
@@ -161,13 +162,29 @@ which to recover. One caveat: our diffusion base scores $0.279$ where the
 original authors report roughly $0.4$, and a weaker base implies a worse
 early critic, so we do not claim this reproduces any published QSM number.
 
-The reading that matters is this. DIPO and QSM use the update form we adopt.
-They run in their authors' own code, at $125\times$ our interaction budget,
-and \emph{neither improves its base}. They are the unconstrained corner of
-our own design space, measured externally --- and \cref{sec:exp-constraint}
-reproduces exactly that behaviour inside our system by switching our
-constraint off. What separates \method{} from them is not the signal, the
-budget, or the policy class.
+The five rows split cleanly, and the split is the point. Group them by what
+the critic is allowed to do. DIPO, QSM and DQL let the critic \emph{displace}
+actions --- through an action-space gradient step, a score matched to
+$\nabla_a Q$, or backpropagation through the policy --- with nothing bounding
+the displacement. All three fail outright: two at exactly $0.000$, one at
+$+0.004$ after $24$M environment steps. AWR lets the critic only
+\emph{weight} actions the policy already produced, and it is the one method
+that improves ($0.407$, $+0.128$): with no displacement there is nothing for
+a missing bound to break. IDQL sits between --- it never displaces either,
+but its Q-based action \emph{selection} still exploits critic error, and it
+ends below its base ($0.041$). The failure is therefore not ``critic-guided
+fine-tuning is unstable,'' and not our harness: it tracks precisely whether
+the critic controls \emph{where actions move}. That is the quantity our
+constraint bounds. The displacing methods are the unconstrained corner of
+our own design space, measured externally in their authors' code at
+$125\times$ our interaction --- and \cref{sec:exp-constraint} reproduces
+exactly their behaviour inside our system by switching our constraint off.
+What separates \method{} from that family is not the signal, the budget, or
+the policy class; it is the bound. AWR's positive result sharpens rather
+than weakens the claim: consuming the critic \emph{safely} was never the
+hard part --- weighting schemes have always done so --- but they leave the
+critic's most informative output, its action gradient, on the table
+(\cref{sec:exp-resolution} measures what that costs on the harder task).
 
 \subsection{H2: the update form is what converts critic signal into success}
 \label{sec:exp-form}

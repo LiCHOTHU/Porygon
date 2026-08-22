@@ -218,6 +218,15 @@ class DistilledRLModel(nn.Module):
                  num_multi_z: int = 8,
                  # Q-filtering / self-imitation (post-warmup)
                  use_soft_q_filtering: bool = False,
+                 # H4 falsification test (tab:locus): dead-zone radius for the BC
+                 # penalty, giving the backpropagated actor CAST's anchor geometry
+                 # inside its LOSS. 0.0 == plain L2 penalty exactly, so this is a
+                 # no-op by default and no existing result moves.
+                 bc_hinge_rho: float = 0.0,
+                 # W2b: hard base-centred projection radius (rms). 0 = off.
+                 project_radius: float = 0.0,
+                 # W2c: radius against which P_out is reported when the anchor is off.
+                 pout_radius: float = 0.05,
                  q_filtering_warmup_steps: int = 25000,
                  q_underestimation_threshold: float = -0.1,
                  # Exploration warmup (separate from Q-filtering)
@@ -308,6 +317,12 @@ class DistilledRLModel(nn.Module):
         self.device = device
         # Q-filtering
         self.use_soft_q_filtering = use_soft_q_filtering
+        # H4 falsification test: give the BACKPROPAGATED actor CAST's dead-zone
+        # geometry inside its loss. rho=0 reproduces the plain L2 penalty exactly
+        # ((rms - 0)_+^2 == mse), so every existing number is unchanged by default.
+        self.bc_hinge_rho = float(bc_hinge_rho)
+        self.project_radius = float(project_radius)   # W2b: hard trust region, 0 = off
+        self.pout_radius = float(pout_radius)         # W2c: radius used for P_out when anchor is off
         self.q_filtering_warmup_steps = q_filtering_warmup_steps
         self.q_underestimation_threshold = q_underestimation_threshold
         # Exploration warmup
@@ -652,6 +667,10 @@ class DistilledRLModel(nn.Module):
         action_diff = actions_samples - pretrained_actions_samples
         mse_per_timestep = (action_diff ** 2).mean(dim=-1)              # (B, K, H)
         mse_per_sample = mse_per_timestep.mean(dim=-1)                  # (B, K)
+        if getattr(self, 'bc_hinge_rho', 0.0) > 0.0:
+            # dead-zone in the LOSS: silent inside rho, quadratic outside.
+            rms = mse_per_sample.clamp_min(1e-12).sqrt()
+            mse_per_sample = (rms - self.bc_hinge_rho).clamp_min(0.0).pow(2)
 
         if in_warmup:
             # Uniform average BC anchor; equivalent to ||residual||^2 (mean over B*K*H*A).
@@ -936,6 +955,17 @@ class DistilledRLModel(nn.Module):
         # random-walk the residual off the data manifold). restore_radius > 0 makes
         # it a dead-zone restore: no damping inside the trust radius, pull back only
         # the excess norm beyond it.
+        # P_out (tab:constraint / fig:containment): fraction of particles currently
+        # OUTSIDE the trust radius. Computed unconditionally so it is logged for
+        # every arm, including those with the anchor disabled.
+        with torch.no_grad():
+            _rn_rms = old_res.reshape(B * K, -1).norm(dim=-1) / (
+                old_res.shape[-1] * old_res.shape[-2]) ** 0.5
+            _radius_for_pout = restore_radius if restore_radius > 0.0 else float(
+                getattr(self, 'pout_radius', 0.05))
+            self._last_p_out = (_rn_rms > _radius_for_pout).float().mean().detach()
+            self._last_d_base = _rn_rms.mean().detach()
+
         if restore_radius > 0.0:
             rn = old_res.reshape(B * K, -1).norm(dim=-1)
             if restore_radius_rms:
@@ -964,6 +994,19 @@ class DistilledRLModel(nn.Module):
             total_delta = clip_field_norm((q_delta + bc_delta + restore_delta).reshape(B * K, 1, S),
                                           total_max_norm).reshape(B * K, H, A)
         residual_target = (old_res + total_delta).detach()
+
+        # W2b / tab:locus soft-vs-hard row: conventional hard trust region,
+        # Pi_{||r||<=rho}( r + V ). Replaces the soft restoring pull with a
+        # projection of the TARGET back onto the ball. Off (<=0) by default, so
+        # every existing arm is bit-identical.
+        _proj_rho = float(getattr(self, 'project_radius', 0.0))
+        if _proj_rho > 0.0:
+            with torch.no_grad():
+                _t = residual_target.reshape(B * K, -1)
+                _n = _t.norm(dim=-1, keepdim=True) / (
+                    residual_target.shape[-1] * residual_target.shape[-2]) ** 0.5
+                _scale = (_proj_rho / _n.clamp_min(1e-8)).clamp(max=1.0)
+                residual_target = (_t * _scale).reshape_as(residual_target).detach()
 
         # trust-region dual: MULTIPLICATIVE update on a SMOOTHED residual (scale-free,
         # stays positive) — raise lambda (more BC pull) when the residual overshoots
@@ -1000,6 +1043,8 @@ class DistilledRLModel(nn.Module):
             "field_bc_delta_norm": bc_delta.reshape(B * K, -1).norm(dim=-1).mean(),
             "field_total_delta_norm": total_delta.reshape(B * K, -1).norm(dim=-1).mean(),
             "field_q_bc_cosine": cos.mean(),
+            "p_out": self._last_p_out,
+            "d_base_rms": self._last_d_base,
             "current_q_mean": q_cur.mean(),
             "residual_norm": residual_norm,
             "field_lambda": torch.tensor(float(self._field_lambda), device=dev),

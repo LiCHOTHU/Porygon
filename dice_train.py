@@ -152,6 +152,9 @@ def main(cfg):
         critic_weight=cfg.dice.get("critic_weight", 1.0),
         num_multi_z=cfg.dice.num_multi_z,
         use_soft_q_filtering=cfg.dice.get("use_soft_q_filtering", False),
+        bc_hinge_rho=cfg.dice.get("bc_hinge_rho", 0.0),  # H4: dead-zone in the LOSS
+        project_radius=cfg.dice.get("project_radius", 0.0),  # W2b: hard trust region
+        pout_radius=cfg.dice.get("pout_radius", 0.05),       # W2c: P_out reporting radius
         q_filtering_warmup_steps=cfg.dice.get("q_filtering_warmup_steps", 25000),
         q_underestimation_threshold=cfg.dice.get("q_underestimation_threshold", -0.1),
         replay_flow_warmup_steps=cfg.dice.get("replay_flow_warmup_steps", 1000),
@@ -349,6 +352,7 @@ def main(cfg):
         if len(replay) >= cfg.dice.batch_size:
             actor_losses, critic_losses, bc_losses, q_means, qfilt_active = [], [], [], [], []
             residual_norms = []
+            pouts = []
             dispersions, repel_losses = [], []
             cql_terms, q_at_policy_list, q_at_data_list = [], [], []
             for gs in range(cfg.dice.gradient_steps):
@@ -385,7 +389,15 @@ def main(cfg):
                 if actor_step:
                     actor_opt.zero_grad(set_to_none=True)
                     d["actor_total"].backward()  # also dirties critic grads -> cleared below
-                    torch.nn.utils.clip_grad_norm_(student.actor.parameters(), cfg.dice.grad_clip)
+                    # H4 parameter-space rung (tab:locus): sweep the ACTOR's
+                    # parameter-space trust region ONLY. cfg.dice.grad_clip also
+                    # clips the critic below, so sweeping it would confound an
+                    # actor-side result with critic destabilisation. Defaults to
+                    # grad_clip, so existing runs are bit-identical.
+                    _actor_gc = cfg.dice.get('actor_grad_clip', None)
+                    if _actor_gc is None:
+                        _actor_gc = cfg.dice.grad_clip
+                    torch.nn.utils.clip_grad_norm_(student.actor.parameters(), float(_actor_gc))
                     actor_opt.step()
 
                 # Critic update (always). zero_grad clears any critic grads dirtied by
@@ -409,6 +421,7 @@ def main(cfg):
                 q_means.append(float(d["current_q_mean"].detach()))
                 qfilt_active.append(float(d["q_filtering_active"].detach()))
                 residual_norms.append(float(d["residual_norm"].detach()))
+                if "p_out" in d: pouts.append(float(d["p_out"]))
                 if "action_dispersion" in d:
                     dispersions.append(float(d["action_dispersion"].detach()))
                     repel_losses.append(float(d["repel_loss"].detach()))
@@ -427,6 +440,7 @@ def main(cfg):
                        f"residual_norm={np.mean(residual_norms):.4f} "
                        f"Q(s,a_student)={np.mean(q_means):.4f} "
                        f"qfilt_keep={np.mean(qfilt_active):.3f}"
+                       + (f" p_out={np.mean(pouts):.3f}" if pouts else "")
                        + (f" dispersion={np.mean(dispersions):.4f}"
                           f" repel={np.mean(repel_losses):.4f}" if dispersions else ""))
             wlog = {"train/actor_loss": float(np.mean(actor_losses)),

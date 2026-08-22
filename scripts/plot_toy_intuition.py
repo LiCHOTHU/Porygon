@@ -11,7 +11,7 @@ distance ||a_perp||. Everything is computed, nothing hand-drawn:
   (b) backprop fine-tuning (-Q + BC anchor, the DICE-RL residual actor): the
       action cloud rides the hallucinated gradient off-manifold; internal
       Q-hat soars while true reward collapses to zero;
-  (c) the field-target update (clipped V_Q + V_BC + anchor, the Porygon
+  (c) the field-target update (clipped V_Q + V_BC + anchor, the CAST
       primitive): bounded per-particle transport keeps the cloud on the
       manifold and shifts it toward the higher-reward mode.
 

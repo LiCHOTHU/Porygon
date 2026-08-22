@@ -32,9 +32,9 @@ ARMS = {
     "BC base":   dict(prefix=None, color="#777777"),
     "backprop actor": dict(prefix="A_residual", color="#E69F00"),
     "FM + DICE-RL": dict(prefix="FMDICE", color="#009E73"),
-    "Porygon": dict(prefix="B_grad", color="#0072B2"),
-    "Porygon (top-$k$)": dict(prefix="C_zeroth", color="#CC79A7"),
-    "Porygon (tilted)":  dict(prefix="T_tilted_gf", color="#56B4E9"),
+    "CAST": dict(prefix="B_grad", color="#0072B2"),
+    "CAST (top-$k$)": dict(prefix="C_zeroth", color="#CC79A7"),
+    "CAST (tilted)":  dict(prefix="T_tilted_gf", color="#56B4E9"),
 }
 SEEDS = [10000, 10001, 10002]
 TCRIT = {3: 4.303, 6: 2.571, 9: 2.306}  # two-sided 95%, df = n-1

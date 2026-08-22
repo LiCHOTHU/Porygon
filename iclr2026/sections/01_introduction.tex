@@ -18,11 +18,13 @@ wrong step. A wrongly large distance takes the policy off the data manifold
 in one update, and the further off it goes the better it looks to the
 critic that sent it there.
 
-Our setting sharpens the problem, because it removes the usual escape
-route. We fine-tune \emph{one-step} generative policies --- a drifting
-model \citep{deng2026drifting} maps noise to a multimodal action in a
-single network evaluation --- and such a policy has no tractable
-likelihood, so the ratio-based toolbox is unavailable. It can be recovered
+Modern generative policies sharpen the problem, because they remove the
+usual escape route. A policy that maps noise to a multimodal action through
+a learned sampler has no tractable likelihood, so the ratio-based toolbox
+--- PPO, and anything else built on importance weights --- is unavailable.
+This is true of diffusion and flow-matching policies and most acute for
+one-step samplers such as a drifting model \citep{deng2026drifting}, where a
+single network evaluation stands between noise and action. It can be recovered
 only by injecting noise into the deployed policy \citep{reinflow2025},
 which changes what ships, or by assuming a denoising objective the policy
 does not have \citep{mcallister2025flowmatchingpolicygradients}
@@ -85,14 +87,15 @@ likelihood is ever needed, and in the small-step limit the update recovers
 the backpropagated direction exactly (\cref{prop:equiv}) --- so the safety
 costs nothing asymptotically.
 
-The construction is also economical on the policy class that motivated it.
-A drifting model \citep{deng2026drifting} is \emph{pretrained} by
-field-target regression --- transport samples along a velocity field,
-regress the network onto the transported targets --- so on that base the
-fine-tuner reuses machinery the policy already has. That economy is a
-convenience, not a requirement: the update assumes only a frozen
-noise-to-action map, and we verify it transfers unchanged to a multi-step
-flow-matching base.
+The construction assumes very little about what it is attached to. It needs
+a frozen map from noise to actions, $K$ samples from it, and a critic; it
+never inspects the generator's internals, never needs a likelihood, and
+never assumes a denoising objective. Consequently it applies unchanged to
+one-step, few-step, and many-step samplers, and we verify it on two of them.
+One economy is worth a remark but no more: a drifting model is itself
+pretrained by field-target regression \citep{deng2026drifting}, so on that
+base the fine-tuner happens to reuse machinery the policy already has. That
+is convenience, not requirement, and no claim in this paper rests on it.
 
 Because reward enters only as a field, the critic can also be consumed at
 lower resolution when its gradients cannot be trusted: transport toward

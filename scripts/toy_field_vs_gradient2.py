@@ -2,7 +2,7 @@
 Toy v2: critic-as-compass vs faithful drift-field update, in TWO regimes.
 
 v1 lessons folded in:
-  - FIELD now mirrors the real Porygon-C update: V_Q (tilted or top-k
+  - FIELD now mirrors the real CAST-C update: V_Q (tilted or top-k
     attraction over own particles, self-repulsion) + V_BC (attraction toward
     frozen-base samples, self-repulsion) + plain -lambda*r restore, total clip.
     v1 omitted V_BC and the cloud inflated off-manifold (41%) - V_BC is
