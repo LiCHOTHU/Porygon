@@ -40,8 +40,18 @@ export OPENBLAS_NUM_THREADS="${SLURM_CPUS_PER_TASK}" NUMEXPR_NUM_THREADS="${SLUR
 export MUJOCO_GL=egl EGL_DEVICE_ID=0 HYDRA_FULL_ERROR=1
 nvidia-smi || true
 
-CKPT="${SCR}/imitation/cold_start/libero/libero_90/drift_multitask_lib90/multitask_model_latest.pth"
-if [ ! -f "${CKPT}" ]; then echo "ERROR: drift base ckpt missing at ${CKPT}"; exit 1; fi
+# BASE=drift (default, one-step drifting) | BASE=fm (flow matching, 10 steps).
+# Env var rather than a positional so the existing "<A|C> <SEED> [filter] [extra...]"
+# interface and every previously-launched run name stay byte-identical.
+BASE="${BASE:-drift}"
+case "${BASE}" in
+  drift) CKPT="${SCR}/imitation/cold_start/libero/libero_90/drift_multitask_lib90/multitask_model_latest.pth"
+         STEPS=1;  BTAG="" ;;
+  fm)    CKPT="${SCR}/imitation/cold_start/libero/libero_90/cold_multitask_lib90/multitask_model_latest.pth"
+         STEPS=10; BTAG="_fmbase" ;;
+  *) echo "unknown BASE=${BASE} (use drift or fm)"; exit 1 ;;
+esac
+if [ ! -f "${CKPT}" ]; then echo "ERROR: ${BASE} base ckpt missing at ${CKPT}"; exit 1; fi
 
 case "${EXP}" in
   A) RL_NAME="field_hard8_ff_A_residual${FTAG}_s${SEED}";      ACTOR=(dice.actor_mode=residual) ;;
@@ -69,6 +79,7 @@ case "${EXP}" in
         ++dice.field.restore_radius_rms=true ++dice.use_n_step=true ++dice.n_step=3) ;;
   *) echo "unknown EXP=${EXP} (use A, B, C, T, B2, C2, T2, BP or BS)"; exit 1 ;;
 esac
+RL_NAME="${RL_NAME}${BTAG}"
 LOG="${CEDAR}/${RL_NAME}.log"
 # dice_train saves under exp_name/ or exp_name/<seed>/ depending on layout — check both.
 RESUME_FLAG=""
@@ -78,9 +89,9 @@ for RESUME_CKPT in \
   if [ -f "${RESUME_CKPT}" ]; then RESUME_FLAG="+dice_resume_checkpoint=${RESUME_CKPT}"; echo "[$(date)] RESUME ${RESUME_CKPT}"; break; fi
 done
 
-echo "[$(date)] START ${RL_NAME} (EXP=${EXP} seed=${SEED}) hard-8 drift base, K=1 RLPD bcw=10"
+echo "[$(date)] START ${RL_NAME} (EXP=${EXP} seed=${SEED}) hard-8 ${BASE} base (steps=${STEPS}) RLPD bcw=10"
 python dice_train.py \
-  algo.num_inference_steps=1 \
+  algo.num_inference_steps=${STEPS} \
   cold_start_checkpoint="${CKPT}" \
   ${RESUME_FLAG} \
   seed=${SEED} \

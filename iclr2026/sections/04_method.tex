@@ -73,16 +73,16 @@ backpropagated into the actor.
 
 \begin{figure}[t]
   \centering
-  \figplaceholder{4.5cm}{\textbf{[Figure reserved: method overview.]}
-  Left: the frozen base $\pi_0$ maps noise particles $z_i$ to a cloud of
-  actions; the residual $r_\theta$ shifts them. Middle: the three velocity
-  fields at each particle --- clipped critic gradient $V_Q$ (with the top-$k$
-  / tilted alternatives inset), dead-zone anchor $V_{\mathrm{anc}}$ --- and
-  the total-motion clip $\delta_{\mathrm{tot}}$. Right: the regression of
-  $r_\theta$ onto the displaced targets. To be drawn (TikZ or Figma).}
-  \caption{\method{} overview: the critic proposes a displacement, an
-  action-space bound limits it, and the residual head is regressed onto the
-  bounded targets. The base is any frozen noise-to-action map. \todo{draw}}
+  \includegraphics[width=\linewidth]{figures/method_overview.pdf}
+  \caption{\textbf{\method{} in three steps} (schematic). \emph{Left:} the
+  frozen base maps noise to $K$ candidate actions, which lie on the thin band
+  of actions the demonstrations support. \emph{Middle:} the critic's
+  gradient points \emph{off} that band (faint arrows, unbounded); \method{}
+  keeps only its direction and takes a step of length at most $\delta_Q$
+  (solid), then the dead-zone anchor pulls back any candidate that has left
+  the leash of radius $\rho$ (green). \emph{Right:} the displaced targets are
+  detached and the residual head is regressed onto them, so the policy moves
+  a bounded distance and stops. The base is any frozen noise-to-action map.}
   \label{fig:method}
 \end{figure}
 
