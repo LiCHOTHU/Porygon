@@ -136,7 +136,20 @@ single configuration line (\texttt{actor\_mode: residual} vs
 \texttt{field\_pointwise}). We also attempted to
 re-tune the three collapsing methods rather than report them at published
 settings; that attempt is reported in \cref{sec:exp-retune} and made them
-worse, so the published settings stand. $^{\ddagger}$DPPO is the one row that does \emph{not} share the $0.279$
+worse, so the published settings stand. \textbf{What the shared base does and does not license.} All five classic
+rows load a pretrained diffusion checkpoint from the DPPO release
+(\texttt{square\_pre\_diffusion\_mlp\_ta4\_td20/2024-07-10\_01-46-16}) that is
+absent from both projects' public artifacts, so we substituted our own
+retrain at the architecture those configs specify (\texttt{time\_dim}$=32$),
+which reaches $0.279$ against DPPO's published square base of roughly
+$0.4$--$0.5$. Because every one of these rows starts from that \emph{same}
+checkpoint, the comparison \emph{among} them --- which is the only thing we
+argue from --- is internally valid. What it does not license is any claim to
+reproduce a published number for these methods, and we make none: a weaker
+base implies a weaker early critic, which can produce a collapse that a
+stronger base would not. We are retraining that base across seeds to close
+the gap.
+$^{\ddagger}$DPPO is the one row that does \emph{not} share the $0.279$
 base: its official configuration pretrains its own diffusion policy
 (\texttt{square\_pre\_diffusion\_mlp\_ta4\_td20}), which scores $0.563$, so
 we report it against that base and its $\Delta$ is the only one not measured
@@ -165,8 +178,8 @@ DPPO \citep{ren2024dppo}$^{\ddagger}$ & diffusion & 0.563 & 0.876 & $+0.312$ \\
 DIPO $+$ displacement bound & diffusion & 0.279 & 0.198 & $-0.081$ \\
 \midrule
 \multicolumn{5}{l}{\emph{adding \method{} to DICE-RL, paired within each base}} \\
-diffusion $+$ DICE-RL \citep{dicerl2026}   & diffusion & 0.279 & 0.861 & $+0.582$ \\
-diffusion $+$ DICE-RL $+$ \method{}        & diffusion & 0.279 & \textbf{0.937} & $\mathbf{+0.658}$ \\
+diffusion $+$ DICE-RL \citep{dicerl2026}$^{\S}$   & diffusion & 0.279 & 0.861 & $+0.582$ \\
+diffusion $+$ DICE-RL $+$ \method{}$^{\S}$        & diffusion & 0.279 & \textbf{0.937} & $\mathbf{+0.658}$ \\
 \addlinespace
 drifting $+$ DICE-RL                       & one-step drifting & 0.382 & 0.861--0.909 & $+0.48$--$0.53$ \\
 drifting $+$ DICE-RL $+$ \method{}         & one-step drifting & 0.382 & \textbf{0.912--0.930} & $+0.53$--$0.55$ \\
