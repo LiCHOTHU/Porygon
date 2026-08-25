@@ -54,3 +54,5 @@ fmB_mt_s10002	field_hard8_drift.sbatch
 12324923	s2_BANC_t65	second-seed factorial arm (seed 20002) for table 5
 12324924	s2_B_t65	second-seed factorial arm (seed 20002) for table 5
 12324925	s2_BCLIP_t32	second-seed factorial arm (seed 20002) for table 5
+12325424	pe_fullCAST_t65	matched full-CAST cell for the table-5 factorial (same arm family as BNONE/BCLIP/BANC)
+12325425	pe_fullCAST_t32	matched full-CAST cell for the table-5 factorial (same arm family as BNONE/BCLIP/BANC)

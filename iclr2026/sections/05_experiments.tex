@@ -593,11 +593,20 @@ by $0.297$ --- far outside it. What survives noise is that full \method{} is
 the only configuration above its base on \emph{both} tasks, while anchor-only
 lands $0.223$ \emph{below} base on ketchup, i.e.\ worse than not fine-tuning
 at all. \textbf{The ketchup task separates the configurations without
-overlap}: full \method{}'s three evaluation seeds are $0.62$, $0.68$, $0.58$
-and anchor-only's are $0.40$, $0.41$, $0.35$, so \method{}'s \emph{worst}
-seed beats the ablation's \emph{best} by $0.17$, with the two step-clip rows
-at exactly $0.000$ beneath both. That single task is the cleanest evidence
-that the pair is required, and it does not rely on averaging.
+overlap}: the matched full-\method{} arm's three evaluation seeds are
+$0.68$, $0.58$, $0.62$ (mean $0.627$) against anchor-only's $0.40$, $0.41$,
+$0.35$ (mean $0.387$), so \method{}'s \emph{worst} seed beats the ablation's
+\emph{best} by $0.17$, with both step-clip rows at exactly $0.000$ beneath
+them. That separation does not rely on averaging and is the cleanest
+per-task evidence that the pair is required.
+$^{\dagger}$\textbf{these two cells are under re-verification.} The three
+ablation rows come from the \texttt{field\_st\_B\{NONE,CLIP,ANC\}} arms, and
+the only full-\method{} evaluation we can trace to the matching
+\texttt{field\_st\_B} arm gives $0.627$ on ketchup rather than the $0.684$
+quoted here; we could not reproduce $0.781$/$0.684$ from any single archived
+evaluation. The matched-arm evaluations are running and these cells will be
+replaced by them. The separation argument above already uses the lower,
+verified value, so it does not depend on the resolution.
 ``---'' = not measured.}
 \label{tab:constraint}
 \footnotesize
@@ -609,7 +618,7 @@ clip & anchor & configuration & \makecell{red mug\\onto plate ($0.573$)} & \make
 $\times$ & $\times$ & unconstrained transport & 0.000 & 0.000 \\
 $\checkmark$ & $\times$ & step containment only & 0.000 & 0.000 \\
 $\times$ & $\checkmark$ & base-restoring only   & 0.810 & 0.387 \\
-$\checkmark$ & $\checkmark$ & \textbf{full \method{}} & \textbf{0.781} & \textbf{0.684} \\
+$\checkmark$ & $\checkmark$ & \textbf{full \method{}} & \textbf{0.781}$^{\dagger}$ & \textbf{0.684}$^{\dagger}$ \\
 \bottomrule
 \end{tabular}
 \end{table}
