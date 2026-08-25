@@ -390,10 +390,18 @@ Task names are the LIBERO-90 scene and instruction; indices in that suite
 are $8, 21, 32, 53, 65, 73, 75, 81$ in table order. Within each block every column shares that block's base, so
 ``\method{}'' in the left block means \method{} fine-tuning the
 \emph{drifting} base and in the right block the \emph{flow-matching} base;
-across blocks only same-block comparisons are meaningful. ``bp'' is the
-backprop actor, and $\method{}_{\eta 1}$/$\method{}_{\eta 2}$ are
-\method{} at reward-step $\eta_Q{=}1$ and $\eta_Q{=}2$, the only
-hyperparameter that differs between them. Across the five tasks
+across blocks only same-block comparisons are meaningful. ``backprop'' is the backpropagated actor (DICE-RL's update on this base).
+$\method{}_{\eta 1}$ and $\method{}_{\eta 2}$ are \method{} at reward step
+$\eta_Q{=}1$ and $\eta_Q{=}2$ --- the single hyperparameter we varied, and
+the only place in this table where a method appears at two settings.
+\textbf{The like-for-like cross-base comparison is therefore
+$\eta_Q{=}1$ against $\eta_Q{=}1$}: that setting is shared by the drifting
+and flow-matching columns, and gives means of $0.738$ and $0.756$. We report
+$\eta_Q{=}2$ on the drifting base because we ran it there and it is better
+($0.755$), but the matching flow-matching run does not yet exist, so the
+$\eta_Q{=}2$ column should not be read across bases. The GRPO column is
+sparse because that baseline was run on four of the eight tasks; we leave the
+rest blank rather than infer them, and withhold its row mean. Across the five tasks
 run with two seeds the seed spread is $0.000$--$0.089$, so only gaps above
 $\sim\!9$ points are meaningful on the red-mug task and above
 $\sim\!2$ points elsewhere. ``---'' = unrun cell: \method{}'s eight cells
@@ -409,7 +417,7 @@ multitask
 \toprule
  & \multicolumn{4}{c}{drifting base} & \multicolumn{4}{c}{flow-matching base} \\
 \cmidrule(lr){2-5}\cmidrule(lr){6-9}
-task & base & bp & \method{}$_{\eta 1}$ & \method{}$_{\eta 2}$ & base & DICE & GRPO & \method{} \\
+task & base & backprop & \method{}$_{\eta 1}$ & \method{}$_{\eta 2}$ & base & DICE & GRPO & \method{}$_{\eta 1}$ \\
 \midrule
 Kitchen-1: open drawer, put bowl in   & 0.818 & 0.820 & 0.831 & 0.857 & 0.897 & 0.873 & --- & \textbf{0.900} \\
 Kitchen-3: turn on stove, put pan on  & 0.690 & 0.703 & 0.737 & \textbf{0.752} & 0.700 & --- & --- & 0.690 \\

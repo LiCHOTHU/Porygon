@@ -40,3 +40,12 @@ fmB_mt_s10002	field_hard8_drift.sbatch
 12323154	sq_fact_full	square factorial 4th cell: clip 0.05 + anchor, matched to sq_fact_none/clip/anc
 12323454	sqbase32_s43	retrain of the 0.279 baseline-architecture square base (time_dim 32), seed 43
 12323455	sqbase32_s44	retrain of the 0.279 baseline-architecture square base (time_dim 32), seed 44
+12323649	FMdice	FM+DICE-RL control, partner of FMporygon for table 1's FM pair
+12324124	fmB2_t8	FM base CAST at eta_Q=2, symmetry for table 3
+12324125	fmB2_t21	FM base CAST at eta_Q=2, symmetry for table 3
+12324126	fmB2_t32	FM base CAST at eta_Q=2, symmetry for table 3
+12324127	fmB2_t53	FM base CAST at eta_Q=2, symmetry for table 3
+12324132	fmB2_t65	FM base CAST at eta_Q=2, symmetry for table 3
+12324133	fmB2_t73	FM base CAST at eta_Q=2, symmetry for table 3
+12324134	fmB2_t75	FM base CAST at eta_Q=2, symmetry for table 3
+12324135	fmB2_t81	FM base CAST at eta_Q=2, symmetry for table 3
