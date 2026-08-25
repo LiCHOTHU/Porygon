@@ -282,25 +282,28 @@ DICE-RL's own actor, which differentiates the critic through the policy ---
 the standard choice and our baseline. Row 3 replaces \emph{only} that actor
 with \method{}, which displaces sampled actions along the critic's gradient,
 bounds the displacement in action space, and regresses the policy onto the
-result. This table is a head-to-head comparison, \emph{not} an ablation: the
-ablations that take \method{} apart are
-\cref{tab:constraint,tab:rho-sweep,tab:locus,tab:resolution,tab:libero-ablation}. $^{\dagger}$ these two runs ended before $20$K steps, so their
+result. \textbf{Every row here is a complete method, not an ablation.} Rows 2 and 3
+are the same system end to end --- same frozen base, same critic, same
+replay, same budget, same number of gradient steps --- and differ only in
+the boxed column. Nothing is removed from \method{} in this table. $^{\dagger}$ these two runs ended before $20$K steps, so their
 last-three averages are taken at $17$--$19$K (s42) and $14$--$16$K (s43);
 both curves are flat there, so the earlier window if anything favours the
 baseline.}
 \label{tab:matched}
-\small
-\begin{tabular}{lcccccc}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{llcccccc}
 \toprule
- & \multicolumn{3}{c}{can} & \multicolumn{3}{c}{square} \\
-\cmidrule(lr){2-4}\cmidrule(lr){5-7}
-actor update & s42 & s43 & s44 & s42 & s43 & s44 \\
+ & & \multicolumn{3}{c}{can} & \multicolumn{3}{c}{square} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-8}
+actor update & how the critic is used & s42 & s43 & s44 & s42 & s43 & s44 \\
 \midrule
-frozen base, no RL & \multicolumn{3}{c}{0.877} & \multicolumn{3}{c}{0.382} \\
-DICE-RL actor (backpropagate $-Q$) & 0.970$^{\dagger}$ & 0.946$^{\dagger}$ & 0.940 & 0.870 & 0.909 & 0.861 \\
-\method{} actor (bounded target displacement) & \textbf{0.988} & \textbf{0.993} & \textbf{0.978} & \textbf{0.912} & \textbf{0.930} & \textbf{0.929} \\
+frozen base, no RL & critic never queried & \multicolumn{3}{c}{0.877} & \multicolumn{3}{c}{0.382} \\
+DICE-RL actor \emph{(baseline)} & $Q$ differentiated \emph{through} the policy & 0.970$^{\dagger}$ & 0.946$^{\dagger}$ & 0.940 & 0.870 & 0.909 & 0.861 \\
+\textbf{\method{} actor \emph{(ours)}} & $Q$ only \emph{queried}; targets displaced, bounded, regressed & \textbf{0.988} & \textbf{0.993} & \textbf{0.978} & \textbf{0.912} & \textbf{0.930} & \textbf{0.929} \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 \begin{figure}[t]
@@ -335,6 +338,21 @@ actor gets there at $19$--$21$K on two seeds and not at all within the
 window on the third, trails at the matched budget on every seed, and catches
 up only near $40$K where both converge to $0.97$--$0.99$. A bounded update buys a faster, never-worse path to the same
 asymptote.
+
+\paragraph{Where the ablations live.} \method{} has four moving parts --- a
+step clip $\delta_Q$, a dead-zone anchor of radius $\rho$, the choice of how
+the critic scores candidates, and the target-regression form itself --- and
+each is taken apart separately later in this section, so we list them once
+here rather than interleaving them with the headline result.
+\cref{tab:constraint} switches the clip and the anchor on and off
+independently (the full $2\times2$); \cref{tab:rho-sweep} sweeps the
+dead-zone radius $\rho$ from $0$ to $\infty$; \cref{tab:locus} moves the
+\emph{same} constraint between the loss, the parameters and the action
+target, including a hard projection; \cref{tab:resolution} replaces the
+critic's gradient with coarser signals (top-$k$, tilted); and
+\cref{tab:libero-ablation} is a leave-one-out over the whole LIBERO recipe.
+\cref{tab:dmc-scope} is not an ablation but a scope test on a different
+benchmark family.
 
 \paragraph{LIBERO hard-8.} Here we deploy \method{} as a routing system: one
 frozen multitask drifting base, one small per-task residual head and critic
