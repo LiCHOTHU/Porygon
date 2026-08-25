@@ -124,8 +124,13 @@ $192$K --- roughly $125\times$ our interaction. This is deliberately generous
 to them and is \emph{not} a matched-budget comparison. They are also robomimic-only: their official
 implementations do not support LIBERO, so the LIBERO comparison in
 \cref{tab:libero-single} is carried by FM + DICE-RL and GRPO instead.
-Success uses the same 300-episode protocol throughout. The middle block is the
-drop-in test: DICE-RL and DICE-RL $+$ \method{} share the same pretrained
+Success uses the same 300-episode protocol throughout. The lower block is the
+drop-in test, read \emph{in pairs}: each base appears twice, once with
+DICE-RL's own actor and once with that actor replaced by \method{}, so the
+difference within a pair isolates the update rule. The flow-matching pair is
+incomplete --- its \method{} cell is still training at matched budget --- and
+we leave it blank rather than pair it against a run of different length.
+Concretely for the diffusion pair: DICE-RL and DICE-RL $+$ \method{} share the same pretrained
 diffusion base, the same critic, data, replay and budget, and differ in a
 single configuration line (\texttt{actor\_mode: residual} vs
 \texttt{field\_pointwise}). We also attempted to
@@ -145,6 +150,7 @@ is unavailable.}
 \label{tab:baselines}
 \footnotesize
 \setlength{\tabcolsep}{4.0pt}
+\resizebox{\linewidth}{!}{%
 \begin{tabular}{llccc}
 \toprule
 method & policy class & own base & fine-tuned & $\Delta$ \\
@@ -158,14 +164,17 @@ DPPO \citep{ren2024dppo}$^{\ddagger}$ & diffusion & 0.563 & 0.876 & $+0.312$ \\
 \midrule
 DIPO $+$ displacement bound & diffusion & 0.279 & 0.198 & $-0.081$ \\
 \midrule
-\multicolumn{5}{l}{\emph{same diffusion base, adding \method{} to an existing fine-tuner}} \\
-DICE-RL \citep{dicerl2026}          & diffusion & 0.279 & 0.861 & $+0.582$ \\
-DICE-RL $+$ \method{}               & diffusion & 0.279 & \textbf{0.937} & $\mathbf{+0.658}$ \\
-\midrule
-FM + DICE-RL \citep{dicerl2026} & flow matching & --- & 0.923--0.934 & --- \\
-drifting $+$ \method{}          & one-step drifting & 0.382 & 0.912--0.930 & $+0.53$--$0.55$ \\
+\multicolumn{5}{l}{\emph{adding \method{} to DICE-RL, paired within each base}} \\
+diffusion $+$ DICE-RL \citep{dicerl2026}   & diffusion & 0.279 & 0.861 & $+0.582$ \\
+diffusion $+$ DICE-RL $+$ \method{}        & diffusion & 0.279 & \textbf{0.937} & $\mathbf{+0.658}$ \\
+\addlinespace
+drifting $+$ DICE-RL                       & one-step drifting & 0.382 & 0.861--0.909 & $+0.48$--$0.53$ \\
+drifting $+$ DICE-RL $+$ \method{}         & one-step drifting & 0.382 & \textbf{0.912--0.930} & $+0.53$--$0.55$ \\
+\addlinespace
+flow matching $+$ DICE-RL \citep{dicerl2026} & flow matching & --- & 0.923--0.934 & --- \\
+flow matching $+$ DICE-RL $+$ \method{}      & flow matching & --- & --- & --- \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 Against the published flow-matching pipeline we reach parity, not
@@ -268,11 +277,14 @@ training seeds}; each is an independent fine-tuning run from the same
 pretrained base, so the three numbers in a block show run-to-run spread, not
 three different tasks. Every row shares the same base checkpoint, critic,
 data, replay and budget --- \textbf{the only thing that changes between the
-last two rows is how the critic's signal reaches the policy}. ``backprop
-$-Q$'' differentiates the critic through the policy, the standard choice.
-``field-target $+$ constraint'' is \method{}: it displaces sampled actions
-along the critic's gradient, bounds that displacement in action space, and
-regresses the policy onto the result. $^{\dagger}$ these two runs ended before $20$K steps, so their
+last two rows is how the critic's signal reaches the policy}. Row 2 is
+DICE-RL's own actor, which differentiates the critic through the policy ---
+the standard choice and our baseline. Row 3 replaces \emph{only} that actor
+with \method{}, which displaces sampled actions along the critic's gradient,
+bounds the displacement in action space, and regresses the policy onto the
+result. This table is a head-to-head comparison, \emph{not} an ablation: the
+ablations that take \method{} apart are
+\cref{tab:constraint,tab:rho-sweep,tab:locus,tab:resolution,tab:libero-ablation}. $^{\dagger}$ these two runs ended before $20$K steps, so their
 last-three averages are taken at $17$--$19$K (s42) and $14$--$16$K (s43);
 both curves are flat there, so the earlier window if anything favours the
 baseline.}
@@ -284,9 +296,9 @@ baseline.}
 \cmidrule(lr){2-4}\cmidrule(lr){5-7}
 actor update & s42 & s43 & s44 & s42 & s43 & s44 \\
 \midrule
-none (frozen base)        & \multicolumn{3}{c}{0.877} & \multicolumn{3}{c}{0.382} \\
-backprop $-Q$             & 0.970$^{\dagger}$ & 0.946$^{\dagger}$ & 0.940 & 0.870 & 0.909 & 0.861 \\
-field-target + constraint & \textbf{0.988} & \textbf{0.993} & \textbf{0.978} & \textbf{0.912} & \textbf{0.930} & \textbf{0.929} \\
+frozen base, no RL & \multicolumn{3}{c}{0.877} & \multicolumn{3}{c}{0.382} \\
+DICE-RL actor (backpropagate $-Q$) & 0.970$^{\dagger}$ & 0.946$^{\dagger}$ & 0.940 & 0.870 & 0.909 & 0.861 \\
+\method{} actor (bounded target displacement) & \textbf{0.988} & \textbf{0.993} & \textbf{0.978} & \textbf{0.912} & \textbf{0.930} & \textbf{0.929} \\
 \bottomrule
 \end{tabular}
 \end{table}

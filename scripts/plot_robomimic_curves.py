@@ -92,12 +92,14 @@ def main():
     ap.add_argument("--out", default="iclr2026/figures/robomimic_curves.pdf")
     args = ap.parse_args()
 
-    fig, axes = plt.subplots(1, 2, figsize=(9.4, 3.4), sharey=True)
-    TITLE = {"square": "square  (hard: base solves 38%)",
-             "can":    "can  (easy: base solves 88%)"}
-    for ax, task in zip(axes, ["square", "can"]):
+    fig, ax_ = plt.subplots(1, 1, figsize=(6.0, 3.6))
+    axes = [ax_]
+    TITLE = {"square": "robomimic square"}
+    for ax, task in zip(axes, ["square"]):
         drawn = {}
         for method, patterns in SOURCES[task].items():
+            if method not in ("A", "B"):   # only DICE-RL actor vs CAST actor
+                continue
             curves = [c for c in (read_curve(p, args.logdir) for p in patterns) if c]
             if not curves:
                 continue
@@ -156,9 +158,11 @@ def main():
         ax.spines[["top", "right"]].set_visible(False)
         ax.grid(axis="y", color="#eeeeee", lw=0.7)
         ax.set_axisbelow(True)
-    axes[0].set_ylabel("success rate (300 ep)")
-    handles = [plt.Line2D([], [], **{k: v for k, v in st.items() if k != "label"},
-                          label=st["label"]) for st in STYLE.values()]
+    axes[0].set_ylabel("success rate (300 episodes)")
+    handles = [plt.Line2D([], [], **{k: v for k, v in STYLE[m].items() if k != "label"},
+                          label=lab) for m, lab in
+               (("A", "DICE-RL actor (backpropagate $-Q$)"),
+                ("B", "CAST actor (bounded target displacement)"))]
     fig.legend(handles=handles, loc="upper center", ncol=5, frameon=False,
                fontsize=8.5, bbox_to_anchor=(0.5, 1.06))
     fig.tight_layout()
