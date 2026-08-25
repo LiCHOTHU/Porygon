@@ -661,13 +661,28 @@ $L_2$ penalty $+$ grad clip (DICE-RL) & loss $+$ parameters & 0.550 & 0.587 \\
 hinge $(\|r\|-\rho)_{+}^{2}$ penalty  & loss                & 0.837 & 0.700 \\
 \midrule
 always-on pull (\method{}, $\rho{=}0$) & action target      & 0.549 & 0.601 \\
-hard projection $\Pi_{\|r\|\le\rho}$   & action target      & --- & --- \\
-dead-zone anchor (\method{})           & action target      & \textbf{0.781} & \textbf{0.684} \\
+hard projection $\Pi_{\|r\|\le\rho}$   & action target      & \textbf{0.790} & \textbf{0.733} \\
+dead-zone anchor (\method{})           & action target      & 0.781 & 0.684 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Two rows are filled and they agree. The first is DICE-RL exactly as
+The table now separates \emph{where} the constraint acts from \emph{what
+shape} it takes, and only the first turns out to matter. Both action-target
+rows work and both loss-space rows fail: a hard projection onto
+$\|r\|\le\rho$ reaches $0.790$ and $0.733$, our dead-zone anchor $0.781$ and
+$0.684$, while the always-on quadratic pull collapses to $0.549$ and
+$0.601$. We report the projection result even though it is the better of the
+two --- on the ketchup task by $4.9$ points, beyond that task's seed
+spread. A simple hard cap on the residual is at least as good as the
+restoring field we build, which means our evidence supports the general
+claim (\emph{bound the displacement in action space}) more strongly than it
+supports our particular instrument for doing so. That cap is also what
+ResFiT's residual scale already implements, so the action-space constraint
+is not itself novel; what remains ours is the target-displacement form of
+the update, isolated in \cref{tab:matched}.
+
+The first row is DICE-RL exactly as
 published, and it is worth being precise about what it already contains: a
 behaviour-cloning penalty in the loss \emph{and} gradient-norm clipping at
 $1.0$ on every actor step of every run in this paper. It constrains in both

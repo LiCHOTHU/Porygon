@@ -87,8 +87,12 @@ the policy class already has; a flow-matching model is pretrained by
 conditional velocity regression, so there the same update is bolted on
 rather than inherited (and costs one base forward pass per particle per
 integration step). The principle we can defend is therefore narrow: \emph{what keeps a
-critic-driven update on the data is a restoring force with a dead zone, not a
-limit on step size}. The distinction is not cosmetic. A step limit constrains
+critic-driven update on the data is a bound on the total displacement in
+action space, not a limit on step size}. We are deliberately not claiming
+more than the location of the constraint. A hard projection onto
+$\|r\|\le\rho$ does as well as our dead-zone anchor and better on one task
+(\cref{tab:locus}), so the anchor is one workable instrument rather than the
+necessary one. The distinction is not cosmetic. A step limit constrains
 speed, and a drift assembled from permitted small steps still arrives; in our
 isolation the limit alone leaves the policy at zero success. A
 behaviour-cloning penalty restores, but does so everywhere, including the
