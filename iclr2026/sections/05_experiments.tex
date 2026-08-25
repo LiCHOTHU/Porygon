@@ -494,41 +494,53 @@ $\|\nabla_a Q\|$ spanning $0.003$ to $0.55$.
 
 \begin{table}[t]
 \centering
-\caption{LIBERO hard-8 in the \emph{multitask} setting: a single policy and a
-single critic trained on all eight tasks jointly, in contrast to the
-per-task routing of \cref{tab:libero-single}. Powered evaluation (100
-rollouts $\times$ 3 evaluation seeds per cell; one column per training seed;
-100 RL iterations). $\Delta$ is measured against each row's \emph{own}
-base, which is the only fair comparison across the two blocks: the
-flow-matching numbers are larger in absolute terms purely because that base
-starts higher. The ``DICE-RL (same base)'' row is the like-for-like
-comparison against \method{} --- same drifting base, same protocol. Read
-down the $\Delta$ column: \emph{no} fine-tuner, ours included, moves its
-base by more than seed noise ($\pm 0.014$).}
+\caption{\textbf{The bound on H2: where the critic has no usable signal,
+no update rule helps --- including ours.} LIBERO hard-8 with a
+\emph{single} policy and a \emph{single} critic trained on all eight tasks
+jointly, in contrast to the per-task routing of \cref{tab:libero-single}.
+Powered evaluation (100 rollouts $\times$ 3 evaluation seeds; one column per
+training seed; 100 RL iterations). This is a negative result and we report it
+as one: read the $\Delta$ column, where \emph{nothing} moves its own base by
+more than seed noise ($\pm 0.014$). Two rows use the backpropagated actor and
+they are not duplicates --- ``its published recipe'' is DICE-RL as shipped
+($\beta_{\mathrm{BC}}{=}100$, best-of-$N$ exploration), while ``our recipe''
+is the same actor under the settings \method{} uses
+($\beta_{\mathrm{BC}}{=}10$), so it is the matched control. $\Delta$ is
+against each row's own base, the only fair comparison across the two blocks:
+the flow-matching numbers are larger in absolute terms purely because that
+base starts higher. The final block is an \emph{ablation} of one component ---
+how the critic scores the $K$ candidates before displacement --- and is not a
+separate method; the corresponding single-task sweep is
+\cref{tab:resolution}.}
 \label{tab:libero}
 \small
 \begin{tabular}{lcccc}
 \toprule
 method & s10000 & s10001 & s10002 & $\Delta$ vs.\ own base \\
 \midrule
-drift base (no RL)         & \multicolumn{3}{c}{$0.671 \pm 0.014$} & --- \\
-backprop actor (same base) & 0.657 & 0.655 & 0.668 & $-0.011$ \\
-\method{} (top-$k$)        & --- & 0.684 & --- & $+0.013$ \\
-\method{} (tilted)         & 0.677 & --- & 0.672 & $+0.004$ \\
-\method{} (final recipe)   & 0.655 & --- & 0.659 & $-0.014$ \\
-DICE-RL (same base)        & 0.705 & 0.690 & 0.670 & $+0.017$ \\
+\multicolumn{5}{l}{\emph{drifting base}} \\
+drifting base (no RL)                        & \multicolumn{3}{c}{$0.671 \pm 0.014$} & --- \\
+drifting $+$ DICE-RL (its published recipe)  & 0.705 & 0.690 & 0.670 & $+0.017$ \\
+drifting $+$ backprop actor (our recipe)     & 0.657 & 0.655 & 0.668 & $-0.011$ \\
+drifting $+$ DICE-RL $+$ \method{} (our recipe) & 0.655 & --- & 0.659 & $-0.014$ \\
 \midrule
-flow-matching base (no RL) & \multicolumn{3}{c}{$0.738 \pm 0.022$} & --- \\
-FM + DICE-RL               & 0.756 & 0.735 & 0.737 & $+0.005$ \\
+\multicolumn{5}{l}{\emph{flow-matching base}} \\
+flow-matching base (no RL)                   & \multicolumn{3}{c}{$0.738 \pm 0.022$} & --- \\
+flow matching $+$ DICE-RL                    & 0.756 & 0.735 & 0.737 & $+0.005$ \\
+\midrule
+\multicolumn{5}{l}{\emph{ablation: how \method{} scores candidates (drifting base)}} \\
+\quad top-$k$ scoring (mean $Q$ of best $k$) & --- & 0.684 & --- & $+0.013$ \\
+\quad tilted scoring ($Q$-weighted average)  & 0.677 & --- & 0.672 & $+0.004$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 Nothing wins here, and that includes the competing method run on our own
 base. On the drifting base the backprop actor ($0.655$--$0.668$),
-\method{} ($0.655$--$0.659$), every resolution variant ($0.66$--$0.70$) and
-DICE-RL ($0.670$--$0.705$) all sit within noise of the untuned base
-($0.671 \pm 0.014$). DICE-RL's $+0.017$ and \method{}'s best variant at
+\method{} ($0.655$--$0.659$), both scoring variants ($0.67$--$0.68$) and
+DICE-RL at its own published settings ($0.670$--$0.705$) all sit within noise
+of the untuned base ($0.671 \pm 0.014$). The point of the table is this
+column of near-zeros: it marks where our claim stops. DICE-RL's $+0.017$ and \method{}'s best variant at
 $+0.013$ are not distinguishable from each other at this seed spread: in
 the multitask setting we claim no advantage over it, and none is visible. The flow-matching pipeline looks stronger in absolute
 terms ($0.735$--$0.756$), but its own base already scores
