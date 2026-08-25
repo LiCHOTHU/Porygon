@@ -935,6 +935,7 @@ is the boundary claim: sparsity is not what causes the policy to leave the
 data, it is what removes any route back.}
 \label{tab:dmc-scope}
 \small
+\resizebox{\linewidth}{!}{%
 \begin{tabular}{lcccc}
 \toprule
  & \multicolumn{3}{c}{swingup (dense)} & swingup\_sparse \\
@@ -946,7 +947,7 @@ unconstrained transport      & 508 / 642 & 0.51 / 0.64 & no & 57 / 514 \\
 backprop $-Q$ (DICE-RL form) & 294 / 343 & 0.29 / 0.34 & no & 4 / 26 \\
 \method{}                    & \textbf{802} / 628 & \textbf{0.80} / 0.63 & s42 only & 23 / 12 \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 \paragraph{Q3: does the bound transfer to other algorithms?}
