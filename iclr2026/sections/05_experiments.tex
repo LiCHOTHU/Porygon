@@ -913,9 +913,17 @@ sparsity cannot undo.
 \begin{table}[t]
 \centering
 \caption{Scope test on the DMC cartpole pair: same distilled base, same
-critic architecture, dense vs.\ sparse reward, mean evaluation return at
-the end of training (50 episodes; dense-task base $\approx$430; the sparse
-task is scored by its sparse return). Cells give both seeds (42 / 43); all twelve runs
+critic architecture, dense vs.\ sparse reward, \textbf{Scores are undiscounted episode return}: the sum of the per-step
+reward over one episode, averaged over 50 evaluation episodes. DMC gives
+reward in $[0,1]$ at every step and runs a fixed $1000$ steps with no early
+termination, so the scale is $0$--$1000$ by construction and the
+``normalized'' column is simply return$/1000$. Three reference points make
+the numbers readable, all measured from our own data rather than quoted:
+the demonstrations average $429$ (which is what the BC base scores, $0.43$
+normalized), the SAC teacher that generated them ended at $633$, and the
+single best demonstration episode was $729$. The last is the meaningful bar
+--- an arm that clears it has produced behaviour better than anything in its
+training data --- and only \method{} clears it, on one of two seeds. Cells give both seeds (42 / 43); all twelve runs
 completed. The dense column is the informative one and it is consistent
 across seeds: the \emph{unconstrained} update not only survives dense reward
 but ends well above the base ($\approx$430), which is the opposite of its
@@ -927,13 +935,16 @@ is the boundary claim: sparsity is not what causes the policy to leave the
 data, it is what removes any route back.}
 \label{tab:dmc-scope}
 \small
-\begin{tabular}{lcc}
+\begin{tabular}{lcccc}
 \toprule
-actor update & swingup (dense) & swingup\_sparse \\
+ & \multicolumn{3}{c}{swingup (dense)} & swingup\_sparse \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-5}
+actor update & return (s42 / s43) & normalized & clears best demo? & return (s42 / s43) \\
 \midrule
-unconstrained transport      & 508 / 642 & 57 / 514 \\
-backprop $-Q$ (DICE-RL form) & 294 / 343 & 4 / 26 \\
-\method{}                   & \textbf{802} / \textbf{628} & 23 / 12 \\
+\emph{reference: base $=429$} & & $0.43$ & & \\
+unconstrained transport      & 508 / 642 & 0.51 / 0.64 & no & 57 / 514 \\
+backprop $-Q$ (DICE-RL form) & 294 / 343 & 0.29 / 0.34 & no & 4 / 26 \\
+\method{}                    & \textbf{802} / 628 & \textbf{0.80} / 0.63 & s42 only & 23 / 12 \\
 \bottomrule
 \end{tabular}
 \end{table}
