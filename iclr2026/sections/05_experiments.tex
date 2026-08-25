@@ -721,30 +721,43 @@ mechanism. \Cref{tab:locus} is built to test exactly that.
 
 \begin{table}[t]
 \centering
-\caption{Where the constraint acts, at matched geometry. All rows share
-base, critic, data and budget. The first row is DICE-RL as shipped, which
-already constrains in \emph{two} places at once --- a behaviour-cloning
-penalty in the loss and gradient-norm clipping at $1.0$ on the actor --- so
-it is the joint loss-space/parameter-space entry rather than two separate
-rows. ``DICE $+$ hinge'' gives that same actor \method{}'s anchor potential
-$(\|r\|-\rho)_{+}^{2}$ as a loss term: by \cref{prop:equiv} it shares
-\method{}'s first-order gradient and differs only in the update form.
+\caption{\textbf{Component ablations: the two halves of the update.}
+\method{} displaces each candidate by a reward field $V_Q$ \emph{and} a
+restoring field $V_{\mathrm{anc}}$. Each block replaces one half and holds
+the other at \method{}'s setting, so the two blocks are different axes, not
+repeats of one another. \emph{Top:} what the critic contributes --- its
+gradient, or coarser signals that keep only a ranking. Deleting the gradient
+direction costs $35$--$40$ points on square and is the larger effect.
+\emph{Bottom:} how the excursion is bounded, at matched geometry. The first
+two rows constrain in the loss or the parameters; the last three act on the
+action target. What separates the working rows from the failing ones is not
+\emph{where} the constraint lives but whether it has a \emph{dead zone}: the
+three configurations with a free interior all land in $0.68$--$0.84$, and the
+two without one (always-on pull, and DICE-RL's $L_2$ penalty with gradient
+clipping) sit at or below base. Our anchor is not the best of the three ---
+see the discussion below. Square was run only for the top block.
 ``---'' = not measured.}
-\label{tab:locus}
+\label{tab:locus}\label{tab:resolution}
 \footnotesize
 \setlength{\tabcolsep}{4.0pt}
-\begin{tabular}{llcc}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{llccc}
 \toprule
-constraint & where it acts & \makecell{red mug\\onto plate ($0.573$)} & \makecell{ketchup\\into drawer ($0.610$)} \\
+variant & acts on & square (3 seeds) & \makecell{red mug\\onto plate ($0.573$)} & \makecell{ketchup\\into drawer ($0.610$)} \\
 \midrule
-$L_2$ penalty $+$ grad clip (DICE-RL) & loss $+$ parameters & 0.550 & 0.587 \\
-hinge $(\|r\|-\rho)_{+}^{2}$ penalty  & loss                & 0.837 & 0.700 \\
+\multicolumn{5}{l}{\emph{(a) the reward field $V_Q$ --- constraint held at \method{}'s}} \\
+\quad gradient (\method{})       & ---           & \textbf{0.912--0.930} & 0.781$^{\dagger}$ & 0.684$^{\dagger}$ \\
+\quad top-$k$ (ranking only)     & ---           & 0.525--0.562 & 0.577 & 0.341 \\
+\quad tilted ($\exp(Q/\tau)$)    & ---           & 0.560--0.584 & 0.697 & 0.378 \\
 \midrule
-always-on pull (\method{}, $\rho{=}0$) & action target      & 0.549 & 0.601 \\
-hard projection $\Pi_{\|r\|\le\rho}$   & action target      & \textbf{0.790} & \textbf{0.733} \\
-dead-zone anchor (\method{})           & action target      & 0.781 & 0.684 \\
+\multicolumn{5}{l}{\emph{(b) the restoring field --- reward held at \method{}'s gradient}} \\
+\quad $L_2$ penalty $+$ grad clip (DICE-RL) & loss $+$ params & --- & 0.550 & 0.587 \\
+\quad always-on pull ($\rho{=}0$)           & action target   & --- & 0.549 & 0.601 \\
+\quad hinge $(\|r\|-\rho)_{+}^{2}$          & loss            & --- & \textbf{0.837} & 0.700 \\
+\quad hard projection $\Pi_{\|r\|\le\rho}$  & action target   & --- & 0.790 & \textbf{0.733} \\
+\quad dead-zone anchor (\method{})          & action target   & --- & 0.781$^{\dagger}$ & 0.684$^{\dagger}$ \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 The table now separates \emph{where} the constraint acts from \emph{what
@@ -816,23 +829,7 @@ resolution: transport toward its top-$k$ ranked particles, or toward the
 cloud's own $\exp(Q/\tau)$-tilted density. Both delete the gradient
 direction and change nothing else.
 
-\begin{table}[t]
-\centering
-\caption{Deleting the critic's gradient direction. Square is the 3-seed
-range from \cref{tab:matched}'s protocol; LIBERO cells are powered
-evaluations on the frozen recipe.}
-\label{tab:resolution}
-\small
-\begin{tabular}{lccc}
-\toprule
-reward field $V_Q$ & square (3 seeds) & \makecell{red mug\\onto plate ($0.573$)} & \makecell{ketchup\\into drawer ($0.610$)} \\
-\midrule
-gradient (\method{})    & \textbf{0.912--0.930} & \textbf{0.781} & \textbf{0.684} \\
-top-$k$ (ranking only)  & 0.525--0.562 & 0.577 & 0.341 \\
-tilted ($\exp(Q/\tau)$) & 0.560--0.584 & 0.697 & 0.378 \\
-\bottomrule
-\end{tabular}
-\end{table}
+
 
 The answer is the same wherever we ask it. On robomimic, where the critic
 generalizes, the value-only fields preserve can ($0.91$--$0.95$) but
