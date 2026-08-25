@@ -309,18 +309,22 @@ DICE-RL actor \emph{(baseline)} & $Q$ differentiated \emph{through} the policy &
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/robomimic_curves.pdf}
-  \caption{\textbf{What post-training adds, and how fast.} 300-episode
-  evaluations every 1K steps; line is the seed mean, band the min--max over
-  seeds. The dashed horizontal line is the \emph{frozen base} --- everything
-  above it is what fine-tuning bought, shaded for \method{}. On square, the
-  discriminative task, \method{} adds $54$ points over the base at the
-  matched 20K budget and reaches the backprop actor's 20K endpoint about 4K
-  steps earlier; the two resolution variants (top-$k$, tilted) stall near
-  $0.55$ and are analysed in \cref{sec:exp-resolution}. On can both updates
-  approach the ceiling, so the task mainly checks that nothing breaks. Note
-  that FM $+$ DICE-RL runs on a \emph{different} (flow-matching) base and so
-  is not a same-base comparison; the same-base contrast is \method{} against
-  the backprop actor.}
+  \caption{\textbf{Why \method{} wins, and why it needs both guards.}
+  \emph{(a)} robomimic square, 300-episode evaluations; line is the seed
+  mean, band the min--max over three seeds. Both arms share the base,
+  critic, data, replay and budget --- only the actor update differs. At the
+  matched 20K budget \method{} reaches $0.924$ against the backpropagated
+  actor's $0.880$, and is ahead on every seed; both converge near 40K, so
+  the gain is in what the update extracts per step, not in the asymptote.
+  \emph{(b)} the constraint factorial, plotted as change from each task's
+  \emph{own} base so that zero is ``did nothing''. Removing the anchor is
+  fatal whether or not the step clip is present ($-0.57$ and $-0.61$: both
+  arms collapse to $0.000$ success), which is the paper's central negative
+  result --- many individually capped steps still compound into a walk off
+  the data. The anchor alone survives but is not reliable: $+0.24$ on the
+  red-mug task, $-0.22$ on ketchup, i.e.\ worse than not fine-tuning at all.
+  Only the pair is positive on both. Neither guard is sufficient; the claim
+  is about the pair.}
   \label{fig:curves}
 \end{figure}
 
