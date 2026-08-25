@@ -287,10 +287,10 @@ same data, same budget, different update: the field-target form extracts
 more, on every seed of both tasks.
 
 \Cref{fig:curves} shows the difference is in speed as much as in endpoint.
-\method{} reaches $0.91$ on every seed by $15$K steps; the backprop actor
-needs another $5$--$10$K steps to get there, trails at the matched budget on
-every seed, and catches up only near $40$K where both converge to
-$0.97$--$0.99$. A bounded update buys a faster, never-worse path to the same
+\method{} reaches $0.91$ on every seed by $16$--$18$K steps; the backprop
+actor gets there at $19$--$21$K on two seeds and not at all within the
+window on the third, trails at the matched budget on every seed, and catches
+up only near $40$K where both converge to $0.97$--$0.99$. A bounded update buys a faster, never-worse path to the same
 asymptote.
 
 \paragraph{LIBERO hard-8.} Here we deploy \method{} as a routing system: one
