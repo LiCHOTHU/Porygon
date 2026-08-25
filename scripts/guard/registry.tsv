@@ -35,3 +35,4 @@ pe_fmB_t81	powered_eval_one.sbatch
 fmB_mt_s10000	field_hard8_drift.sbatch
 fmB_mt_s10001	field_hard8_drift.sbatch
 fmB_mt_s10002	field_hard8_drift.sbatch
+12291251	FMdice	sbatch ... ft_distill_residual_flow_field_mlp 42 model.actor_mode=residual logdir=/storage/cedar/cedar0/cedarp-agarg35-0/liquan.w/imitation_scratch/dice_rl_official/log_dir/robomimic-finetune/square_FMdice_s42

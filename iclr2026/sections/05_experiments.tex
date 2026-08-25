@@ -124,7 +124,11 @@ $192$K --- roughly $125\times$ our interaction. This is deliberately generous
 to them and is \emph{not} a matched-budget comparison. They are also robomimic-only: their official
 implementations do not support LIBERO, so the LIBERO comparison in
 \cref{tab:libero-single} is carried by FM + DICE-RL and GRPO instead.
-Success uses the same 300-episode protocol throughout. We also attempted to
+Success uses the same 300-episode protocol throughout. The middle block is the
+drop-in test: DICE-RL and DICE-RL $+$ \method{} share the same pretrained
+diffusion base, the same critic, data, replay and budget, and differ in a
+single configuration line (\texttt{actor\_mode: residual} vs
+\texttt{field\_pointwise}). We also attempted to
 re-tune the three collapsing methods rather than report them at published
 settings; that attempt is reported in \cref{sec:exp-retune} and made them
 worse, so the published settings stand. ``---'' = not measured; we have not
@@ -144,8 +148,12 @@ AWR                       & generic   & 0.279 & 0.407 & $+0.128$ \\
 \midrule
 DIPO $+$ displacement bound & diffusion & 0.279 & 0.198 & $-0.081$ \\
 \midrule
+\multicolumn{5}{l}{\emph{same diffusion base, adding \method{} to an existing fine-tuner}} \\
+DICE-RL \citep{dicerl2026}          & diffusion & 0.279 & 0.861 & $+0.582$ \\
+DICE-RL $+$ \method{}               & diffusion & 0.279 & \textbf{0.937} & $\mathbf{+0.658}$ \\
+\midrule
 FM + DICE-RL \citep{dicerl2026} & flow matching & --- & 0.923--0.934 & --- \\
-\method{}                       & one-step drifting & 0.382 & 0.912--0.930 & $+0.53$--$0.55$ \\
+drifting $+$ \method{}          & one-step drifting & 0.382 & 0.912--0.930 & $+0.53$--$0.55$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -197,6 +205,19 @@ than weakens the claim: consuming the critic \emph{safely} was never the
 hard part --- weighting schemes have always done so --- but they leave the
 critic's most informative output, its action gradient, on the table
 (\cref{sec:exp-resolution} measures what that costs on the harder task).
+
+\paragraph{\method{} as a drop-in on an existing fine-tuner.}
+The rows above compare whole systems, which leaves open whether \method{}'s
+advantage is the update rule or the rest of our pipeline. The cleanest test
+is to change nothing except the update. Taking DICE-RL on the same
+pretrained diffusion base that every classic baseline uses, and switching
+only its actor from the residual update to \method{}'s field-target update,
+raises $300$-episode success from $0.861$ to $0.937$ --- $+7.6$ points, from
+a one-line configuration change, on top of a method that was already working
+well. This is the sense in which \method{} is a technique rather than a
+system: it is additive to an existing fine-tuner, not a replacement for one.
+The corresponding cell on a flow-matching base is not yet measured at
+matched base and budget, so we do not report it.
 
 \paragraph{We tried to rescue the collapsing baselines, and could not.}
 \label{sec:exp-retune}
