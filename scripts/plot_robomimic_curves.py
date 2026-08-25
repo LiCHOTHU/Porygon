@@ -92,23 +92,64 @@ def main():
     ap.add_argument("--out", default="iclr2026/figures/robomimic_curves.pdf")
     args = ap.parse_args()
 
-    fig, axes = plt.subplots(1, 2, figsize=(9.2, 3.1), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(9.4, 3.4), sharey=True)
+    TITLE = {"square": "square  (hard: base solves 38%)",
+             "can":    "can  (easy: base solves 88%)"}
     for ax, task in zip(axes, ["square", "can"]):
+        drawn = {}
         for method, patterns in SOURCES[task].items():
             curves = [c for c in (read_curve(p, args.logdir) for p in patterns) if c]
             if not curves:
                 continue
             x, m, lo, hi = aggregate(curves, XMAX)
+            drawn[method] = (x, m)
             st = STYLE[method]
-            ax.plot(x / 1000, m, color=st["color"], ls=st["ls"], lw=st["lw"])
+            ax.plot(x / 1000, m, color=st["color"], ls=st["ls"], lw=st["lw"], zorder=3)
             ax.fill_between(x / 1000, lo, hi, color=st["color"], alpha=0.15, lw=0)
-        ax.axhline(BASE[task], color="#777777", lw=1.0, ls=(0, (1, 3)))
-        ax.text(XMAX / 1000 * 0.99, BASE[task] + 0.015, "drift base", color="#777777",
-                ha="right", fontsize=8)
-        ax.axvline(MATCHED_BUDGET / 1000, color="#aaaaaa", lw=0.8, ls="--")
-        ax.text(MATCHED_BUDGET / 1000 + 0.5, 0.03, "matched budget", color="#888888",
-                fontsize=8, rotation=90, va="bottom")
-        ax.set_title(task, fontsize=11)
+
+        base = BASE[task]
+        # shade what post-training actually added, base -> CAST
+        if "B" in drawn:
+            x, m = drawn["B"]
+            ax.fill_between(x / 1000, base, m, where=(m > base),
+                            color="#0072B2", alpha=0.09, lw=0, zorder=1)
+        ax.axhline(base, color="#444444", lw=1.1, ls=(0, (2, 2)), zorder=2)
+        dy = 0.018 if task == "square" else -0.055
+        ax.text(0.6, base + dy, f"frozen base, no RL = {base:.2f}",
+                color="#444444", fontsize=8, ha="left", zorder=6,
+                bbox=dict(fc="white", ec="none", pad=1.0, alpha=0.85))
+
+        # the gain CAST delivers at the matched budget
+        if "B" in drawn:
+            x, m = drawn["B"]
+            k = int(np.argmin(np.abs(x - MATCHED_BUDGET)))
+            xb, yb = x[k] / 1000, m[k]
+            ax.annotate("", xy=(xb, yb), xytext=(xb, base),
+                        arrowprops=dict(arrowstyle="<->", color="#0072B2", lw=1.3))
+            ax.text(xb + 0.8, (yb + base) / 2, f"+{100*(yb-base):.0f} pts\nover the base",
+                    color="#0072B2", fontsize=8.5, fontweight="bold",
+                    ha="left", va="center", zorder=6,
+                    bbox=dict(fc="white", ec="none", pad=1.2, alpha=0.9))
+
+        # speed: where CAST first reaches the backprop actor's matched-budget score
+        if task == "square" and "B" in drawn and "A" in drawn:
+            xa, ma = drawn["A"]; xb_, mb = drawn["B"]
+            ka = int(np.argmin(np.abs(xa - MATCHED_BUDGET)))
+            target = ma[ka]
+            hit = np.where(mb >= target)[0]
+            if len(hit) and xb_[hit[0]] < MATCHED_BUDGET:
+                xs = xb_[hit[0]] / 1000
+                ax.plot([xs], [target], marker="o", ms=5, color="#0072B2", zorder=5)
+                ax.annotate(f"CAST reaches the backprop\nendpoint {(MATCHED_BUDGET-xb_[hit[0]])/1000:.0f}K steps early",
+                            xy=(xs, target), xytext=(xs - 13.5, 0.10),
+                            fontsize=7.5, color="#0072B2", zorder=6,
+                            bbox=dict(fc="white", ec="none", pad=1.2, alpha=0.9),
+                            arrowprops=dict(arrowstyle="->", color="#0072B2", lw=0.9))
+
+        ax.axvline(MATCHED_BUDGET / 1000, color="#aaaaaa", lw=0.9, ls="--")
+        ax.text(MATCHED_BUDGET / 1000 + 0.4, 0.03, "matched budget", color="#888888",
+                fontsize=7.5, rotation=90, va="bottom")
+        ax.set_title(TITLE[task], fontsize=10)
         ax.set_xlabel("training steps (K)")
         ax.set_xlim(0, XMAX / 1000)
         ax.set_ylim(0, 1.02)

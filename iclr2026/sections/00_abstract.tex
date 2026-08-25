@@ -1,33 +1,34 @@
-% Structure: (1) problem, (2) method, (3) headline result, (4) mechanism.
-% The headline is the controlled margin; the anchor finding SUPPORTS it and
-% must not be allowed to become the headline again.
-Behaviour-cloned robot policies are capped by their demonstrations, and the
-usual way past that cap is to train a critic and fine-tune against it. This
-reliably goes wrong: the policy drifts away from the data the critic was fit
-to, its score rises, and its actual success collapses.
+% Structure follows the conventions of abstracts in this exact setting
+% (Residual Off-Policy RL, arXiv 2509.19301; DPPO, arXiv 2409.00588):
+%   problem & why it matters -> "We present/propose ..." -> results.
+% Kept short and jargon-free; ends on the line worth remembering.
+Behavior cloning has made visuomotor robot policies easy to train, but their
+performance is bounded by the demonstrations they imitate. Reinforcement
+learning offers a way past that bound by letting the policy practice against a
+learned critic, yet in the regime that matters in practice --- a policy cloned
+from few demonstrations, improved online, rewarded only when the task succeeds
+--- critic-guided fine-tuning is unreliable and frequently destroys the policy
+it was meant to improve. The cause is that a critic is accurate only on the
+narrow set of actions it was trained on, while the standard update lets that
+critic determine both the direction and the magnitude of every policy change.
+The policy is therefore pushed outside the region the critic understands,
+where it stops succeeding and, under sparse reward, receives no signal that
+would guide it back.
 
-We present an actor update that does not. A frozen base proposes a cloud of
-candidate actions; each is displaced along the critic's gradient; a restoring
-force returns any candidate that has strayed beyond a radius $\rho$ of the
-base; and a small residual head is regressed onto the displaced candidates.
-Nothing else in the pipeline changes --- the critic, replay, demonstrations,
-budget and evaluation are those of the state-of-the-art residual fine-tuner,
-byte for byte, so the only variable is the actor update.
+We present a fine-tuning rule that separates these two roles: the critic
+chooses the direction of the update, and the algorithm chooses the distance.
+Candidate actions are drawn from the frozen pretrained policy, displaced along
+the critic's gradient, pulled back whenever they stray beyond a fixed radius of
+the action they started from, and regressed into a lightweight residual head.
+The critic, replay data and interaction budget are unchanged from the
+strongest published residual fine-tuner, so the actor update is the only
+variable.
 
-Under that control, the update gains $+9.4$ points on the eight hardest
-LIBERO-90 tasks where backpropagating $-Q$ gains $+0.9$, and lifts robomimic
-square from $0.382$ to $0.91$--$0.93$. It reaches the published
-flow-matching pipeline's performance from a base less than half as strong,
-and transfers unchanged to that flow-matching base.
-
-We then ask which part is responsible, switching each guard off
-independently on two tasks. The answer is decisive in one direction only.
-Removing \emph{both} is catastrophic: success falls to exactly $0.000$ on
-both tasks, from bases of $0.573$ and $0.610$, so the unconstrained
-action-gradient update --- what prior work in this family runs --- does not
-merely underperform here, it destroys the policy. But either guard alone
-recovers essentially all of the gain ($0.671$--$0.803$ across configurations,
-against $0.781$ and $0.684$ for both together), and the gaps between them are
-smaller than this benchmark's seed-to-seed spread. We therefore claim only
-that a constraint tying the policy to its base is necessary; which
-constraint, at this budget, we cannot distinguish.
+Across two benchmarks this yields $+9.4$ points on the eight hardest LIBERO-90
+tasks where backpropagating the critic yields $+0.9$, and raises robomimic
+square from $0.382$ to $0.91$--$0.93$, while published methods that let the
+critic set the distance fail to improve their base and in two cases collapse to
+zero. Ablating our own components isolates why: bounding how far the policy
+moves per step changes nothing, and the component that matters is the one
+holding the policy near where it started. The effective constraint is a leash
+to a fixed anchor, not a speed limit.

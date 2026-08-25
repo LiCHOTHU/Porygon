@@ -1,8 +1,15 @@
-We showed that the natural update primitives for RL fine-tuning of one-step
-generative policies are, respectively, unavailable without modifying the
-policy and unsafe when the critic is imperfect, and that the policy class's
-own pretraining primitive --- field-target regression --- provides the
-missing update rule. \method{} expresses reward and anchoring as composable velocity fields over
+This paper is about one narrow, common regime: post-training a generative
+policy that was pretrained on a small set of demonstrations, online, under
+sparse binary reward. Our experiments locate the boundary of that regime
+from both sides. Inside it, any update that lets the critic displace actions
+without an action-space bound destroys the policy --- in our system and in
+the official implementations of an entire method family --- because the
+critic is only competent in the narrow tube its data covers and sparse
+reward offers no route back once the policy leaves it. Outside it --- dense
+reward, or broad-coverage training --- the same unconstrained updates
+survive and can even gain, so we claim nothing there. Within the regime, the
+missing update rule is field-target regression under an action-space bound
+anchored to the frozen base. \method{} expresses reward and anchoring as composable velocity fields over
 action particles, and recovers the backpropagated direction in the
 small-step limit. Its working component is the action-space trust region:
 the critic sets the direction, while a bound --- a pointwise clip on each
@@ -27,23 +34,24 @@ hyperparameters, and they constrain what we may claim. Replacing the
 dead-zone with an always-on penalty ($\rho{=}0$, exactly a behaviour-cloning
 term) falls back to base level ($0.549$ and $0.601$ against bases of $0.573$
 and $0.610$), so the constraint must be shaped in action space rather than
-added to the loss. Switching the two guards on and off independently is
-decisive in one direction only: removing \emph{both} collapses success to
-exactly $0.000$ on both tasks, while either alone recovers essentially all of
-the gain --- indeed removing the anchor and keeping only the step bound is
-among our strongest settings ($0.803$ on t65). We therefore claim the
-necessity of an action-space constraint, and not the superiority of the
-particular one we ship.
+added to the loss. Switching the two guards on and off independently
+separates them cleanly. Removing both collapses success to exactly $0.000$ on
+both tasks; keeping \emph{only} the pointwise step clip gives exactly
+$0.000$ as well, no better than no constraint at all. The base-restoring term
+is what makes the update viable ($0.810$ on the red-mug task with the clip removed),
+though on its own it is unreliable across tasks ($0.387$ on the ketchup task), and the two
+together are what hold on both. The constraint that matters is therefore not
+a limit on how fast the policy moves but a tether to where it started.
 
 \textbf{Limitations.}
 \label{sec:limitations}
 Three specific results run against our thesis and we state them
-plainly. On t81 the backpropagated actor ends above \method{}
+plainly. On the Study-3 caddy task the backpropagated actor ends above \method{}
 ($0.653$ versus $0.635$); on two flow-matching tasks the
 \emph{un-finetuned} base beats every fine-tuner including ours ($0.917$
-on t53, $0.620$ on t75); and on robomimic can the flow-matching pipeline
+on the orange-juice task, $0.620$ on the right-caddy task); and on robomimic can the flow-matching pipeline
 edges us on two of three seeds. Single-seed variation is also
-substantial on LIBERO --- repeating the frozen recipe on t65 with a
+substantial on LIBERO --- repeating the frozen recipe on the red-mug task with a
 second seed moves the result by $8.9$ points --- so per-task deltas
 smaller than roughly ten points, including our $\eta_Q$ and
 $\delta_{\mathrm{tot}}$ sweeps, indicate direction rather than magnitude.

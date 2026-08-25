@@ -1,185 +1,175 @@
 % =====================================================================
-% Problem statement + toy experiment (Fig. 1).
-% Numbers from toy_field_vs_gradient2.py runs of 2026-07-24 (3 seeds),
-% results in $CEDAR/toy_field_demo2/toy2_results.json.
+% Problem statement. Rewritten to lead with the setting a practitioner has,
+% then the one design choice that breaks, then the measured demonstration.
+% Figure 1 block is preserved verbatim from the fig1_manifold rewrite.
 % =====================================================================
 
-\subsection{Setup}
+\subsection{The setting: post-training a cloned policy}
 \label{sec:setup}
 
-We consider an episodic decision process with states $s$, action chunks
-$a \in \mathbb{R}^{H \times d}$ ($H$ control steps of a $d$-dimensional
-action, treated as a single vector of dimension $S = Hd$), and sparse
-task-success reward. A \emph{one-step generative policy} maps a state
-and a noise sample to an action in a single network evaluation,
+The situation this paper addresses is concrete. A robot policy has been
+trained by behavior cloning on a modest number of demonstrations --- tens,
+not thousands --- and it works, imperfectly. We now want it to get better by
+practising in its environment, and the only feedback available is whether the
+episode succeeded. Three features of this setting do the work in everything
+that follows, and each is a property of practice rather than a modelling
+choice:
+
+\begin{itemize}
+  \item \textbf{The demonstrations are few.} Whatever a learned critic knows,
+  it learned from a thin shell of actions around them.
+  \item \textbf{The reward is sparse.} A policy that stops succeeding
+  receives a stream of zeros, which carries no information about how to
+  succeed again.
+  \item \textbf{The base policy is worth protecting.} It is the only thing in
+  the system that reliably does the task at all.
+\end{itemize}
+
+Formally, states are $s$, actions are chunks $a \in \mathbb{R}^{H\times d}$ of
+$H$ control steps flattened to dimension $S = Hd$, and reward is a sparse
+task-success signal. The pretrained policy maps a state and a noise sample to
+an action in a single network evaluation,
 \begin{equation}
   a = \pi_0(s, z), \qquad z \sim \mathcal{N}(0, I),
 \end{equation}
-and is pretrained on demonstrations with a drifting-model objective
-\citep{deng2026drifting}: at each step, a population of policy samples
-is transported by a kernel velocity field toward the data distribution,
-and the network is regressed onto the transported targets. We write
-$\mathcal{V}(x \mid p^{+}, p^{-})$ for this transport field acting on
-query particles $x$, attracted to particles of $p^{+}$ and repelled from
-particles of $p^{-}$ (\cref{sec:reward-field} recalls its exact form).
-
-Following residual fine-tuning practice \citep{dawn2026,dicerl2026}, we
-freeze the base and learn a residual head on top of it,
+so the policy is a deterministic map from noise to action. Following standard
+residual fine-tuning practice \citep{dawn2026,dicerl2026}, we freeze it and
+learn a small residual on top,
 \begin{equation}
   a = \pi_0(s,z) + r_\theta(s,z),
   \label{eq:residual}
 \end{equation}
-together with an ensemble critic $Q_\phi(s, z, a)$ trained by temporal
-difference with a conservative (CQL-style) penalty
-\citep{kumar2020cql}. The critic training is standard and identical for
-every method compared in this paper; \emph{the object of study is
-solely the actor update} --- how the policy consumes the critic.
+alongside an ensemble critic $Q_\phi(s,z,a)$ trained by temporal difference
+with a conservative penalty \citep{kumar2020cql}. Critic training is identical
+for every method we compare. \emph{The object of study is only the actor
+update} --- how the policy consumes the critic it is given.
 
-\subsection{Two structural failure modes}
+\subsection{Why the obvious tools do not apply}
 \label{sec:failure-modes}
 
-\paragraph{No likelihoods.} Policy-gradient fine-tuners
-(PPO/GRPO-style, e.g.\ SimpleVLA-RL \citep{simplevlarl}) require
-$\log \pi(a \mid s)$. A one-step generator defines its action
-distribution implicitly through the noise map \cref{eq:residual}; its
-likelihood is intractable, and unlike multi-step diffusion policies
-there is no chain-MDP reformulation to fall back on
-\citep{ren2024dppo,park2025fql}. Two routes recover a ratio, and
-\emph{neither is available to a one-step drifting policy}. The first
-\emph{modifies the policy} --- adding fixed-variance Gaussian noise to
-its output so that a surrogate log-density exists \citep{reinflow2025}
---- so the deployed policy is no longer the deterministic one-step map
-that was pretrained; we include this surrogate as a baseline and it is a
-competitive one. The second leaves the policy untouched but requires it
-to \emph{be} a flow model: FPO \citep{mcallister2025flowmatchingpolicygradients}
-forms a PPO-clip ratio from differences of per-sample conditional
-flow-matching losses, exploiting the CFM--ELBO relationship. That
-construction needs a denoising loss defined over a flow time $\tau$; a
-drifting model has no $\tau$ and is trained by field-target regression,
-which carries no such ELBO link, so the surrogate does not exist for it.
-On a flow-matching base FPO \emph{is} applicable and would be the natural
-policy-gradient comparison --- a comparison we do not run here. The
-update we develop needs no likelihood, surrogate or exact, on either base.
+\paragraph{Policy gradients need a likelihood this policy does not have.}
+PPO- and GRPO-style fine-tuners \citep{simplevlarl} require
+$\log\pi(a\mid s)$. A one-step generator defines its action distribution
+implicitly through the noise map, its likelihood is intractable, and unlike
+multi-step diffusion there is no chain-MDP reformulation to fall back on
+\citep{ren2024dppo,park2025fql}. Two routes recover a ratio and neither is
+free. One \emph{changes the deployed policy}, adding Gaussian noise to its
+output so a surrogate density exists \citep{reinflow2025}; we include it as a
+baseline and it is competitive, but what ships is no longer the policy that
+was pretrained. The other leaves the policy alone but requires it to \emph{be}
+a flow model: FPO \citep{mcallister2025flowmatchingpolicygradients} builds a
+clip ratio from differences of conditional flow-matching losses, which needs a
+denoising loss over a flow time $\tau$ that a one-step model does not have. So
+a critic is what remains, and the question becomes how to consume it.
 
-\paragraph{Letting the critic set the distance.} The remaining updates all
-use the critic's action-gradient, and all let its magnitude decide how far
-the policy moves. Backpropagating $-Q$ through the actor, as in the DDPG
-lineage and in DICE-RL's residual actor \citep{dicerl2026}, does so
-explicitly:
+\paragraph{Every critic-based update hands the critic two jobs.} A critic can
+answer one question well: given this action, which way should it change to
+score higher. Standard updates ask it a second question at the same time ---
+how far --- and take the answer from the magnitude of its gradient.
+Backpropagating $-Q$ through the actor, as in the DDPG lineage and DICE-RL's
+residual actor \citep{dicerl2026}, does this explicitly,
 \begin{equation}
-  \nabla_\theta \mathbb{E}[-Q] = -\nabla_a Q \cdot \partial a / \partial \theta ,
+  \nabla_\theta \mathbb{E}[-Q] = -\nabla_a Q \cdot \partial a/\partial\theta ,
   \label{eq:backprop-coupling}
 \end{equation}
-so a steeper critic produces a larger parameter step. The
-\emph{action-gradient} family --- which improves each sampled action by a
-gradient step and regresses the policy onto the improved action
-\citep{dipo2024,psenka2024qsm} --- avoids differentiating through the
-policy, but inherits the same coupling one level up: the improved action
-sits wherever $a + \alpha \nabla_a Q$ lands, so the displacement is again
-proportional to the critic's steepness. Reported failures of that family
-match the prediction, degrading under biased critic gradients and drifting
-off the behavior distribution \citep{dprlsurvey2026}.
+so a steeper critic produces a larger parameter step. The action-gradient
+family \citep{dipo2024,psenka2024qsm} never differentiates through the policy,
+but the improved action lands wherever $a + \alpha\nabla_a Q$ falls, so the
+displacement is again proportional to the critic's steepness --- the same
+delegation, one level up.
 
-Why is distance the risky thing to delegate? A critic is trained to rank
-actions near its data. Away from that data it is unconstrained, and can be
-steep and wrong at once
-\citep{fujimoto2018td3,fujimoto2019bcq,savo2025}. The two quantities then
-fail asymmetrically. A slightly wrong \emph{direction} costs a slightly
-wrong step. A wrongly large \emph{distance} costs the data manifold: the
-policy is carried off it in one update, and the better it then scores under
-the critic, the worse it actually is.
+Only the first question is one the critic was trained to answer. It learns to
+rank actions where it has data; away from that data nothing constrains it, and
+it can be steep and wrong at once
+\citep{fujimoto2018td3,fujimoto2019bcq,savo2025}. The two errors then fail
+asymmetrically. A wrong \emph{direction} costs a slightly wrong step. A wrong
+\emph{distance} costs the data manifold --- and once the policy is off it,
+higher critic scores mean worse behavior, because the critic is scoring a
+region it has never been corrected on.
 
-The important word is \emph{persistent}. The individual steps need not be
-large; what matters is that they keep pointing the same way. The critic's
-extrapolated optimum does not move as the policy approaches it, so each
-update advances toward the same place and nothing returns the policy. This
-distinction turns out to decide which remedy works: limiting the size of a
-step does not stop a drift assembled from permitted steps, whereas a force
-that returns the policy does (\cref{sec:exp-constraint}).
+One detail decides which remedy can work, so we state it early: the damage is
+\emph{persistent}, not sudden. The critic's extrapolated optimum does not
+recede as the policy approaches it, so every update points the same way and
+nothing pulls the policy back. A limit on the size of each step therefore does
+not prevent the drift --- it only slows it --- while a force that returns the
+policy toward its starting point does. \Cref{sec:exp-constraint} measures both
+and confirms the distinction.
 
-\subsection{A diagnostic experiment}
+\subsection{Watching it happen}
 \label{sec:toy}
+
+The argument above is easy to state and easy to doubt, so we make it visible
+in a setting small enough to draw completely and honest enough to be
+recomputed: two-dimensional actions, a curved band of workable actions
+standing in for the data manifold, and a reward that decays away from that
+band. We sample $25$ demonstrations from the band --- the number a
+post-training run actually has --- and fit a critic to them by regression.
+Nothing about the critic is rigged: it sees only demonstrated actions and
+their true rewards, exactly as a critic trained on demonstration data would.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\linewidth]{figures/toy_intuition.pdf}
-  \caption{\textbf{Which guard keeps a critic-driven update on the data?}
-  Panels (a)--(b) use a diagnostic bandit: $16$-D actions, two demonstration
-  modes of reward $1.0$ and $0.6$, and a critic deliberately fit to only $60$
-  expert actions so that it is wrong away from them. We use it because the
-  entire action space can be drawn, not because it resembles a robot task.
-  \textbf{(a)} A slice of that space. Green is the \emph{true} reward, thin
-  orange lines are what the critic \emph{believes}, and the two part company
-  away from the data. Our update (blue) leaves the policy's actions on the
-  demonstrated modes; unbounded updates exit the frame entirely.
-  \textbf{(b)} The two guards, switched on and off independently. A step
-  bound on its own does nothing --- $0.00$ success, and $5{,}847\times$ the
-  data's spread away, no better than using no guard at all --- because a
-  drift assembled from many permitted small steps is still a drift. The
-  dead-zone restoring force on its own reproduces the full method exactly
-  ($0.49$, $0.12\times$). This identifies the mechanism: what matters is the
-  pull back toward the starting policy, not the limit on step size.
-  \textbf{(c)} What that buys on real benchmarks, with base, critic, data and
-  budget held fixed: robomimic square rises from $0.38$ to $0.92$, and the
-  eight hardest LIBERO-90 tasks gain $+9.4$ points against $+0.9$ for the
-  backpropagated actor.
-  Note that in (b) no configuration exceeds the untuned base ($0.66$): the
-  diagnostic is built to separate the guards, not to show improvement, which
-  is the job of (c).}
+  \includegraphics[width=\linewidth]{figures/fig1_manifold.pdf}
+  \caption{\textbf{Why critic-guided post-training leaves the data, and what a
+  bound does about it.} Panels (a)--(c) are computed, not drawn: a critic is
+  fit by regression to $25$ demonstrations, the number a post-training setting
+  actually has. \textbf{(a)} The task's true reward, and the demonstrations
+  --- all of which lie on one narrow band of feasible actions. \textbf{(b)}
+  What the critic learned. On the band it is accurate; beyond the dashed
+  contour it has no data and is extrapolating, and nothing in its training
+  penalises it for being confidently wrong there. \textbf{(c)} Two updates
+  from the same start, both following $\nabla_a\hat{Q}$. The unconstrained one
+  walks off the band to a point its own critic scores $\hat{Q}=1.63$ ---
+  higher than \emph{any} achievable reward --- where the true reward is
+  exactly $0.000$. Bounding the displacement around the frozen base keeps the
+  policy where the critic is valid and improves it ($0.016\rightarrow0.040$,
+  $2.5\times$). The gap between what the critic claims and what the policy
+  earns is the whole failure. \textbf{(d)} The same mechanism measured in the
+  real system: distance from the frozen base during LIBERO the red-mug task training. Without
+  a base-restoring term the policy walks away without bound and success reaches
+  $0.000$; with it the policy sits at the trust radius for the entire run.
+  The regime matters: repeating (a)--(c) with $700$ demonstrations instead of
+  $25$ removes the effect entirely (critic then learns the band and its
+  gradient is trustworthy), which is why this paper scopes its claims to
+  post-training from few demonstrations.}
   \label{fig:intuition}
 \end{figure}
+Three things follow, and all are computed rather than asserted.
 
-To see the failure cleanly we build the smallest setting that contains
-it: a bandit whose expert data has two modes, a one-step policy
-pretrained on that data with the drift operator, and a critic trained
-\emph{only} on actions the expert actually takes. The critic is therefore
-accurate on the data and unconstrained everywhere else --- the situation
-every offline-trained critic is in. We then fine-tune the same base with
-two update rules and vary one thing: the action dimension, which controls
-how much of the space the critic has never seen.
+\textbf{The critic is accurate where the data is, and invents elsewhere.}
+Because every demonstration lies on the band, nothing in the critic's training
+tells it that leaving the band is bad. Its predictions there are extrapolation,
+and \cref{fig:intuition}(b) marks the contour beyond which they stop matching
+reality.
 
-\textbf{When the critic is reliable, follow it.} With $2$-D actions and
-dense critic data, backpropagation is the best update ($0.79$ true
-reward, versus $0.53$ for a value-only field update and $0.50$ for the
-base). Nothing is wrong with using a critic's gradient when the critic
-knows what it is talking about.
+\textbf{Following its gradient walks the policy off the band.} Starting from a
+demonstrated action and taking repeated steps along $\nabla_a\hat{Q}$ lands at
+a point the critic scores $\hat{Q} = 1.63$ --- higher than \emph{any} reward
+the task can produce --- where the true reward is exactly $0.000$. The policy
+has not become confused; it has done exactly what it was told, by a critic
+that was confidently wrong. Bounding the displacement around the frozen
+starting action instead keeps the policy where the critic is informative and
+improves it ($0.016 \rightarrow 0.040$).
 
-\textbf{When it is not, backpropagation is catastrophic --- and a BC
-penalty does not save it.} With $16$-D actions and $60$ critic training
-points, the same update drives true reward to \emph{zero} while the
-critic's own estimate of that policy rises by four orders of magnitude:
-the policy has walked into a region the critic scores highly and has
-never seen. Adding the standard behavior-cloning penalty changes nothing
-($0.00$ as well). This is the diagnostic result of the paper:
-\emph{the penalty is a term in a loss, and it is competing against a
-gradient of unbounded magnitude.} It loses. \Cref{fig:intuition} shows
-the geometry --- the policy is not wandering, it is being pulled, quickly
-and directly, toward the critic's hallucinated optimum.
+\textbf{The effect has a data threshold, and that threshold defines this
+paper's scope.} Repeating the identical construction with more
+demonstrations removes it: at $200$ demonstrations the critic's endpoint earns
+a true reward of $0.901$ against its own estimate of $0.910$, and at $700$ the
+two agree just as closely. With enough data the critic learns the band and its
+gradient is worth following without any bound at all. We therefore do not
+claim that critic gradients are untrustworthy in general --- only that they are
+untrustworthy in the regime where post-training actually happens, and we scope
+every claim in this paper accordingly.
 
-\textbf{Which fix actually works.} The natural cure is to limit how far the
-policy may move per update, and we tried it. It does not work: with the step
-bound alone the policy still ends at zero true reward, $5{,}847\times$ the
-data's own spread away --- no better than applying no guard at all. The reason
-is visible in \cref{fig:intuition}(a). The critic's imagined optimum does not
-recede as the policy approaches it, so every permitted step points the same
-way, and a drift assembled from small permitted steps arrives just as surely
-as one large one. A speed limit is not a boundary.
-
-What works is a restoring force that is \emph{silent} within a radius $\rho$
-of the base and engages beyond it. On its own, with no step bound at all, it
-reproduces the full method exactly ($0.49$ true reward, $0.12\times$ the data
-spread), and adding the step bound on top changes nothing
-(\cref{fig:intuition}b).
-
-Three conclusions carry into the method. First, the critic's gradient is the
-best signal available where it generalizes and a liability where it does not,
-so a useful update keeps the direction. Second, what protects the policy is a
-force that \emph{returns} it, not one that slows it: containment is a
-statement about where the policy ends up, not how fast it travels. Third --- and
-this is why the dead zone rather than a plain penalty --- the restoring force
-must be absent near the base, or it spends its strength opposing the critic in
-the one region where the critic is reliable. A constant behaviour-cloning
-penalty does exactly that, and in the same setting it also ends at $0.00$.
+The same boundary can be crossed a second way, which rules out the objection
+that our two-dimensional picture is a special case. Holding the amount of data
+fixed and raising the \emph{dimension} of the action space shrinks the fraction
+of that space the critic has seen, and produces the identical two regimes
+(\cref{fig:toy}): with $2$-D actions the critic's gradient generalizes and
+backpropagation is the best available update, while with $16$-D actions and the
+same critic budget the same update drives true reward to zero as its internal
+$Q$-estimate explodes. Coverage is the variable in both experiments; dimension
+and demonstration count are two ways of changing it.
 
 \begin{figure}[t]
   \centering
@@ -192,6 +182,10 @@ penalty does exactly that, and in the same setting it also ends at $0.00$.
   updates collapse to zero true reward while their internal $Q$-estimate
   explodes --- the BC anchor does not help --- whereas the bounded field-target
   update stays on-manifold and holds the base policy. A useful fine-tuner must
-  keep the gradient where it is trustworthy and survive where it is not.}
+  keep the gradient where it is trustworthy and survive where it is not.
+  This sweeps the \emph{dimension} of the action space at fixed data, and
+  \cref{fig:intuition} sweeps the \emph{amount} of data at fixed dimension;
+  both cross the same boundary, which is what the critic's coverage of the
+  region the update moves into.}
   \label{fig:toy}
 \end{figure}

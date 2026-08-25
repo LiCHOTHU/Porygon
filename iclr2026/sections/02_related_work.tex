@@ -54,10 +54,20 @@ it directly. The displacement is clipped pointwise in action space, a
 dead-zone anchor restores toward a frozen base, and the update is applied to
 a residual rather than by overwriting stored transitions (DIPO's buffer
 rewrite makes the stored action inconsistent with the transition that
-produced it). Removing either guard reproduces the family's failure inside
-our own system: performance falls \emph{below} the untuned base
-(\cref{tab:libero-ablation}). Test-time guidance \citep{qgf2026} applies the
-same $\nabla_a Q$ signal without training at all, and is complementary.
+produced it). Two measurements tie our system to theirs. Removing the
+base-restoring anchor reproduces the family's failure inside our own code
+exactly --- success $0.000$, whether or not the pointwise clip is kept
+(\cref{tab:constraint}) --- so we can switch their failure on and off. And
+running DIPO, QSM and DQL from their authors' implementations on our setting,
+at $125\times$ our interaction budget, none improves its base and two reach
+exactly $0.000$ (\cref{tab:baselines}), which is the same failure observed
+from the outside. We are careful about the direction of this claim: these
+methods were developed for dense-reward online control, and the adaptation to
+sparse-reward manipulation fine-tuning is the one published by
+\citet{ren2024dppo}, not one we devised. Their difficulty here is evidence
+about the regime, not a verdict on the methods. Test-time guidance
+\citep{qgf2026} applies the same $\nabla_a Q$ signal without training at all,
+and is complementary.
 
 \paragraph{Critic-as-compass versus critic-as-judge.}
 That a learned $Q$-function's action-gradient cannot be trusted is a
@@ -72,7 +82,13 @@ tilt the policy toward $\pi \cdot \exp(Q/\tau)$ using only $Q$-values.
 Our method spans this spectrum rather than picking a side: the update
 \emph{form} is judge-safe (bounded transport toward targets), while the
 reward field inside it can still be the analytic gradient where it is
-trustworthy --- and our ablations map exactly when each choice wins.
+trustworthy --- and our ablations map exactly when each choice wins. The
+judge-only methods are also the ones that survive our benchmark: of the
+published fine-tuners we ran, the one that only \emph{weights} actions rather
+than displacing them is the only one to improve its base
+(\cref{tab:baselines}). It pays for that safety by discarding the critic's
+most informative output, which is what our bounded update is designed to
+keep.
 
 \paragraph{Particle transport as a policy update.}
 Regressing a sampler onto displaced particles is the amortized-SVGD idea
@@ -85,7 +101,7 @@ drifting backbone by drifting fresh policy samples toward
 critic-ranked top-$K$ candidates. \method{} differs in three ways: we
 update a \emph{residual on a frozen base} rather than the full policy,
 we transport with an explicit pointwise trust region and a restoring
-anchor field (the stability contract our toy shows is load-bearing),
+anchor field (stability contract our toy shows is load-bearing),
 and our reward field is a dial --- including the analytic
 $\nabla_a Q$ source that dominates when the critic generalizes ---
 rather than a fixed ranking surrogate.

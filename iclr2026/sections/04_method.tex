@@ -8,25 +8,30 @@ Crucially, this is a requirement about \emph{where the policy ends up}, not
 about how fast it travels --- a distinction the experiments turn out to
 hinge on.
 
-The vehicle for that bound is an existing primitive, which we adopt rather
-than claim: \emph{move action samples along a velocity field, then regress
-the network onto the moved samples}. This is how the action-gradient family
-improves a policy \citep{dipo2024,psenka2024qsm}. What that family does not
-do, and what this section contributes, is constrain the displacement: in
-DIPO the improved action is wherever the gradient step lands, and the policy
-is then regressed onto it.
+Meeting it requires answering one question: \emph{where does the critic stop
+being reliable, and how do we express that boundary in a form an update can
+respect?} Our answer is deliberately blunt. The boundary is not something we
+can compute --- if we could estimate the critic's competence region we would
+already have solved the problem --- so we approximate it by the only landmark
+available: the frozen policy that the critic was trained around. Actions near
+its output are actions the critic has seen; actions far from it are not. The
+constraint therefore takes the form of a radius about the base policy's own
+action, and the method is what follows from taking that seriously.
+
+The vehicle is an existing primitive, which we adopt rather than claim:
+\emph{move action samples along a velocity field, then regress the network
+onto the moved samples}. This is how the action-gradient family improves a
+policy \citep{dipo2024,psenka2024qsm}. What that family does not do, and what
+this section contributes, is constrain the displacement: in DIPO the improved
+action is wherever the gradient step lands, and the policy is regressed onto
+it, wherever that is.
 
 Nothing below is specific to a policy class. The update needs a frozen map
-from noise to actions, the ability to draw $K$ samples from it, and a
-critic; it never needs a likelihood, a denoising objective, or access to the
-generator's internals. It therefore applies to a one-step map, a few-step
-flow-matching sampler, or a many-step diffusion policy without modification,
-and we verify two of these empirically (\cref{sec:exp-generality}). One
-convenience is worth noting without leaning on it: a drifting model is
-itself \emph{pretrained} by field-target regression
-\citep{deng2026drifting}, so on that particular base the fine-tuner reuses
-machinery the policy already has. That is an implementation economy, not a
-requirement, and none of our claims depend on it.
+from noise to actions, the ability to draw $K$ samples from it, and a critic.
+It never needs a likelihood, a denoising objective, or access to the
+generator's internals, so it applies unchanged to a one-step map, a few-step
+flow-matching sampler, or a many-step diffusion policy, and we verify this
+empirically across generator classes (\cref{sec:exp-generality}).
 
 The contribution is what happens between the critic and the regression: the
 proposed displacement is \textbf{constrained in action space, on the target,
@@ -81,12 +86,52 @@ backpropagated into the actor.
   \label{fig:method}
 \end{figure}
 
-\subsection{The field-target update}
+\subsection{\method{} in four steps}
 \label{sec:field-update}
 
-One update works as follows. For each state in the batch we draw $K$
-noise samples and form the current action particles
-$a_i = \pi_0(s, z_i) + r_\theta(s, z_i)$, treated as constants (detached). Each particle is displaced by a combined velocity,
+We call the method \method{} --- \emph{Constrained Action-Space Transport} ---
+because that is literally what it does: it \emph{transports} candidate actions
+toward higher critic value, and it \emph{constrains} that transport in
+\emph{action space}, where the damage occurs, rather than in the loss or in
+parameter space.
+
+Before any notation, here is the whole method in one picture. For a given
+state, the frozen policy can produce many plausible actions --- draw different
+noise, get different candidates. We take a handful of them and ask the critic
+to improve each one, but we treat its answer as \emph{advice about direction}
+and cap how far we act on it. Any candidate that ends up too far from the
+action the frozen policy originally proposed is pulled back toward it. Then we
+simply train the residual head to reproduce the corrected candidates, as if
+they were demonstrations. The critic is never differentiated through; it is
+only ever asked a question and answered.
+
+So one update does four things:
+
+\begin{enumerate}
+  \item \textbf{Propose.} Draw $K$ noise samples and push them through the
+  frozen base plus the current residual, giving $K$ candidate actions for this
+  state.
+  \item \textbf{Nudge.} Ask the critic which direction improves each
+  candidate, and take a step of bounded length in that direction --- the
+  critic sets the heading, we set the stride.
+  \item \textbf{Leash.} If a candidate has drifted more than $\rho$ away from
+  what the frozen policy proposed, pull it back toward that action. Inside
+  $\rho$ nothing happens, so the critic has free rein where it is trustworthy.
+  \item \textbf{Imitate.} Detach the corrected candidates and train the
+  residual head by regression onto them. They are data now, not a computation
+  graph.
+\end{enumerate}
+
+Two consequences are worth noticing immediately. Because step 4 is plain
+regression onto fixed targets, the size of the parameter update is set by us,
+not by how steep the critic happens to be. And because step 3 measures distance
+from the \emph{frozen} policy rather than from the previous iterate, the
+reference point never moves --- which, as \cref{sec:exp-constraint} shows, is
+exactly what separates a constraint that works from one that does not.
+
+Concretely: for each state in the batch we draw $K$ noise samples and form the
+current action candidates $a_i = \pi_0(s, z_i) + r_\theta(s, z_i)$, treated as
+constants (detached). Each is displaced by a combined velocity,
 \begin{equation}
   \tilde{r}_i \;=\; \mathrm{sg}\!\left[\, r_i
      \;+\; \operatorname{clip}_{\delta_Q}\!\big(V_Q(s, z_i, a_i)\big)
@@ -100,26 +145,29 @@ where $\mathrm{sg}[\cdot]$ is stop-gradient and
 $\operatorname{clip}_{\delta}(v) = v \cdot \min(1, \delta / \|v\|)$
 rescales a field vector to norm at most $\delta$.
 
-In words, one update does four things. \textbf{(1) Propose:} draw $K$
-noise samples and push them through the frozen base plus the current
-residual to get a cloud of candidate actions for this state.
-\textbf{(2) Score and displace:} ask the critic which direction improves
-each candidate, clip that direction to length $\delta_Q$, and add the
-anchor's pull if the residual has strayed past its radius; clip the
-resulting total displacement to $\delta_{\mathrm{tot}}$.
-\textbf{(3) Freeze the targets:} the displaced actions are detached ---
-they are data now, not a computation graph. \textbf{(4) Regress:} train
-the residual head to output those displaced targets. The critic is
-trained separately (\cref{sec:critic}); it is never differentiated
-through the actor, only queried.
+Matching this to the four steps: $V_Q$ is the critic's direction (step 2),
+clipped to length $\delta_Q$; $V_{\mathrm{anc}}$ is the leash (step 3),
+silent while $\|r_i\|$ stays within $\rho$; the total displacement is clipped
+to $\delta_{\mathrm{tot}}$; and $\mathrm{sg}[\cdot]$ makes the result a fixed
+regression target (step 4). The critic is trained separately
+(\cref{sec:critic}).
 
-\paragraph{Why this primitive, for this policy class.} Field-target
-regression is not merely \emph{a} safe update --- it is the operation the
-network was shaped by. A step-distilled generator fine-tuned under a
-mismatched objective drifts from the distribution its one-step map encodes
-\citep{dopsd2026,sdft2024}; by keeping fine-tuning inside the pretraining
-operator family, \method{} changes only \emph{where} the targets sit, not
-\emph{what kind} of function the network is asked to represent.
+\paragraph{Why displace targets rather than differentiate.} Writing the
+update as regression onto displaced targets is what makes the boundary
+enforceable at all. The quantity we need to bound --- how far the policy's
+action ends up from the base policy's action --- is a property of the
+\emph{target}, and here it is available explicitly, before any gradient is
+taken: we can inspect each displaced target, compare it to the action it came
+from, and correct it. Backpropagating $-Q$ offers no such handle, because the
+distance travelled is an emergent consequence of a parameter step and is not
+represented anywhere the algorithm can act on. Two secondary properties follow
+from the same choice. The regression target is detached, so the critic never
+differentiates through the actor and cannot inject unbounded curvature into
+the parameter update. And because targets are formed from freshly drawn
+samples rather than from stored actions rewritten in place, replayed
+transitions continue to describe the dynamics that produced them --- a
+consistency DIPO's buffer rewrite gives up
+\citep{dipo2024}.
 
 \paragraph{What the clip does and does not guarantee.}
 The clip bounds \emph{target transport}, and only that:
@@ -174,9 +222,10 @@ performance difference is attributable to the update form --- the anchored
 target regression --- and not to a different reward signal.
 
 \paragraph{The kernel transport operator.} The lower-resolution reward
-fields below, the pretraining objective, and the distributional anchor
-variant all use the same drifting-model transport operator
-\citep{deng2026drifting}. Given query particles $x$, attractor particles
+fields below and the distributional anchor variant share one particle
+transport operator, which we take off the shelf \citep{deng2026drifting}; it
+is a convenience for turning a set of target particles into a velocity field,
+and nothing in the method depends on its particular form. Given query particles $x$, attractor particles
 $p^{+}$ (optionally weighted), and repulsor particles $p^{-}$, distances are
 normalized by a global scale and, for each kernel radius $R$ in a small set,
 a soft mutual-matching affinity
