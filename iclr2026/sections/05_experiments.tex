@@ -565,8 +565,10 @@ arms, and powered evaluation collapses that spread to the base value.
 \textbf{Claim.} Take the action-space constraint away, and the update
 destroys the policy.
 
-\textbf{Verdict.} The factorial is complete and it separates the two guards
-cleanly. Removing the base-restoring term costs everything --- with the step
+\textbf{Verdict.} The factorial separates the two guards cleanly, but
+\cref{tab:locus} then shows the \emph{shape} of the constraint matters more
+than the machinery that enforces it --- including a loss-space hinge that
+beats us. Removing the base-restoring term costs everything --- with the step
 clip alone, success is $0.000$ on both tasks, \emph{identical} to using no
 constraint at all. Removing the step clip instead is survivable but erratic
 ($0.810$ on the red-mug task, but $0.387$ on the ketchup task, below that task's base). Only the pair is
@@ -775,15 +777,31 @@ that prior work uses and the policy returns to base level. This is the
 quantitative form of the toy's finding that a penalty inside a loss must
 out-shout an unbounded gradient, and loses.
 
-What remains is the sharpest version of the objection, and we state it as an
-open cell rather than a result. \emph{DICE $+$ hinge} gives the
-backpropagated actor our dead-zone geometry inside its loss. It therefore
-shares \method{}'s first-order gradient and differs only in the update form
---- multi-particle detached target regression against a single
-backpropagated loss. If it matches \method{}, the geometry is the whole
-story and the form is presentation. If it fails where the base-restoring row
-of \cref{tab:constraint} succeeds, the form is the mechanism. The experiment
-is two-sided by construction and we will report it either way.
+\paragraph{The sharpest objection is now measured, and it goes against the
+update form.} \emph{DICE $+$ hinge} gives the \emph{backpropagated} actor our
+dead-zone geometry inside its loss: same base, same critic, same
+$\beta_{\mathrm{BC}}{=}100$, only \texttt{actor\_mode} differs. We
+pre-registered the reading --- if it matches \method{}, the geometry is the
+whole story and the form is presentation. It does not merely match. It
+reaches $0.837$ and $0.700$ against full \method{}'s $0.781$ and $0.684$
+(and $0.627$ on the matched arm we could verify), with its three evaluation
+seeds at $0.84/0.81/0.86$ on the red-mug task. By our own criterion, on this
+benchmark \textbf{the dead-zone geometry is doing the work, and the
+target-displacement form is not what earns the gain.}
+
+This does not erase \cref{tab:matched} and \cref{tab:libero-single}, where
+the backpropagated actor \emph{without} that geometry manages $+0.9$ against
+\method{}'s $+9.4$. Read together, the three tables say something narrower
+than we set out to claim: a dead zone --- a bounded region around the frozen
+policy with a free interior --- is the ingredient that matters, and it can be
+delivered through a loss hinge, a hard projection, or our restoring field
+roughly equally well. Every configuration carrying that geometry lands in
+$0.68$--$0.84$; both configurations without it (the $L_2$ penalty with
+gradient clipping, and the always-on pull at $\rho{=}0$) sit at base level or
+below, $0.549$--$0.601$. What the target-displacement form buys is not a
+better ceiling but a way to get the geometry without differentiating through
+the critic at all --- which is what makes it portable to the drop-in setting
+of \cref{tab:baselines}, where the host method's loss is not ours to edit.
 
 \subsection{How much of the critic should the update consume?}
 \label{sec:exp-resolution}
