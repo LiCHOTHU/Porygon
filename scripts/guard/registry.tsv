@@ -41,11 +41,16 @@ fmB_mt_s10002	field_hard8_drift.sbatch
 12323454	sqbase32_s43	retrain of the 0.279 baseline-architecture square base (time_dim 32), seed 43
 12323455	sqbase32_s44	retrain of the 0.279 baseline-architecture square base (time_dim 32), seed 44
 12323649	FMdice	FM+DICE-RL control, partner of FMporygon for table 1's FM pair
-12324124	fmB2_t8	FM base CAST at eta_Q=2, symmetry for table 3
-12324125	fmB2_t21	FM base CAST at eta_Q=2, symmetry for table 3
-12324126	fmB2_t32	FM base CAST at eta_Q=2, symmetry for table 3
-12324127	fmB2_t53	FM base CAST at eta_Q=2, symmetry for table 3
-12324132	fmB2_t65	FM base CAST at eta_Q=2, symmetry for table 3
-12324133	fmB2_t73	FM base CAST at eta_Q=2, symmetry for table 3
-12324134	fmB2_t75	FM base CAST at eta_Q=2, symmetry for table 3
-12324135	fmB2_t81	FM base CAST at eta_Q=2, symmetry for table 3
+12324187	fmB2_t8	FM base (BASE_CKPT+NIS=10) CAST eta_Q=2 for table-3 symmetry
+12324188	fmB2_t21	FM base (BASE_CKPT+NIS=10) CAST eta_Q=2 for table-3 symmetry
+12324189	fmB2_t32	FM base (BASE_CKPT+NIS=10) CAST eta_Q=2 for table-3 symmetry
+12324190	fmB2_t53	FM base (BASE_CKPT+NIS=10) CAST eta_Q=2 for table-3 symmetry
+12324191	fmB2_t65	FM base (BASE_CKPT+NIS=10) CAST eta_Q=2 for table-3 symmetry
+12324192	fmB2_t73	FM base (BASE_CKPT+NIS=10) CAST eta_Q=2 for table-3 symmetry
+12324193	fmB2_t75	FM base (BASE_CKPT+NIS=10) CAST eta_Q=2 for table-3 symmetry
+12324194	fmB2_t81	FM base (BASE_CKPT+NIS=10) CAST eta_Q=2 for table-3 symmetry
+12324921	s2_BNONE_t65	second-seed factorial arm (seed 20002) for table 5
+12324922	s2_BCLIP_t65	second-seed factorial arm (seed 20002) for table 5
+12324923	s2_BANC_t65	second-seed factorial arm (seed 20002) for table 5
+12324924	s2_B_t65	second-seed factorial arm (seed 20002) for table 5
+12324925	s2_BCLIP_t32	second-seed factorial arm (seed 20002) for table 5
