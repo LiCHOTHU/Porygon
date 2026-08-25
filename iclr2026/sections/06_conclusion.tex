@@ -75,9 +75,12 @@ single embodiment.
 We should be precise about which part of the story generalizes, because two
 claims are easy to conflate. The \emph{update rule} is base-agnostic: it
 consumes a frozen noise-to-action map, a residual head and a critic, and
-never touches how the base draws its action --- which is why it transfers
-unchanged to a flow-matching base, where it also improves on the
-state-of-the-art fine-tuner. What does \emph{not} generalize is the
+never touches how the base draws its action, and it transfers unchanged to a
+diffusion base, where dropping it into DICE-RL raises success from $0.861$ to
+$0.937$. Its \emph{size} of benefit, however, is not base-agnostic: on the
+flow-matching LIBERO base the same recipe is a wash against the base
+($0.756$ vs $0.753$) and only $+1.3$ points over DICE-RL across the seven
+tasks where both ran. What does \emph{not} generalize is the
 economy of the construction. A drifting model is pretrained by
 field-target regression, so on that base the fine-tuner reuses machinery
 the policy class already has; a flow-matching model is pretrained by
