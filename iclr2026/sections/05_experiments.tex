@@ -131,8 +131,17 @@ single configuration line (\texttt{actor\_mode: residual} vs
 \texttt{field\_pointwise}). We also attempted to
 re-tune the three collapsing methods rather than report them at published
 settings; that attempt is reported in \cref{sec:exp-retune} and made them
-worse, so the published settings stand. ``---'' = not measured; we have not
-run the flow-matching base on square, so its $\Delta$ is unavailable.}
+worse, so the published settings stand. $^{\ddagger}$DPPO is the one row that does \emph{not} share the $0.279$
+base: its official configuration pretrains its own diffusion policy
+(\texttt{square\_pre\_diffusion\_mlp\_ta4\_td20}), which scores $0.563$, so
+we report it against that base and its $\Delta$ is the only one not measured
+from $0.279$. It is also the most expensive method here by a wide margin
+($\sim\!24$ minutes per iteration); we stopped it at iteration $178$ of
+$300$ and $11.7$M environment steps, where its last-three average was
+$0.876$ and rising by under $2$ points per $20$ iterations. Its number is
+therefore a lower bound on what the full schedule would reach. ``---'' = not
+measured; we have not run the flow-matching base on square, so its $\Delta$
+is unavailable.}
 \label{tab:baselines}
 \footnotesize
 \setlength{\tabcolsep}{4.0pt}
@@ -145,6 +154,7 @@ QSM \citep{psenka2024qsm} & diffusion & 0.279 & 0.000 & $-0.279$ \\
 DQL                       & diffusion & 0.279 & 0.000 & $-0.279$ \\
 IDQL                      & diffusion & 0.279 & 0.041 & $-0.238$ \\
 AWR                       & generic   & 0.279 & 0.407 & $+0.128$ \\
+DPPO \citep{ren2024dppo}$^{\ddagger}$ & diffusion & 0.563 & 0.876 & $+0.312$ \\
 \midrule
 DIPO $+$ displacement bound & diffusion & 0.279 & 0.198 & $-0.081$ \\
 \midrule
