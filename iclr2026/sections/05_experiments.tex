@@ -592,7 +592,13 @@ noise. On ketchup, where its seeds span $0.35$--$0.41$, full \method{} leads
 by $0.297$ --- far outside it. What survives noise is that full \method{} is
 the only configuration above its base on \emph{both} tasks, while anchor-only
 lands $0.223$ \emph{below} base on ketchup, i.e.\ worse than not fine-tuning
-at all. ``---'' = not measured.}
+at all. \textbf{The ketchup task separates the configurations without
+overlap}: full \method{}'s three evaluation seeds are $0.62$, $0.68$, $0.58$
+and anchor-only's are $0.40$, $0.41$, $0.35$, so \method{}'s \emph{worst}
+seed beats the ablation's \emph{best} by $0.17$, with the two step-clip rows
+at exactly $0.000$ beneath both. That single task is the cleanest evidence
+that the pair is required, and it does not rely on averaging.
+``---'' = not measured.}
 \label{tab:constraint}
 \footnotesize
 \setlength{\tabcolsep}{4.0pt}
