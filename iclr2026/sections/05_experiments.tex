@@ -584,7 +584,15 @@ evaluation (last-3 checkpoints). ``Clip off'' disables \emph{both}
 displacement bounds ($\delta_Q$ and $\delta_{\mathrm{tot}}$); ``anchor off''
 disables \emph{both} restoring terms. The $(\times,\times)$ row is the
 unconstrained action-gradient update --- the form DIPO and QSM run
-(\cref{tab:baselines}). ``---'' = not measured.}
+(\cref{tab:baselines}).
+\textbf{On the red-mug task anchor-only ($0.810$) reads higher than full
+\method{} ($0.781$); that gap is not real.} The anchor-only arm's own three
+evaluation seeds span $0.77$--$0.85$, so a $0.029$ difference sits inside its
+noise. On ketchup, where its seeds span $0.35$--$0.41$, full \method{} leads
+by $0.297$ --- far outside it. What survives noise is that full \method{} is
+the only configuration above its base on \emph{both} tasks, while anchor-only
+lands $0.223$ \emph{below} base on ketchup, i.e.\ worse than not fine-tuning
+at all. ``---'' = not measured.}
 \label{tab:constraint}
 \footnotesize
 \setlength{\tabcolsep}{4.0pt}
@@ -594,8 +602,8 @@ clip & anchor & configuration & \makecell{red mug\\onto plate ($0.573$)} & \make
 \midrule
 $\times$ & $\times$ & unconstrained transport & 0.000 & 0.000 \\
 $\checkmark$ & $\times$ & step containment only & 0.000 & 0.000 \\
-$\times$ & $\checkmark$ & base-restoring only   & \textbf{0.810} & 0.387 \\
-$\checkmark$ & $\checkmark$ & \textbf{full \method{}} & 0.781 & \textbf{0.684} \\
+$\times$ & $\checkmark$ & base-restoring only   & 0.810 & 0.387 \\
+$\checkmark$ & $\checkmark$ & \textbf{full \method{}} & \textbf{0.781} & \textbf{0.684} \\
 \bottomrule
 \end{tabular}
 \end{table}
