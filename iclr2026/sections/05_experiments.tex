@@ -587,29 +587,19 @@ displacement bounds ($\delta_Q$ and $\delta_{\mathrm{tot}}$); ``anchor off''
 disables \emph{both} restoring terms. The $(\times,\times)$ row is the
 unconstrained action-gradient update --- the form DIPO and QSM run
 (\cref{tab:baselines}).
-\textbf{On the red-mug task anchor-only ($0.810$) reads higher than full
-\method{} ($0.781$); that gap is not real.} The anchor-only arm's own three
-evaluation seeds span $0.77$--$0.85$, so a $0.029$ difference sits inside its
-noise. On ketchup, where its seeds span $0.35$--$0.41$, full \method{} leads
-by $0.297$ --- far outside it. What survives noise is that full \method{} is
-the only configuration above its base on \emph{both} tasks, while anchor-only
-lands $0.223$ \emph{below} base on ketchup, i.e.\ worse than not fine-tuning
-at all. \textbf{The ketchup task separates the configurations without
-overlap}: the matched full-\method{} arm's three evaluation seeds are
-$0.68$, $0.58$, $0.62$ (mean $0.627$) against anchor-only's $0.40$, $0.41$,
-$0.35$ (mean $0.387$), so \method{}'s \emph{worst} seed beats the ablation's
-\emph{best} by $0.17$, with both step-clip rows at exactly $0.000$ beneath
-them. That separation does not rely on averaging and is the cleanest
-per-task evidence that the pair is required.
-$^{\dagger}$\textbf{these two cells are under re-verification.} The three
-ablation rows come from the \texttt{field\_st\_B\{NONE,CLIP,ANC\}} arms, and
-the only full-\method{} evaluation we can trace to the matching
-\texttt{field\_st\_B} arm gives $0.627$ on ketchup rather than the $0.684$
-quoted here; we could not reproduce $0.781$/$0.684$ from any single archived
-evaluation. The matched-arm evaluations are running and these cells will be
-replaced by them. The separation argument above already uses the lower,
-verified value, so it does not depend on the resolution.
-``---'' = not measured.}
+\textbf{The two guards do not compose the same way on the two tasks, and on
+one of them the step clip actively hurts.} On ketchup, full \method{}
+($0.627$; seeds $0.68/0.58/0.62$) beats anchor-only ($0.387$; $0.40/0.41/0.35$)
+with no overlap --- its worst seed clears the ablation's best by $0.17$. On
+the red-mug task the ordering reverses and just as cleanly: anchor-only
+reaches $0.810$ ($0.85/0.77/0.81$) against full \method{}'s $0.600$
+($0.59/0.59/0.62$), again without overlap. Adding the step clip to the anchor
+costs $21$ points there. So ``both guards are necessary'' is not what this
+factorial shows. What it shows is that the \emph{anchor} is necessary --- the
+two rows without it are at $0.000$ on both tasks --- while the clip helps on
+one task and hurts on the other. Full \method{} clears its base on both
+($+0.027$ and $+0.017$) but only barely, and we no longer claim more than
+that from this table. ``---'' = not measured.}
 \label{tab:constraint}
 \footnotesize
 \setlength{\tabcolsep}{4.0pt}
@@ -619,8 +609,8 @@ clip & anchor & configuration & \makecell{red mug\\onto plate ($0.573$)} & \make
 \midrule
 $\times$ & $\times$ & unconstrained transport & 0.000 & 0.000 \\
 $\checkmark$ & $\times$ & step containment only & 0.000 & 0.000 \\
-$\times$ & $\checkmark$ & base-restoring only   & 0.810 & 0.387 \\
-$\checkmark$ & $\checkmark$ & \textbf{full \method{}} & \textbf{0.781}$^{\dagger}$ & \textbf{0.684}$^{\dagger}$ \\
+$\times$ & $\checkmark$ & base-restoring only   & \textbf{0.810} & 0.387 \\
+$\checkmark$ & $\checkmark$ & \textbf{full \method{}} & 0.600 & \textbf{0.627} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -746,7 +736,7 @@ see the discussion below. Square was run only for the top block.
 variant & acts on & square (3 seeds) & \makecell{red mug\\onto plate ($0.573$)} & \makecell{ketchup\\into drawer ($0.610$)} \\
 \midrule
 \multicolumn{5}{l}{\emph{(a) the reward field $V_Q$ --- constraint held at \method{}'s}} \\
-\quad gradient (\method{})       & ---           & \textbf{0.912--0.930} & 0.781$^{\dagger}$ & 0.684$^{\dagger}$ \\
+\quad gradient (\method{})       & ---           & \textbf{0.912--0.930} & 0.600 & 0.627 \\
 \quad top-$k$ (ranking only)     & ---           & 0.525--0.562 & 0.577 & 0.341 \\
 \quad tilted ($\exp(Q/\tau)$)    & ---           & 0.560--0.584 & 0.697 & 0.378 \\
 \midrule
@@ -755,7 +745,7 @@ variant & acts on & square (3 seeds) & \makecell{red mug\\onto plate ($0.573$)} 
 \quad always-on pull ($\rho{=}0$)           & action target   & --- & 0.549 & 0.601 \\
 \quad hinge $(\|r\|-\rho)_{+}^{2}$          & loss            & --- & \textbf{0.837} & 0.700 \\
 \quad hard projection $\Pi_{\|r\|\le\rho}$  & action target   & --- & 0.790 & \textbf{0.733} \\
-\quad dead-zone anchor (\method{})          & action target   & --- & 0.781$^{\dagger}$ & 0.684$^{\dagger}$ \\
+\quad dead-zone anchor (\method{})          & action target   & --- & 0.600 & 0.627 \\
 \bottomrule
 \end{tabular}}
 \end{table}
@@ -949,6 +939,18 @@ backprop $-Q$ (DICE-RL form) & 294 / 343 & 0.29 / 0.34 & no & 4 / 26 \\
 \bottomrule
 \end{tabular}}
 \end{table}
+
+\paragraph{How \method{} is configured here.} We do not re-tune for DMC. The
+arm runs the robomimic recipe unchanged: \texttt{actor\_mode} field-pointwise,
+$V_Q$ from the critic gradient with reward step $\eta_Q{=}0.5$, anchor step
+$0.05$, total displacement clip $\delta_{\mathrm{tot}}{=}0.15$, restoring step
+$1.0$, $K{=}16$ noise samples per state, $3$-step returns, and a one-step
+($\texttt{flow\_steps}{=}1$) drifting base distilled from the SAC checkpoints.
+The dead-zone radius is $\rho{=}0$ here, i.e.\ the restoring term is always on
+rather than gated --- the setting \cref{tab:rho-sweep} shows is \emph{worst} on
+LIBERO. The DMC numbers are therefore an untuned transfer, not a best case,
+and should be read as a scope test rather than a performance claim.
+
 
 \paragraph{Q3: does the bound transfer to other algorithms?}
 Two transfers are tested, both on validated hosts. First, the dead-zone
