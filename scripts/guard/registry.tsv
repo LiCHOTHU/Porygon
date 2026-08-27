@@ -56,3 +56,26 @@ fmB_mt_s10002	field_hard8_drift.sbatch
 12324925	s2_BCLIP_t32	second-seed factorial arm (seed 20002) for table 5
 12325424	pe_fullCAST_t65	matched full-CAST cell for the table-5 factorial (same arm family as BNONE/BCLIP/BANC)
 12325425	pe_fullCAST_t32	matched full-CAST cell for the table-5 factorial (same arm family as BNONE/BCLIP/BANC)
+12325746	castLoose_t65	CAST with BOTH loosening fixes: does it beat hinge/projection in table 7?
+12325747	castLoose_t32	CAST with BOTH loosening fixes: does it beat hinge/projection in table 7?
+12325762	projW_t65	competitor tuned symmetrically with CAST-loose (fair comparison for table 7)
+12325763	hingeW_t65	competitor tuned symmetrically with CAST-loose (fair comparison for table 7)
+12325764	projW_t32	competitor tuned symmetrically with CAST-loose (fair comparison for table 7)
+12325765	hingeW_t32	competitor tuned symmetrically with CAST-loose (fair comparison for table 7)
+12325910	regress(default,must match existing)	square locus arm ported from LIBERO path
+12325911	hinge-in-loss	square locus arm ported from LIBERO path
+12325912	hard-projection	square locus arm ported from LIBERO path
+12326936	proj@0.02_t65	competitor at rho=0.02, the radius where CAST peaks (fair sweep for table 7)
+12326937	hinge@0.02_t65	competitor at rho=0.02, the radius where CAST peaks (fair sweep for table 7)
+12326938	proj@0.02_t32	competitor at rho=0.02, the radius where CAST peaks (fair sweep for table 7)
+12326939	hinge@0.02_t32	competitor at rho=0.02, the radius where CAST peaks (fair sweep for table 7)
+12327103	castTuneA_t65	CAST joint tuning rho=0.02 dtot=0.25 eta=2.0 (table 7 best-config search)
+12327104	castTuneB_t65	CAST joint tuning rho=0.02 dtot=0.25 eta=1.0 (table 7 best-config search)
+12327105	castTuneC_t65	CAST joint tuning rho=0.03 dtot=0.25 eta=2.0 (table 7 best-config search)
+12327106	castTuneA_t32	CAST joint tuning rho=0.02 dtot=0.25 eta=2.0 (table 7 best-config search)
+12327135	castTuneB_t32	CAST joint tuning rho=0.02 dtot=0.25 eta=1.0
+12327780	dmcpair_acrobot_swingup	new DMC dense/sparse pair for the scope test (3 pairs total)
+12327781	dmcpair_cartpole_balance	new DMC dense/sparse pair for the scope test (3 pairs total)
+12371153	basev_s43	300-ep eval of the retrained 0.279-replacement base
+12371154	basev_s44	300-ep eval of the retrained 0.279-replacement base
+12371155	basev_fm	FM base on square, fills table 1's blank base column
