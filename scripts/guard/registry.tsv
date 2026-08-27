@@ -79,3 +79,23 @@ fmB_mt_s10002	field_hard8_drift.sbatch
 12371153	basev_s43	300-ep eval of the retrained 0.279-replacement base
 12371154	basev_s44	300-ep eval of the retrained 0.279-replacement base
 12371155	basev_fm	FM base on square, fills table 1's blank base column
+12371290	dppo32_smoke	does the time_dim=32 base load into DPPO's actor? (unification test)
+12371312	dppo_b279	DPPO re-trained from the 0.279 time_dim=32 base so table 1's diffusion block is unified
+12372089	canA20k_s42	table 2: rerun the two short can-backprop seeds to the matched 20K budget (removes the dagger)
+12372090	canA20k_s43	table 2: rerun the two short can-backprop seeds to the matched 20K budget (removes the dagger)
+12372261	pe_fmdice_t21	table 3: FM+DICE stove cell (trained to iter 25, never evaluated)
+12372284	fmgrpo_t8	table 3: the 4 missing FM+GRPO cells (never trained)
+12372285	fmgrpo_t21	table 3: the 4 missing FM+GRPO cells (never trained)
+12372286	fmgrpo_t73	table 3: the 4 missing FM+GRPO cells (never trained)
+12372287	fmgrpo_t81	table 3: the 4 missing FM+GRPO cells (never trained)
+12372356	pe_castMT_s10001	table 4 blank: trained arm that was never evaluated
+12372357	pe_topk_s10000	table 4 blank: trained arm that was never evaluated
+12372358	pe_topk_s10002	table 4 blank: trained arm that was never evaluated
+12372359	pe_tilted_s10001	table 4 blank: trained arm that was never evaluated
+12372360	pe_fmCastMT_s10000	table 4 blank: trained arm that was never evaluated
+12372361	pe_fmCastMT_s10001	table 4 blank: trained arm that was never evaluated
+12372362	pe_fmCastMT_s10002	table 4 blank: trained arm that was never evaluated
+12372465	sq_regress_default	table 7 square column, block (b)
+12372466	sq_hinge	table 7 square column, block (b)
+12372467	sq_proj	table 7 square column, block (b)
+12372468	sq_rho0	table 7 square column, block (b)

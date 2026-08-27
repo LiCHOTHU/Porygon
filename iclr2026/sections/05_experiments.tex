@@ -725,7 +725,11 @@ action target. What separates the working rows from the failing ones is not
 three configurations with a free interior all land in $0.68$--$0.84$, and the
 two without one (always-on pull, and DICE-RL's $L_2$ penalty with gradient
 clipping) sit at or below base. Our anchor is not the best of the three ---
-see the discussion below. Square was run only for the top block.
+see the discussion below. $^{*}$these two square entries are the same two methods measured in
+\cref{tab:matched} at the matched $20$K budget (3 seeds), not at the much
+longer budget the other square locus arms use --- they are quoted for
+reference and should not be compared across columns. The remaining three
+square cells (hinge, projection, always-on pull) are training.
 ``---'' = not measured.}
 \label{tab:locus}\label{tab:resolution}
 \footnotesize
@@ -741,11 +745,11 @@ variant & acts on & square (3 seeds) & \makecell{red mug\\onto plate ($0.573$)} 
 \quad tilted ($\exp(Q/\tau)$)    & ---           & 0.560--0.584 & 0.697 & 0.378 \\
 \midrule
 \multicolumn{5}{l}{\emph{(b) the restoring field --- reward held at \method{}'s gradient}} \\
-\quad $L_2$ penalty $+$ grad clip (DICE-RL) & loss $+$ params & --- & 0.550 & 0.587 \\
+\quad $L_2$ penalty $+$ grad clip (DICE-RL) & loss $+$ params & 0.861--0.909$^{*}$ & 0.550 & 0.587 \\
 \quad always-on pull ($\rho{=}0$)           & action target   & --- & 0.549 & 0.601 \\
 \quad hinge $(\|r\|-\rho)_{+}^{2}$          & loss            & --- & \textbf{0.837} & 0.700 \\
 \quad hard projection $\Pi_{\|r\|\le\rho}$  & action target   & --- & 0.790 & \textbf{0.733} \\
-\quad dead-zone anchor (\method{})          & action target   & --- & 0.600 & 0.627 \\
+\quad dead-zone anchor (\method{})          & action target   & 0.912--0.930$^{*}$ & 0.600 & 0.627 \\
 \bottomrule
 \end{tabular}}
 \end{table}
