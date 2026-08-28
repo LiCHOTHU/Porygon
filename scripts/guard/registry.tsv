@@ -99,3 +99,7 @@ fmB_mt_s10002	field_hard8_drift.sbatch
 12372466	sq_hinge	table 7 square column, block (b)
 12372467	sq_proj	table 7 square column, block (b)
 12372468	sq_rho0	table 7 square column, block (b)
+12432346	grpoC_t8	table 3 GRPO cell, matched to the ceiling recipe (200 iters, 50 rollouts/eval)
+12432347	grpoC_t21	table 3 GRPO cell, matched to the ceiling recipe (200 iters, 50 rollouts/eval)
+12432348	grpoC_t73	table 3 GRPO cell, matched to the ceiling recipe (200 iters, 50 rollouts/eval)
+12432349	grpoC_t81	table 3 GRPO cell, matched to the ceiling recipe (200 iters, 50 rollouts/eval)

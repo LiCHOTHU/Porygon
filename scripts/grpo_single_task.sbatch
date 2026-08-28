@@ -9,6 +9,7 @@
 #   sbatch scripts/grpo_single_task.sbatch <drift|fm> <TASK> <SEED>
 # Budget matches the Porygon protocol: 40 iters x (group 8 x 2 inits) = 640 episodes.
 BASE="${1:?drift|fm}"; TASK="${2:?task}"; SEED="${3:-10000}"
+EXTRA=("${@:4}")   # optional hydra overrides, appended last so they win
 source ~/.bashrc; conda activate porygon
 cd /storage/home/hcoda1/8/lwang831/workspace/imitation
 export OMP_NUM_THREADS=8 MUJOCO_GL=egl EGL_DEVICE_ID=0
@@ -27,6 +28,7 @@ python rl_train.py \
   rl.lr=1.0e-6 rl.target_kl=0.05 rl.init_kl_coef=1.0e-3 rl.kl_horizon=1000 \
   rl.task_balanced_minibatches=true rl.filter_accuracy=true rl.filter_low=0.1 rl.filter_high=0.9 \
   rl.eval_interval=10 rl.eval_rollouts_per_env=20 \
+  "${EXTRA[@]}" \
   logging.mode=disabled output_prefix=${CEDAR}/imitation/experiments_rl \
   exp_name=${NAME} hydra.run.dir="${CEDAR}/imitation/hydra/${NAME}_${SLURM_JOB_ID}" \
   > ${CEDAR}/${NAME}.log 2>&1
