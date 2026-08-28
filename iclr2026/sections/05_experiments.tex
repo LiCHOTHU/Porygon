@@ -172,8 +172,6 @@ IDQL                      & diffusion & 0.279 & 0.041 & $-0.238$ \\
 AWR                       & generic   & 0.279 & 0.407 & $+0.128$ \\
 DPPO \citep{ren2024dppo}$^{\ddagger}$ & diffusion & 0.563 & 0.876 & $+0.312$ \\
 \midrule
-DIPO $+$ displacement bound & diffusion & 0.279 & 0.198 & $-0.081$ \\
-\midrule
 \multicolumn{5}{l}{\emph{adding \method{} to DICE-RL, paired within each base}} \\
 diffusion $+$ DICE-RL \citep{dicerl2026}$^{\S}$   & diffusion & 0.279 & 0.861 & $+0.582$ \\
 diffusion $+$ DICE-RL $+$ \method{}$^{\S}$        & diffusion & 0.279 & \textbf{0.937} & $\mathbf{+0.658}$ \\
@@ -267,8 +265,12 @@ directly on stored actions --- did have an effect, and it destroyed a
 baseline that was working at $0.283$. This is exactly the asymmetry we
 build on: constants in the loss do not control how far the policy moves in
 action space, and the one constant that does is a blunt instrument. A bound
-placed on the displacement itself is what these methods lack, which is why
-\cref{tab:baselines}'s DIPO $+$ displacement bound row exists.
+placed on the displacement itself is what these methods lack. We previously
+reported a ``DIPO $+$ displacement bound'' row here; it enabled only the step
+clip (\texttt{action\_trust\_radius}) without the base-restoring anchor, which
+is the configuration \cref{tab:constraint} shows scores $0.000$ --- so it did
+not test what its name claimed and we have removed it. The arms that add
+\method{}'s \emph{anchor} to DIPO's own code are running and will replace it.
 
 \subsection{H2: the update form is what converts critic signal into success}
 \label{sec:exp-form}
