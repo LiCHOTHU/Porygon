@@ -127,9 +127,7 @@ implementations do not support LIBERO, so the LIBERO comparison in
 Success uses the same 300-episode protocol throughout. The lower block is the
 drop-in test, read \emph{in pairs}: each base appears twice, once with
 DICE-RL's own actor and once with that actor replaced by \method{}, so the
-difference within a pair isolates the update rule. The flow-matching pair is
-incomplete --- its \method{} cell is still training at matched budget --- and
-we leave it blank rather than pair it against a run of different length.
+difference within a pair isolates the update rule. 
 Concretely for the diffusion pair: DICE-RL and DICE-RL $+$ \method{} share the same pretrained
 diffusion base, the same critic, data, replay and budget, and differ in a
 single configuration line (\texttt{actor\_mode: residual} vs
