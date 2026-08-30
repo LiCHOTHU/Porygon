@@ -53,6 +53,17 @@ go square_dipoCAST_full scripts/dice_rl_generic.sbatch finetune square ft_dipo_d
    +train.anchor_to_base_radius=0.05 +train.action_trust_radius=0.15 \
    +train.keep_buffer_actions=true train.action_lr=0.005 ++train.auto_resume=true
 
+echo "=== table-7 square column, block (b) ==="
+go sq_regress_default scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp 42 \
+   logdir=$D/sq_regress_default ++train.auto_resume=true
+go sq_hinge scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp 42 \
+   logdir=$D/sq_hinge model.actor_mode=residual +model.bc_hinge_rho=0.05 ++train.auto_resume=true
+go sq_proj scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp 42 \
+   logdir=$D/sq_proj model.field.total_max_norm=1e9 model.field.bc_step_size=0.0 \
+   +model.field.project_radius=0.05 ++train.auto_resume=true
+go sq_rho0 scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp 42 \
+   logdir=$D/sq_rho0 +model.field.restore_step_size=1.0 +model.field.restore_radius=0.0 ++train.auto_resume=true
+
 echo "=== LIBERO GRPO cells (matched to the ceiling recipe) ==="
 cd "$IM" || exit 1
 CEIL="rl.n_iters=200 rl.group_size=16 rl.inits_per_iter=6 rl.filter_low=0.05 rl.filter_high=0.95 rl.eval_interval=5 rl.eval_rollouts_per_env=50"
