@@ -59,3 +59,95 @@ therefore under-tuned rather than resistant to the method, and we had
 previously attributed its flat result to limited headroom --- an explanation
 the per-task numbers do not support, since gains are the same
 ($+0.003$ mean) for tasks whose base is below $0.72$ and above it.
+
+\subsection{Measured diagnostics behind the mechanism claims}
+\label{app:diagnostics}
+
+Three claims in the main text rest on direct measurements rather than on
+outcomes. We give the numbers here so they can be checked.
+
+\paragraph{(i) Why nothing works in the multitask setting.}
+\cref{tab:libero} reports that no update rule moves the shared-critic base.
+The cause is upstream of every method: the shared critic barely changes its
+value when the action moves, so both mechanisms these methods rely on --- a
+gradient to climb, and a spread over candidates to select from --- are starved
+at once.
+
+\begin{table}[h]
+\centering
+\caption{Shared-critic action-sensitivity on the LIBERO hard-8 multitask
+policy, measured on $B{=}8$ states $\times$ $K{=}16$ candidates. The two rows
+are the extremes across tasks; the diagnostic labels the first ``alive'' and
+the second ``DEAD (flat critic)''. Even where the gradient has magnitude, a
+$0.05$ rms action step changes $Q$ by under $1$ part in $40$ of $|Q|$, and the
+$16$ candidates are scored within $0.7\%$ of one another.}
+\label{tab:critic-diag}
+\small
+\begin{tabular}{lcc}
+\toprule
+ & gradient ``alive'' & gradient ``dead'' \\
+\midrule
+$\|\nabla_a Q\|$ (per-particle mean)      & $5.49\times10^{-1}$ & $3.10\times10^{-3}$ \\
+$|\Delta Q|$ for a $0.05$ rms action step & $9.21\times10^{-4}$ & $7.05\times10^{-5}$ \\
+$|Q|$ mean                                & $0.043$             & $0.579$ \\
+$\mathrm{std}(Q)/|Q|$ across $K{=}16$     & $0.0418$            & $0.0003$ \\
+$Q_{\max}-Q_{\min}$ across $K{=}16$       & $6.94\times10^{-3}$ & $7.85\times10^{-4}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{(ii) Why QSM collapses on the first update.}
+QSM's actor loss retrains the denoiser to emit $\eta\,\nabla_a Q$ in place of
+the noise it was pretrained to predict, with no behaviour-cloning term. Whether
+that is survivable depends on whether the two are on the same scale. They are
+not: measured on the pretrained square base with a freshly initialised critic,
+$\|\nabla_a Q\| = 0.0127$ against $\|\epsilon\| = 5.212$. At QSM's published
+coefficient the target is $2.4\%$ of what the denoiser currently outputs, so
+the pretrained map is overwritten rather than adjusted --- consistent with the
+observed $0.284 \rightarrow 0.000$ within a single evaluation interval. No
+coefficient resolves this: reaching parity needs $\eta \approx 400$, at which
+point the denoiser is copying a random critic.
+(\texttt{scripts/diag\_qsm\_scale.py} reproduces this in seconds.)
+
+\begin{table}[h]
+\centering
+\caption{Scale of QSM's score-matching target against the denoiser's own
+output, square base, critic at initialisation.}
+\label{tab:qsm-scale}
+\small
+\begin{tabular}{lccc}
+\toprule
+$\eta$ (\texttt{q\_grad\_coeff}) & $1$ & $10$ (published) & $100$ \\
+\midrule
+$\|\eta \nabla_a Q\|$      & $0.013$  & $0.127$  & $1.266$ \\
+ratio to $\|\epsilon\|$    & $0.0024$ & $0.0243$ & $0.2428$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{(iii) How far each constraint actually lets the policy travel.}
+\cref{fig:containment} plots this; the endpoints are given here. The trust
+radius is $\rho = 0.05$. Note that the step clip alone permits the largest
+excursion of all --- many individually capped steps compound --- and that full
+\method{} stops at roughly a third of its own allowance, which is what the
+loosening sweep in \cref{tab:eta-sweep} probes.
+
+\begin{table}[h]
+\centering
+\caption{Distance from the frozen base at end of training,
+$D_{\mathrm{base}}=\mathbb{E}\|r_\theta\|_{\mathrm{rms}}$, red-mug task,
+$\rho = 0.05$.}
+\label{tab:containment-endpoints}
+\small
+\begin{tabular}{lcc}
+\toprule
+configuration & $D_{\mathrm{base}}$ & powered success \\
+\midrule
+no constraint            & $7.92$   & 0.000 \\
+step clip only           & $21.70$  & 0.000 \\
+dead-zone anchor only    & $0.050$  & 0.810 \\
+hinge in the loss        & $0.048$  & 0.837 \\
+full \method{}           & $0.016$  & 0.600 \\
+\bottomrule
+\end{tabular}
+\end{table}
