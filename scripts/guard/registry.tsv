@@ -103,3 +103,40 @@ fmB_mt_s10002	field_hard8_drift.sbatch
 12432347	grpoC_t21	table 3 GRPO cell, matched to the ceiling recipe (200 iters, 50 rollouts/eval)
 12432348	grpoC_t73	table 3 GRPO cell, matched to the ceiling recipe (200 iters, 50 rollouts/eval)
 12432349	grpoC_t81	table 3 GRPO cell, matched to the ceiling recipe (200 iters, 50 rollouts/eval)
+12441917	dppo_b279	DPPO from the 0.279 base, moved to embers (inferno billing exhausted); auto_resume chains the 8h slots
+12441950	basev_td20	measure the time_dim=64 base in the SAME harness as the 0.279 number, so table 1's base column is one quantity
+12445637	basedet_arch32	deterministic base eval (noise floor 0), one harness, so each checkpoint has ONE success rate
+12445638	basedet_td64	deterministic base eval (noise floor 0), one harness, so each checkpoint has ONE success rate
+12450838	det_dipo	re-score the fine-tuned diffusion baseline at noise floor 0, matching the base and the drift/FM convention
+12450839	det_qsm	re-score the fine-tuned diffusion baseline at noise floor 0, matching the base and the drift/FM convention
+12450840	det_dql	re-score the fine-tuned diffusion baseline at noise floor 0, matching the base and the drift/FM convention
+12450841	det_idql	re-score the fine-tuned diffusion baseline at noise floor 0, matching the base and the drift/FM convention
+12450842	det_awr	re-score the fine-tuned diffusion baseline at noise floor 0, matching the base and the drift/FM convention
+12451388	square_dipoCAST_anchor	DIPO + CAST's anchor: does the missing guard make DIPO work?
+12451389	square_dipoCAST_full	DIPO + CAST's anchor: does the missing guard make DIPO work?
+12475103	dqlcast_smoke	does CAST's dead zone lift DQL off 0.000? short smoke before committing a full run
+12476614	dql_cast	DQL with CAST's dead-zone anchor; control is square_dql_inferno_s42 = 0.000
+12476638	dppo_b279	resume after preemption; DPPO on the unified 0.279 checkpoint
+12476680	square_dipoCAST_anchor	DIPO + CAST anchor, resumed after preemption
+12476681	square_dipoCAST_full	DIPO + CAST anchor, resumed after preemption
+12547777	fmRho_t81	FM tuning: dead-zone radius 0.02 alone
+12547778	fmRho_t65	FM tuning: dead-zone radius 0.02 alone
+12547794	grpoD_t8	drifting + GRPO per-task, matches the FM GRPO column
+12547795	grpoD_t21	drifting + GRPO per-task, matches the FM GRPO column
+12547796	grpoD_t32	drifting + GRPO per-task, matches the FM GRPO column
+12547797	grpoD_t53	drifting + GRPO per-task, matches the FM GRPO column
+12547798	grpoD_t65	drifting + GRPO per-task, matches the FM GRPO column
+12547799	grpoD_t73	drifting + GRPO per-task, matches the FM GRPO column
+12547800	grpoD_t75	drifting + GRPO per-task, matches the FM GRPO column
+12547801	grpoD_t81	drifting + GRPO per-task, matches the FM GRPO column
+12634940	pe_fmE2_t8	FM eta=2 evaluation, completes the retuned table-3 column
+12634941	pe_fmE2_t21	FM eta=2 evaluation, completes the retuned table-3 column
+12634942	pe_fmE2_t53	FM eta=2 evaluation, completes the retuned table-3 column
+12634943	pe_fmE2_t75	FM eta=2 evaluation, completes the retuned table-3 column
+12634944	pe_fmE2_t81	FM eta=2 evaluation, completes the retuned table-3 column
+12636643	transport + DICE-RL	third robomimic task; same base, actor_mode is the only difference
+12636644	transport + DICE-RL + CAST	third robomimic task; same base, actor_mode is the only difference
+12636686	tr_dice_s43	transport seed 43 for table 2's third task
+12636687	tr_cast_s43	transport seed 43 for table 2's third task
+12636688	tr_dice_s44	transport seed 44 for table 2's third task
+12636689	tr_cast_s44	transport seed 44 for table 2's third task

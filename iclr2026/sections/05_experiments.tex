@@ -147,15 +147,23 @@ reproduce a published number for these methods, and we make none: a weaker
 base implies a weaker early critic, which can produce a collapse that a
 stronger base would not. We are retraining that base across seeds to close
 the gap.
-$^{\ddagger}$DPPO is the one row that does \emph{not} share the $0.279$
-base: its official configuration pretrains its own diffusion policy
-(\texttt{square\_pre\_diffusion\_mlp\_ta4\_td20}), which scores $0.563$, so
-we report it against that base and its $\Delta$ is the only one not measured
-from $0.279$. It is also the most expensive method here by a wide margin
-($\sim\!24$ minutes per iteration); we stopped it at iteration $178$ of
-$300$ and $11.7$M environment steps, where its last-three average was
-$0.876$ and rising by under $2$ points per $20$ iterations. Its number is
-therefore a lower bound on what the full schedule would reach. The flow-matching base measures $0.570$ on square (300 episodes).
+$^{\ddagger}$\textbf{DPPO now trains from the same checkpoint as every other
+diffusion row} (\texttt{square\_diff\_baselinearch\_42}); its earlier
+$0.563 \rightarrow 0.876$ used a different pretrained policy and is
+superseded. The retrain is still in progress --- $0.561$ at $368$K of the
+$\sim\!12$M environment steps its schedule needs --- so its fine-tuned cell
+is a lower bound and will rise.
+One measurement complicates the base column and we state it rather than hide
+it. The diffusion rows all load one file, but they do not all score it the
+same: the classic baselines' harness reads it as $0.279$ and DPPO's reads the
+\emph{same file} as $0.520$. We traced this to the samplers rather than the
+weights --- each method wraps the pretrained denoiser in its own sampling
+loop --- but removing the obvious candidate (the $0.1$ noise floor those
+loops impose) moved the number by $0.001$, so the mechanism is not yet
+identified. Each row therefore reports its base as its own harness measures
+it, and $\Delta$ is always within-harness; cross-row base comparison is not
+meaningful.
+The flow-matching base measures $0.570$ on square (300 episodes).
 ``---'' = not measured.}
 \label{tab:baselines}
 \footnotesize
@@ -170,7 +178,7 @@ QSM \citep{psenka2024qsm} & diffusion & 0.279 & 0.000 & $-0.279$ \\
 DQL                       & diffusion & 0.279 & 0.000 & $-0.279$ \\
 IDQL                      & diffusion & 0.279 & 0.041 & $-0.238$ \\
 AWR                       & generic   & 0.279 & 0.407 & $+0.128$ \\
-DPPO \citep{ren2024dppo}$^{\ddagger}$ & diffusion & 0.563 & 0.876 & $+0.312$ \\
+DPPO \citep{ren2024dppo}$^{\ddagger}$ & diffusion & 0.520 & 0.561$^{\ddagger}$ & $+0.041$ \\
 \midrule
 \multicolumn{5}{l}{\emph{adding \method{} to DICE-RL, paired within each base}} \\
 diffusion $+$ DICE-RL \citep{dicerl2026}$^{\S}$   & diffusion & 0.279 & 0.861 & $+0.582$ \\
