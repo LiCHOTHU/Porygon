@@ -384,7 +384,13 @@ base, one small residual head and critic trained on each task's own
 interactions, task-ID routing at deployment. Powered evaluation (100
 rollouts $\times$ 3 evaluation seeds); \method{} rows average the last three
 training checkpoints, and two training seeds on the ketchup, orange-juice
-and red-mug tasks. One recipe across all eight tasks, no per-task tuning.
+and red-mug tasks. \textbf{One recipe across all eight tasks, no per-task
+tuning}: every \method{} cell uses a single shared reward step, chosen for its
+mean over the eight tasks rather than per task. The full sweep is
+\cref{tab:eta-sweep} --- per-task optima disagree ($\eta_Q{=}4$ is best on the
+red-mug task, $\eta_Q{=}1$ on ketchup), and reporting each task at its own
+optimum would raise our numbers while giving us a tuning budget the baselines
+do not get.
 Task names are the LIBERO-90 scene and instruction; indices in that suite
 are $8, 21, 32, 53, 65, 73, 75, 81$ in table order. Within each block every column shares that block's base, so
 ``\method{}'' in the left block means \method{} fine-tuning the

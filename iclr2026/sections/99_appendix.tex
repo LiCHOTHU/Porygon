@@ -13,3 +13,49 @@ $\{0.02, 0.05, 0.2\}$. Port from \texttt{drift\_field.py} docstrings.}
 
 \section{Toy two-regime construction}
 \todo{Details of the hard-critic/easy-critic toy; failure of compass updates.}
+
+\subsection{Reward-step sweep}
+\label{app:eta-sweep}
+
+\method{}'s reward step $\eta_Q$ is the one hyperparameter we varied. We report
+the whole sweep here because the per-task optima disagree, and because the main
+tables deliberately do \emph{not} use them: every \method{} number in
+\cref{tab:libero-single} runs a single shared $\eta_Q$ across all eight tasks,
+the same courtesy the baselines get by being reported at their published
+recipes. Tuning per task would raise our numbers --- $0.880$ instead of
+$0.802$ on the red-mug task --- and would not be a like-for-like comparison.
+
+\begin{table}[h]
+\centering
+\caption{Reward-step sweep, powered evaluation (last-3 checkpoints, single
+training seed). The optimum is task-dependent and non-monotonic: $\eta_Q{=}4$
+is best on the red-mug task, $\eta_Q{=}1$ on ketchup, and $\eta_Q{=}8$ is worst
+on both. $\eta_Q{=}2$ is best on neither individually but has the best mean
+across the eight tasks of \cref{tab:libero-single}, which is why it is the
+setting we ship. On the flow-matching base the ordering differs again ---
+$\eta_Q{=}2$ beats $\eta_Q{=}1$ on all three tasks measured --- so the shared
+setting is a compromise across bases as well as tasks. ``---'' = not run.}
+\label{tab:eta-sweep}
+\small
+\begin{tabular}{llccccc}
+\toprule
+base & task (own base) & $\eta_Q{=}1$ & $\eta_Q{=}2$ & $\eta_Q{=}4$ & $\eta_Q{=}8$ \\
+\midrule
+drifting & red mug onto plate ($0.573$)   & 0.775 & 0.802 & \textbf{0.880} & 0.768 \\
+drifting & ketchup into drawer ($0.610$)  & \textbf{0.737} & 0.720 & 0.721 & 0.686 \\
+\midrule
+flow matching & ketchup into drawer ($0.690$)     & 0.738 & \textbf{0.773} & --- & --- \\
+flow matching & red mug onto plate ($0.787$)      & 0.878 & \textbf{0.887} & --- & --- \\
+flow matching & book into front caddy ($0.683$)   & 0.667 & \textbf{0.783} & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The flow-matching rows also correct an earlier reading of ours. At
+$\eta_Q{=}1$ \method{} sits \emph{below} the base on the front-caddy task
+($0.667$ against $0.683$) and gains only $+0.003$ on the eight-task mean; at
+$\eta_Q{=}2$ the same task gains $+0.100$. The flow-matching column was
+therefore under-tuned rather than resistant to the method, and we had
+previously attributed its flat result to limited headroom --- an explanation
+the per-task numbers do not support, since gains are the same
+($+0.003$ mean) for tasks whose base is below $0.72$ and above it.
