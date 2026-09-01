@@ -151,3 +151,61 @@ full \method{}           & $0.016$  & 0.600 \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\subsection{The multitask setting}
+\label{app:multitask}
+
+\cref{tab:libero-single} fine-tunes each task with its own residual head and
+critic, routed by task ID at deployment --- the architecture published LIBERO
+RL fine-tuners use. The alternative is one policy and one critic trained across
+all eight tasks jointly. We ran it, nothing works, and we report it here rather
+than in the main text because the result is a property of the setting rather
+than of any method: with a shared critic there is no usable action signal for
+an update rule to convert, so every arm lands within seed noise of its base.
+\cref{tab:critic-diag} is the measurement --- $16$ candidate actions scored
+within $0.7\%$ of one another, and a $0.05$ action step moving $Q$ by under one
+part in forty.
+
+\begin{table}[h]
+\centering
+\caption{\textbf{The bound on H2: where the critic has no usable signal,
+no update rule helps --- including ours.} LIBERO hard-8 with a
+\emph{single} policy and a \emph{single} critic trained on all eight tasks
+jointly, in contrast to the per-task routing of \cref{tab:libero-single}.
+Powered evaluation (100 rollouts $\times$ 3 evaluation seeds; one column per
+training seed; 100 RL iterations). This is a negative result and we report it
+as one: read the $\Delta$ column, where \emph{nothing} moves its own base by
+more than seed noise ($\pm 0.014$). Two rows use the backpropagated actor and
+they are not duplicates --- ``its published recipe'' is DICE-RL as shipped
+($\beta_{\mathrm{BC}}{=}100$, best-of-$N$ exploration), while ``our recipe''
+is the same actor under the settings \method{} uses
+($\beta_{\mathrm{BC}}{=}10$), so it is the matched control. $\Delta$ is
+against each row's own base, the only fair comparison across the two blocks:
+the flow-matching numbers are larger in absolute terms purely because that
+base starts higher. The final block is an \emph{ablation} of one component ---
+how the critic scores the $K$ candidates before displacement --- and is not a
+separate method; the corresponding single-task sweep is
+\cref{tab:resolution}.}
+\label{tab:libero}
+\small
+\begin{tabular}{lcccc}
+\toprule
+method & s10000 & s10001 & s10002 & $\Delta$ vs.\ own base \\
+\midrule
+\multicolumn{5}{l}{\emph{drifting base}} \\
+drifting base (no RL)                        & \multicolumn{3}{c}{$0.671 \pm 0.014$} & --- \\
+drifting $+$ DICE-RL (its published recipe)  & 0.705 & 0.690 & 0.670 & $+0.017$ \\
+drifting $+$ backprop actor (our recipe)     & 0.657 & 0.655 & 0.668 & $-0.011$ \\
+drifting $+$ DICE-RL $+$ \method{} (our recipe) & 0.655 & 0.675 & 0.659 & $-0.008$ \\
+\midrule
+\multicolumn{5}{l}{\emph{flow-matching base}} \\
+flow-matching base (no RL)                   & \multicolumn{3}{c}{$0.738 \pm 0.022$} & --- \\
+flow matching $+$ DICE-RL                    & 0.756 & 0.735 & 0.737 & $+0.005$ \\
+flow matching $+$ DICE-RL $+$ \method{}      & 0.746 & 0.729 & 0.746 & $+0.002$ \\
+\midrule
+\multicolumn{5}{l}{\emph{ablation: how \method{} scores candidates (drifting base)}} \\
+\quad top-$k$ scoring (mean $Q$ of best $k$) & 0.665 & 0.684 & 0.668 & $+0.001$ \\
+\quad tilted scoring ($Q$-weighted average)  & 0.677 & 0.628 & 0.672 & $-0.012$ \\
+\bottomrule
+\end{tabular}
+\end{table}
