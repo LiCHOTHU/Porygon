@@ -434,22 +434,22 @@ multitask
 \footnotesize
 \setlength{\tabcolsep}{3.0pt}
 \resizebox{\linewidth}{!}{%
-\begin{tabular}{lcccc@{\hskip 10pt}cccc}
+\begin{tabular}{lcccc@{\hskip 10pt}ccccc}
 \toprule
- & \multicolumn{4}{c}{drifting base} & \multicolumn{4}{c}{flow-matching base} \\
-\cmidrule(lr){2-5}\cmidrule(lr){6-9}
-task & base & backprop & \method{}$_{\eta 1}$ & \method{}$_{\eta 2}$ & base & DICE & GRPO & \method{}$_{\eta 1}$ \\
+ & \multicolumn{4}{c}{drifting base} & \multicolumn{5}{c}{flow-matching base} \\
+\cmidrule(lr){2-5}\cmidrule(lr){6-10}
+task & base & backprop & \method{}$_{\eta 1}$ & \method{}$_{\eta 2}$ & base & DICE & GRPO & \method{}$_{\eta 1}$ & \method{}$_{\eta 2}$ \\
 \midrule
-Kitchen-1: open drawer, put bowl in & 0.818 & 0.820 & 0.831 & \textbf{0.857} & 0.897 & 0.873 & 0.800$^{\ddagger}$ & \textbf{0.900} \\
-Kitchen-3: turn on stove, put pan on & 0.690 & 0.703 & 0.737 & \textbf{0.752} & 0.700 & \textbf{0.730} & 0.700$^{\ddagger}$ & 0.690 \\
-Kitchen-5: ketchup into top drawer & 0.610 & 0.587 & 0.694 & \textbf{0.729} & 0.690 & 0.682 & 0.700 & \textbf{0.738} \\
-Living-2: orange juice into basket & 0.785 & 0.800 & 0.842 & \textbf{0.853} & 0.917 & \textbf{0.915} & 0.897 & 0.897 \\
-Living-5: red mug onto plate & 0.573 & 0.550 & \textbf{0.826} & 0.812 & 0.787 & 0.809 & \textbf{0.883} & 0.878 \\
-Study-1: book into front caddy slot & 0.648 & 0.663 & 0.710 & \textbf{0.752} & 0.683 & \textbf{0.690} & 0.600$^{\ddagger}$ & 0.667 \\
-Study-1: book into right caddy slot & 0.578 & 0.583 & \textbf{0.657} & 0.648 & 0.620 & 0.592 & 0.603 & \textbf{0.608} \\
-Study-3: book into front caddy slot & 0.588 & \textbf{0.653} & 0.607 & 0.635 & 0.733 & \textbf{0.708} & 0.550$^{\ddagger}$ & 0.670 \\
+Kitchen-1: open drawer, put bowl in & 0.818 & 0.820 & 0.831 & \textbf{0.857} & 0.897 & 0.873 & 0.800$^{\ddagger}$ & \textbf{0.900} & 0.887 \\
+Kitchen-3: turn on stove, put pan on & 0.690 & 0.703 & 0.737 & \textbf{0.752} & 0.700 & \textbf{0.730} & 0.700$^{\ddagger}$ & 0.690 & 0.727 \\
+Kitchen-5: ketchup into top drawer & 0.610 & 0.587 & 0.694 & \textbf{0.729} & 0.690 & 0.682 & 0.700 & 0.738 & \textbf{0.773} \\
+Living-2: orange juice into basket & 0.785 & 0.800 & 0.842 & \textbf{0.853} & 0.917 & \textbf{0.915} & 0.897 & 0.897 & 0.913 \\
+Living-5: red mug onto plate & 0.573 & 0.550 & \textbf{0.826} & 0.812 & 0.787 & 0.809 & 0.883 & 0.878 & \textbf{0.887} \\
+Study-1: book into front caddy slot & 0.648 & 0.663 & 0.710 & \textbf{0.752} & 0.683 & 0.690 & 0.600$^{\ddagger}$ & 0.667 & \textbf{0.783} \\
+Study-1: book into right caddy slot & 0.578 & 0.583 & \textbf{0.657} & 0.648 & 0.620 & 0.592 & 0.603 & \textbf{0.608} & 0.563 \\
+Study-3: book into front caddy slot & 0.588 & \textbf{0.653} & 0.607 & 0.635 & 0.733 & \textbf{0.708} & 0.550$^{\ddagger}$ & 0.670 & 0.680 \\
 \midrule
-mean over the eight tasks & 0.661 & 0.670 & 0.738 & \textbf{0.755} & 0.753 & 0.750 & 0.717$^{\ddagger}$ & \textbf{0.756} \\
+mean over the eight tasks & 0.661 & 0.670 & 0.738 & \textbf{0.755} & 0.753 & 0.750 & 0.717$^{\ddagger}$ & 0.756 & \textbf{0.777} \\
 \bottomrule
 \end{tabular}}
 \end{table}
