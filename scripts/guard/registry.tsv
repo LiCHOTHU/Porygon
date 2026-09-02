@@ -174,3 +174,6 @@ fmB_mt_s10002	field_hard8_drift.sbatch
 12716617	f5_BNONE_t75	table-5 factorial arm via EXP=B + explicit overrides
 12716618	f5_BCLIP_t75	table-5 factorial arm via EXP=B + explicit overrides
 12716619	f5_BANC_t75	table-5 factorial arm via EXP=B + explicit overrides
+12718296	pebon_castMT	best-of-16 selection eval; tests the multitask scope claim
+12718297	pebon_diceMT	best-of-16 selection eval; tests the multitask scope claim
+12718298	pebon_baseMT	best-of-16 selection eval; tests the multitask scope claim
