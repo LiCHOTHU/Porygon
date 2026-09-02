@@ -140,3 +140,37 @@ fmB_mt_s10002	field_hard8_drift.sbatch
 12636687	tr_cast_s43	transport seed 43 for table 2's third task
 12636688	tr_dice_s44	transport seed 44 for table 2's third task
 12636689	tr_cast_s44	transport seed 44 for table 2's third task
+12636758	td64_in_dipo	does the harness gap follow the checkpoint or the sampler?
+12637065	sq64_DICE_s42	diffusion pair on the 0.563 (time_dim=64) base
+12637066	sq64_CAST_s42	diffusion pair on the 0.563 (time_dim=64) base
+12637216	b64_dipo	classic baseline rerun on the time_dim=64 (0.563) base
+12637217	b64_qsm	classic baseline rerun on the time_dim=64 (0.563) base
+12637218	b64_dql	classic baseline rerun on the time_dim=64 (0.563) base
+12637219	b64_idql	classic baseline rerun on the time_dim=64 (0.563) base
+12637220	b64_awr	classic baseline rerun on the time_dim=64 (0.563) base
+12696585	b64_loadchk	does the td64 base load once mlp_dims/cond_mlp_dims are removed?
+12697570	fmMT_e2_s10000	table 4: FM multitask CAST at the tuned eta=2
+12697571	fmMT_e2_s10001	table 4: FM multitask CAST at the tuned eta=2
+12697572	fmMT_e2_s10002	table 4: FM multitask CAST at the tuned eta=2
+12698300	f5_BNONE_t8	table 5 factorial extended to 5 tasks
+12698301	f5_BCLIP_t8	table 5 factorial extended to 5 tasks
+12698302	f5_BANC_t8	table 5 factorial extended to 5 tasks
+12698303	f5_B_t8	table 5 factorial extended to 5 tasks
+12698304	f5_BNONE_t53	table 5 factorial extended to 5 tasks
+12698305	f5_BCLIP_t53	table 5 factorial extended to 5 tasks
+12698306	f5_BANC_t53	table 5 factorial extended to 5 tasks
+12698307	f5_B_t53	table 5 factorial extended to 5 tasks
+12698308	f5_BNONE_t75	table 5 factorial extended to 5 tasks
+12698309	f5_BCLIP_t75	table 5 factorial extended to 5 tasks
+12698310	f5_BANC_t75	table 5 factorial extended to 5 tasks
+12698311	f5_B_t75	table 5 factorial extended to 5 tasks
+12700135	sq64_DICE_s42	DICE-RL pair on the 0.563 base; loader auto-detects arch from the ckpt config
+12716611	f5_BNONE_t8	table-5 factorial arm via EXP=B + explicit overrides
+12716612	f5_BCLIP_t8	table-5 factorial arm via EXP=B + explicit overrides
+12716613	f5_BANC_t8	table-5 factorial arm via EXP=B + explicit overrides
+12716614	f5_BNONE_t53	table-5 factorial arm via EXP=B + explicit overrides
+12716615	f5_BCLIP_t53	table-5 factorial arm via EXP=B + explicit overrides
+12716616	f5_BANC_t53	table-5 factorial arm via EXP=B + explicit overrides
+12716617	f5_BNONE_t75	table-5 factorial arm via EXP=B + explicit overrides
+12716618	f5_BCLIP_t75	table-5 factorial arm via EXP=B + explicit overrides
+12716619	f5_BANC_t75	table-5 factorial arm via EXP=B + explicit overrides
