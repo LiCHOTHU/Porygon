@@ -708,8 +708,16 @@ clipping) sit at or below base. Our anchor is not the best of the three ---
 see the discussion below. $^{*}$these two square entries are the same two methods measured in
 \cref{tab:matched} at the matched $20$K budget (3 seeds), not at the much
 longer budget the other square locus arms use --- they are quoted for
-reference and should not be compared across columns. The remaining three
-square cells (hinge, projection, always-on pull) are training.
+reference and should not be compared across columns.
+$^{\dagger}$single seed ($42$), $300$ episodes, and --- unlike every other
+number in this paper --- \emph{not} read at a matched step: repeated
+preemption and resume left these three arms with disjoint evaluation windows
+(hinge $464$--$640$K, projection $656$--$880$K, always-on pull $672$--$896$K),
+so no common step exists. We instead quote each arm at its own converged
+plateau (mean of its last five evaluations); all three are flat to within
+$\pm 0.013$ over their final $200$K steps, which is what makes the comparison
+meaningful despite the offset. The hinge's $0.991$ is far above anything else
+we measure on square and rests on one seed; we flag it as provisional.
 ``---'' = not measured.}
 \label{tab:locus}\label{tab:resolution}
 \footnotesize
@@ -726,9 +734,9 @@ variant & acts on & square (3 seeds) & \makecell{red mug\\onto plate ($0.573$)} 
 \midrule
 \multicolumn{5}{l}{\emph{(b) the restoring field --- reward held at \method{}'s gradient}} \\
 \quad $L_2$ penalty $+$ grad clip (DICE-RL) & loss $+$ params & 0.861--0.909$^{*}$ & 0.550 & 0.587 \\
-\quad always-on pull ($\rho{=}0$)           & action target   & --- & 0.549 & 0.601 \\
-\quad hinge $(\|r\|-\rho)_{+}^{2}$          & loss            & --- & \textbf{0.837} & 0.700 \\
-\quad hard projection $\Pi_{\|r\|\le\rho}$  & action target   & --- & 0.790 & \textbf{0.733} \\
+\quad always-on pull ($\rho{=}0$)           & action target   & 0.547$^{\dagger}$ & 0.549 & 0.601 \\
+\quad hinge $(\|r\|-\rho)_{+}^{2}$          & loss            & \textbf{0.991}$^{\dagger}$ & \textbf{0.837} & 0.700 \\
+\quad hard projection $\Pi_{\|r\|\le\rho}$  & action target   & 0.573$^{\dagger}$ & 0.790 & \textbf{0.733} \\
 \quad dead-zone anchor (\method{})          & action target   & 0.912--0.930$^{*}$ & 0.600 & 0.627 \\
 \bottomrule
 \end{tabular}}
