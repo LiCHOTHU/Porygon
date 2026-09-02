@@ -71,6 +71,39 @@ for t in 8 21 73 81; do
   go grpoC_t${t} scripts/grpo_single_task.sbatch fm ${t} 10000 $CEIL
 done
 
+echo "=== table-2 transport (3 seeds x 2 arms) ==="
+cd "$DR" || exit 1
+for sd in 42 43 44; do
+  go transport_DICE_s${sd} scripts/dice_rl_generic.sbatch finetune transport ft_distill_residual_drift_field_mlp ${sd} \
+     model.actor_mode=residual logdir=$D/transport_DICE_s${sd} ++train.auto_resume=true
+  go transport_CAST_s${sd} scripts/dice_rl_generic.sbatch finetune transport ft_distill_residual_drift_field_mlp ${sd} \
+     logdir=$D/transport_CAST_s${sd} ++train.auto_resume=true
+done
+
+echo "=== table-1 classic baselines on the 0.563 base ==="
+TD64=$P/square_pre_diffusion_mlp_ta4_td20/fixed_42/checkpoint/state_8000.pt
+for m in dipo qsm dql idql awr; do
+  go b64_${m} scripts/dice_rl_generic.sbatch finetune square ft_${m}_diffusion_mlp 42 \
+     base_policy_path=$TD64 model.actor.time_dim=64 \
+     '~model.actor.mlp_dims' '~model.actor.cond_mlp_dims' '~model.actor.residual_style' \
+     logdir=$D/square_${m}_b64_s42 ++train.auto_resume=true
+done
+
+echo "=== table-5 factorial, 5 tasks ==="
+cd "$IM" || exit 1
+for t in 8 53 75; do
+  for arm in BNONE BCLIP BANC B; do
+    go f5_${arm}_t${t} scripts/field_single_task.sbatch ${arm} ${t} 10000
+  done
+done
+
+echo "=== table-3 FM tuning arms ==="
+FMCK=/storage/scratch1/8/lwang831/imitation/cold_start/libero/libero_90/cold_multitask_lib90/multitask_model_latest.pth
+for t in 65 32 81; do
+  go fmTune_t${t} --export=ALL,BASE_CKPT=$FMCK,NUM_INF_STEPS=10 scripts/field_single_task.sbatch B ${t} 10000 _fm_tune \
+     dice.field.q_step_size=2.0 dice.field.total_max_norm=0.25 +dice.field.restore_radius=0.02
+done
+
 echo "=== table-4 multitask evaluations ==="
 for spec in "castMT_s10001:field_hard8_ff_B_grad_s10001" \
             "topk_s10000:field_hard8_ff_C_zeroth_s10000" \

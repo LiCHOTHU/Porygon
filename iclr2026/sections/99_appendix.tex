@@ -66,12 +66,18 @@ the per-task numbers do not support, since gains are the same
 Three claims in the main text rest on direct measurements rather than on
 outcomes. We give the numbers here so they can be checked.
 
-\paragraph{(i) Why nothing works in the multitask setting.}
-\cref{tab:libero} reports that no update rule moves the shared-critic base.
-The cause is upstream of every method: the shared critic barely changes its
-value when the action moves, so both mechanisms these methods rely on --- a
-gradient to climb, and a spread over candidates to select from --- are starved
-at once.
+\paragraph{(i) How weak the shared critic's action signal is.}
+\cref{tab:libero} reports that no update rule moves the shared-critic base
+under a single noise draw. The measurement below shows why a
+\emph{gradient-following} update struggles there: the shared critic barely
+changes its value when the action moves, so the direction a method would climb
+is dominated by noise. We flag one limit of this diagnostic. It also reports a
+narrow spread across the $K$ candidates, which would predict that
+\emph{selection} fails too --- and \cref{tab:multitask-bon} shows it does not:
+best-of-$16$ selection recovers $5.4$ points for DICE-RL and $2.3$ for
+\method{}. A spread of $0.7\%$ is evidently still enough to rank candidates
+usefully, so this table explains the weakness of the gradient channel, not an
+absence of signal overall.
 
 \begin{table}[h]
 \centering
@@ -158,13 +164,27 @@ full \method{}           & $0.016$  & 0.600 \\
 \cref{tab:libero-single} fine-tunes each task with its own residual head and
 critic, routed by task ID at deployment --- the architecture published LIBERO
 RL fine-tuners use. The alternative is one policy and one critic trained across
-all eight tasks jointly. We ran it, nothing works, and we report it here rather
-than in the main text because the result is a property of the setting rather
-than of any method: with a shared critic there is no usable action signal for
-an update rule to convert, so every arm lands within seed noise of its base.
-\cref{tab:critic-diag} is the measurement --- $16$ candidate actions scored
-within $0.7\%$ of one another, and a $0.05$ action step moving $Q$ by under one
-part in forty.
+all eight tasks jointly. Under the single-noise-draw evaluation used throughout
+this paper, no arm moves its base by more than seed noise
+(\cref{tab:libero}), and \cref{tab:critic-diag} supplies a mechanism: $16$
+candidate actions scored within $0.7\%$ of one another, and a $0.05$ action
+step moving $Q$ by under one part in forty.
+
+That reading turns out to be an artefact of the evaluation, and we correct it
+here. A single noise draw reproduces the base whenever the learned residual is
+near zero, so it cannot distinguish ``the update rule did nothing'' from ``the
+update rule learned something the evaluation never samples.'' Re-scoring the
+\emph{same} checkpoints under the best-of-$N$ critic selection that DICE-RL's
+own LIBERO evaluation uses ($N{=}16$, \texttt{max\_q\_min}) separates the two,
+and the picture changes (\cref{tab:multitask-bon}): DICE-RL gains $5.4$ points
+over the shared-critic base and \method{} gains $2.3$, so the shared critic
+does carry usable signal --- it is only unusable when a single draw has to find
+it. We report this plainly because it cuts against us: in the multitask setting
+\method{} improves on its base but \emph{trails} DICE-RL by $3.0$ points,
+reversing the per-task ordering of \cref{tab:libero-single}. Our displacement
+bound is what keeps the residual close to the base, and when the critic is this
+weakly action-sensitive that conservatism costs more than it protects. We take
+this as the honest boundary of the method rather than a tuning deficit.
 
 \begin{table}[h]
 \centering
@@ -209,3 +229,28 @@ flow matching $+$ DICE-RL $+$ \method{}      & 0.746 & 0.729 & 0.746 & $+0.002$ 
 \bottomrule
 \end{tabular}
 \end{table}
+
+\begin{table}[h]
+\centering
+\caption{\textbf{Under the selection protocol, the multitask setting is not
+inert --- and \method{} trails DICE-RL.} The same shared-critic checkpoints as
+\cref{tab:libero}, re-scored with best-of-$N$ critic selection ($N{=}16$,
+\texttt{max\_q\_min}), which is the protocol DICE-RL's own LIBERO evaluation
+uses; \cref{tab:libero} instead draws a single noise sample, under which a
+near-zero residual is indistinguishable from its base. Drifting base, LIBERO
+hard-8, $100$ rollouts $\times$ $3$ evaluation seeds. Read together with
+\cref{tab:libero}: the ranking is not preserved across protocols, so the
+multitask conclusion depends on how candidates are sampled at deployment.}
+\label{tab:multitask-bon}
+\small
+\begin{tabular}{lccc}
+\toprule
+method & best-of-$16$ & $\Delta$ vs.\ base & single draw (\cref{tab:libero}) \\
+\midrule
+drifting base (no RL)             & 0.669 & ---      & 0.671 \\
+drifting $+$ DICE-RL              & \textbf{0.722} & $+0.054$ & 0.688 \\
+drifting $+$ DICE-RL $+$ \method{} & 0.692 & $+0.023$ & 0.663 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
