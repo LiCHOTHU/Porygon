@@ -105,6 +105,16 @@ for t in 65 32 81; do
      dice.field.q_step_size=2.0 dice.field.total_max_norm=0.25 +dice.field.restore_radius=0.02
 done
 
+echo "=== tab:eta-sweep, flow-matching eta=4 and eta=8 ==="
+for t in 32 65 81; do
+  for eta in 4.0 8.0; do
+    tag=$(echo $eta | tr -d '.')
+    go fmEta${tag}_t${t} --export=ALL,BASE_CKPT=$FMCK,NUM_INF_STEPS=10 \
+       scripts/field_single_task.sbatch B ${t} 10000 _fm_eta${tag} \
+       dice.field.q_step_size=${eta}
+  done
+done
+
 echo "=== table-4 multitask evaluations ==="
 for spec in "castMT_s10001:field_hard8_ff_B_grad_s10001" \
             "topk_s10000:field_hard8_ff_C_zeroth_s10000" \
