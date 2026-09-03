@@ -15,6 +15,7 @@ IM=/storage/home/hcoda1/8/lwang831/workspace/imitation
 L=/storage/cedar/cedar0/cedarp-agarg35-0/liquan.w/imitation_scratch/dice_rl_official/log_dir
 D=$L/robomimic-finetune
 P=$L/robomimic-pretrain
+CEDAR=/storage/cedar/cedar0/cedarp-agarg35-0/liquan.w/imitation_scratch
 E=/storage/cedar/cedar0/cedarp-agarg35-0/liquan.w/imitation_scratch/imitation/experiments_dice/libero/libero_90
 CK=$P/square_diff_baselinearch_42/checkpoint/state_8000.pt
 EX=$(cat $IM/scripts/flaky_nodes_exclude.txt 2>/dev/null | tr -d '\n')
@@ -23,6 +24,15 @@ COMMON="--qos=embers --account=gts-agarg35 --time=8:00:00 --requeue"
 
 alive () {  # is a job with this name already queued or running?
   squeue -u "$USER" -h -o "%j %T" 2>/dev/null | awk -v n="$1" '$1==n && ($2=="RUNNING"||$2=="PENDING"){f=1} END{exit !f}'
+}
+
+done_already () {  # result-file  [reference-file]
+  # An evaluation whose output already exists must not be resubmitted. Without
+  # this, a completed eval is queued again on every sweep: four of them burned
+  # 111 GPU-hours over 40 submissions re-deriving numbers already on disk.
+  [ -f "$1" ] || return 1
+  [ -n "${2:-}" ] && [ "$2" -nt "$1" ] && return 1   # checkpoint newer => restale
+  return 0
 }
 
 go () {  # name  command...
@@ -123,6 +133,8 @@ for spec in "castMT_s10001:field_hard8_ff_B_grad_s10001" \
   lab=${spec%%:*}; arm=${spec##*:}
   ck=$(ls $E/$arm/dice_latest.pth $E/$arm/*/dice_latest.pth 2>/dev/null | head -1)
   [ -z "$ck" ] && { echo "  $lab: no checkpoint"; continue; }
+  res=$CEDAR/powered_eval_one_hard8_${lab}.json
+  if done_already "$res" "$ck"; then echo "  pe_${lab}: result already on disk, skipping"; continue; fi
   go pe_${lab} --export=ALL,CELL=hard8,LABEL=${lab},CKPT=$ck scripts/powered_eval_one.sbatch
 done
 echo "done."
