@@ -92,7 +92,8 @@ done
 echo "=== table-5 factorial, 5 tasks ==="
 cd "$IM" || exit 1
 for t in 8 53 75; do
-  for arm in BNONE BCLIP BANC B; do
+  # arm names carry underscores (B_NONE/B_CLIP/B_ANC); the bare forms exit 1
+  for arm in B_NONE B_CLIP B_ANC B; do
     go f5_${arm}_t${t} scripts/field_single_task.sbatch ${arm} ${t} 10000
   done
 done
