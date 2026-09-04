@@ -308,20 +308,20 @@ replay, same budget, same number of gradient steps --- and differ only in
 the boxed column. Nothing is removed from \method{} in this table. $^{\dagger}$ these two runs ended before $20$K steps, so their
 last-three averages are taken at $17$--$19$K (s42) and $14$--$16$K (s43);
 both curves are flat there, so the earlier window if anything favours the
-baseline.}
+baseline. $^{\ddagger}$\textbf{transport is a tie and is still training.} Unlike the can and square blocks, which are converged, these are a snapshot at a matched $256$K steps --- the largest step at which all six runs have an evaluation --- and both arms are still climbing (one \method{} seed reaches $0.46$ by $480$K). The three-seed means are $0.323$ (DICE-RL) against $0.331$ (\method{}), and the seed ranges overlap completely ($0.313$--$0.334$ against $0.312$--$0.363$), so on this task we claim no advantage. We report it because a third task that does \emph{not} separate the two update rules is as much part of the picture as the two that do.}
 \label{tab:matched}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
 \resizebox{\linewidth}{!}{%
-\begin{tabular}{llcccccc}
+\begin{tabular}{llccccccccc}
 \toprule
- & & \multicolumn{3}{c}{can} & \multicolumn{3}{c}{square} \\
-\cmidrule(lr){3-5}\cmidrule(lr){6-8}
-actor update & how the critic is used & s42 & s43 & s44 & s42 & s43 & s44 \\
+ & & \multicolumn{3}{c}{can} & \multicolumn{3}{c}{square} & \multicolumn{3}{c}{transport$^{\ddagger}$} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-8}\cmidrule(lr){9-11}
+actor update & how the critic is used & s42 & s43 & s44 & s42 & s43 & s44 & s42 & s43 & s44 \\
 \midrule
-frozen base, no RL & critic never queried & \multicolumn{3}{c}{0.877} & \multicolumn{3}{c}{0.382} \\
-DICE-RL actor \emph{(baseline)} & $Q$ differentiated \emph{through} the policy & 0.970$^{\dagger}$ & 0.946$^{\dagger}$ & 0.940 & 0.870 & 0.909 & 0.861 \\
-\textbf{\method{} actor \emph{(ours)}} & $Q$ only \emph{queried}; targets displaced, bounded, regressed & \textbf{0.988} & \textbf{0.993} & \textbf{0.978} & \textbf{0.912} & \textbf{0.930} & \textbf{0.929} \\
+frozen base, no RL & critic never queried & \multicolumn{3}{c}{0.877} & \multicolumn{3}{c}{0.382} & \multicolumn{3}{c}{---} \\
+DICE-RL actor \emph{(baseline)} & $Q$ differentiated \emph{through} the policy & 0.970$^{\dagger}$ & 0.946$^{\dagger}$ & 0.940 & 0.870 & 0.909 & 0.861 & 0.313 & 0.321 & 0.334 \\
+\textbf{\method{} actor \emph{(ours)}} & $Q$ only \emph{queried}; targets displaced, bounded, regressed & \textbf{0.988} & \textbf{0.993} & \textbf{0.978} & \textbf{0.912} & \textbf{0.930} & \textbf{0.929} & 0.312 & 0.317 & 0.363 \\
 \bottomrule
 \end{tabular}}
 \end{table}
