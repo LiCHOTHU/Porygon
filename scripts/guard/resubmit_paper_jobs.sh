@@ -115,6 +115,19 @@ for t in 65 32 81; do
      dice.field.q_step_size=2.0 dice.field.total_max_norm=0.25 +dice.field.restore_radius=0.02
 done
 
+echo "=== table-5 factorial evaluations (tasks 8/53/75) ==="
+for t in 8 53 75; do
+  for arm in BNONE BCLIP BANC; do
+    d=$E/field_st_${arm}_t${t}_s10000
+    ck=$(ls $d/dice_latest.pth $d/*/dice_latest.pth 2>/dev/null | head -1)
+    [ -z "$ck" ] && { echo "  ${arm}_t${t}: no checkpoint yet"; continue; }
+    res=$CEDAR/powered_eval_one_t${t}_${arm}_t${t}.json
+    if done_already "$res" "$ck"; then echo "  pe_${arm}_t${t}: result on disk, skipping"; continue; fi
+    go pe_${arm}_t${t} --export=ALL,CELL=t${t},LABEL=${arm}_t${t},CKPT=$ck,TASKS="[${t}]" \
+       scripts/powered_eval_one.sbatch
+  done
+done
+
 echo "=== tab:eta-sweep, flow-matching eta=4 and eta=8 ==="
 for t in 32 65 81; do
   for eta in 4.0 8.0; do
