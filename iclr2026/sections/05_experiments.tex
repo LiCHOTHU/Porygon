@@ -567,32 +567,33 @@ displacement bounds ($\delta_Q$ and $\delta_{\mathrm{tot}}$); ``anchor off''
 disables \emph{both} restoring terms. The $(\times,\times)$ row is the
 unconstrained action-gradient update --- the form DIPO and QSM run
 (\cref{tab:baselines}).
-\textbf{The two guards do not compose the same way on the two tasks, and on
-one of them the step clip actively hurts.} On ketchup, full \method{}
-($0.627$; seeds $0.68/0.58/0.62$) beats anchor-only ($0.387$; $0.40/0.41/0.35$)
-with no overlap --- its worst seed clears the ablation's best by $0.17$. On
-the red-mug task the ordering reverses and just as cleanly: anchor-only
-reaches $0.810$ ($0.85/0.77/0.81$) against full \method{}'s $0.600$
-($0.59/0.59/0.62$), again without overlap. Adding the step clip to the anchor
-costs $21$ points there. So ``both guards are necessary'' is not what this
-factorial shows. What it shows is that the \emph{anchor} is necessary --- the
-two rows without it are at $0.000$ on both tasks --- while the clip helps on
-one task and hurts on the other. Full \method{} clears its base on both
-($+0.027$ and $+0.017$) but only barely, and we no longer claim more than
-that from this table. ``---'' = not measured.}
+\textbf{The anchor is what the update cannot do without; the step clip is a
+task-dependent refinement.} Across all five tasks the two rows lacking the
+anchor sit at exactly $0.000$: with no restoring term the transported targets
+leave the base's support and the regressed residual never recovers, and the
+step clip alone does not prevent it. That is the claim this factorial
+establishes, and five tasks establish it far more firmly than the two we
+previously reported.
+The clip is a different matter. Adding it to the anchor helps on three tasks
+(ketchup $+0.240$, book-into-caddy $+0.207$, bowl $+0.033$) and hurts on two
+(red mug $-0.210$, juice $-0.040$), for a mean of $0.703$ against $0.657$. So
+full \method{} is the better default --- it wins on three of five and on
+average --- but ``both guards are necessary'' overstates it: only the anchor is
+necessary, and we claim no more than that. Three seeds per cell.}
 \label{tab:constraint}
 \footnotesize
 \setlength{\tabcolsep}{4.0pt}
-\begin{tabular}{cclcc}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{cclcccccc}
 \toprule
-clip & anchor & configuration & \makecell{red mug\\onto plate ($0.573$)} & \makecell{ketchup\\into drawer ($0.610$)} \\
+clip & anchor & configuration & \makecell{red mug\\onto plate\\($0.573$)} & \makecell{ketchup\\into drawer\\($0.610$)} & \makecell{bowl into\\top drawer\\($0.818$)} & \makecell{juice into\\basket\\($0.785$)} & \makecell{book into\\right caddy\\($0.578$)} & mean \\
 \midrule
-$\times$ & $\times$ & unconstrained transport & 0.000 & 0.000 \\
-$\checkmark$ & $\times$ & step containment only & 0.000 & 0.000 \\
-$\times$ & $\checkmark$ & base-restoring only   & \textbf{0.810} & 0.387 \\
-$\checkmark$ & $\checkmark$ & \textbf{full \method{}} & 0.600 & \textbf{0.627} \\
+$\times$ & $\times$ & unconstrained transport & 0.000 & 0.000 & 0.000 & 0.000 & 0.000 & 0.000 \\
+$\checkmark$ & $\times$ & step containment only & 0.000 & 0.000 & 0.000 & 0.000 & 0.000 & 0.000 \\
+$\times$ & $\checkmark$ & base-restoring only   & \textbf{0.810} & 0.387 & 0.807 & \textbf{0.860} & 0.423 & 0.657 \\
+$\checkmark$ & $\checkmark$ & \textbf{full \method{}} & 0.600 & \textbf{0.627} & \textbf{0.840} & 0.820 & \textbf{0.630} & \textbf{0.703} \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \end{table}
 
 \begin{figure}[t]
