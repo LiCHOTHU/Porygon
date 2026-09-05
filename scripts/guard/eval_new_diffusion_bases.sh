@@ -18,8 +18,10 @@ cd "$DR" || exit 1
 alive () { squeue -u "$USER" -h -o "%j %T" 2>/dev/null | awk -v n="$1" '$1==n && ($2=="RUNNING"||$2=="PENDING"){f=1} END{exit !f}'; }
 
 for run in square_pre_diffusion_mlp_ta4_td20_long square_pre_diffusion_wide_td20 square_pre_diffusion_wide_td20_lr5e5; do
-  # take the newest few checkpoints; earlier ones are unlikely to be the best
-  for ck in $(ls -t $P/$run/*/checkpoint/state_*.pt $P/$run/checkpoint/state_*.pt 2>/dev/null | head -3); do
+  # Newest checkpoint only. Submitting three per variant filled the 54-job cap
+  # and every base evaluation then failed with QOSMaxSubmitJobPerUserLimit --
+  # the retrains ran but nothing scored them, which is the whole point.
+  for ck in $(ls -t $P/$run/*/checkpoint/state_*.pt $P/$run/checkpoint/state_*.pt 2>/dev/null | head -1); do
     ep=$(basename "$ck" .pt | sed 's/state_//')
     tag="basev_${run: -12}_${ep}"
     dst=$OUT/${run}_${ep}
