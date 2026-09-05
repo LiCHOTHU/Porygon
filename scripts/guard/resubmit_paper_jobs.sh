@@ -115,6 +115,20 @@ for t in 65 32 81; do
      dice.field.q_step_size=2.0 dice.field.total_max_norm=0.25 +dice.field.restore_radius=0.02
 done
 
+echo "=== retrain the square diffusion base (table 1 base row is 0.279 and must move) ==="
+cd "$DR" || exit 1
+go sqdiff_long scripts/dice_rl_generic.sbatch pretrain square pre_diffusion_mlp 42 \
+   train.n_epochs=24000 logdir=$L/robomimic-pretrain/square_pre_diffusion_mlp_ta4_td20_long
+go sqdiff_wide scripts/dice_rl_generic.sbatch pretrain square pre_diffusion_mlp 42 \
+   '+model.network.mlp_dims=[1024,1024,1024]' '+model.network.cond_mlp_dims=[512,64]' \
+   +model.network.residual_style=True train.n_epochs=12000 \
+   logdir=$L/robomimic-pretrain/square_pre_diffusion_wide_td20
+go sqdiff_wide_long scripts/dice_rl_generic.sbatch pretrain square pre_diffusion_mlp 42 \
+   '+model.network.mlp_dims=[1024,1024,1024]' '+model.network.cond_mlp_dims=[512,64]' \
+   +model.network.residual_style=True train.n_epochs=24000 train.learning_rate=5e-5 \
+   logdir=$L/robomimic-pretrain/square_pre_diffusion_wide_td20_lr5e5
+cd "$IM" || exit 1
+
 echo "=== table-1 rows re-emitting the baseline-comparable strict metric ==="
 cd "$DR" || exit 1
 TD64=$P/square_pre_diffusion_mlp_ta4_td20/fixed_42/checkpoint/state_8000.pt
