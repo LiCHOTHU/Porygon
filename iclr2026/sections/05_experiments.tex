@@ -164,7 +164,7 @@ identified. Each row therefore reports its base as its own harness measures
 it, and $\Delta$ is always within-harness; cross-row base comparison is not
 meaningful.
 The flow-matching base measures $0.570$ on square (300 episodes).
-``---'' = not measured.}
+``---'' = not measured. $^{\P\P}$\textbf{the diffusion base has been retrained} and now measures $0.600$ on $300$ episodes ($24000$ epochs, $[1024,1024,1024]$ trunk with a conditioning MLP, $20$ denoising steps), independently confirmed at $0.550$--$0.600$ by the step-$0$ evaluation of all six fine-tuning seeds. Every diffusion row is being re-run from this checkpoint ($3$ seeds for the paired rows); the previous-base rows remain until those land and will then be replaced.}
 \label{tab:baselines}
 \footnotesize
 \setlength{\tabcolsep}{4.0pt}
@@ -181,8 +181,10 @@ AWR                       & generic   & 0.279 & 0.407 & $+0.128$ \\
 DPPO \citep{ren2024dppo}$^{\ddagger}$ & diffusion & 0.520 & 0.561$^{\ddagger}$ & $+0.041$ \\
 \midrule
 \multicolumn{5}{l}{\emph{adding \method{} to DICE-RL, paired within each base}} \\
-diffusion $+$ DICE-RL \citep{dicerl2026}$^{\S}$   & diffusion & 0.279 & 0.861 & $+0.582$ \\
-diffusion $+$ DICE-RL $+$ \method{}$^{\S}$        & diffusion & 0.279 & \textbf{0.937} & $\mathbf{+0.658}$ \\
+diffusion $+$ DICE-RL (prev.\ base)$^{\S}$   & diffusion & 0.279 & 0.861 & $+0.582$ \\
+diffusion $+$ DICE-RL $+$ \method{} (prev.\ base)$^{\S}$ & diffusion & 0.279 & \textbf{0.937} & $\mathbf{+0.658}$ \\
+diffusion $+$ DICE-RL (retrained base)$^{\P\P}$   & diffusion & 0.600 & training & --- \\
+diffusion $+$ DICE-RL $+$ \method{} (retrained base)$^{\P\P}$ & diffusion & 0.600 & training & --- \\
 \addlinespace
 drifting $+$ DICE-RL                       & one-step drifting & 0.382 & 0.861--0.909 & $+0.48$--$0.53$ \\
 drifting $+$ DICE-RL $+$ \method{}         & one-step drifting & 0.382 & \textbf{0.912--0.930} & $+0.53$--$0.55$ \\
