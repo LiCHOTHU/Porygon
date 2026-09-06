@@ -127,14 +127,7 @@ for m in dipo qsm dql idql awr; do
      logdir=$D/square_${m}_b64_s42 ++train.auto_resume=true
 done
 
-echo "=== table-5 factorial, 5 tasks ==="
-cd "$IM" || exit 1
-for t in 8 53 75; do
-  # arm names carry underscores (B_NONE/B_CLIP/B_ANC); the bare forms exit 1
-  for arm in B_NONE B_CLIP B_ANC B; do
-    go f5_${arm}_t${t} scripts/field_single_task.sbatch ${arm} ${t} 10000
-  done
-done
+# table-5 factorial training arms removed: all 20 cells are evaluated and in the paper.
 
 echo "=== table-3 FM tuning arms ==="
 FMCK=/storage/scratch1/8/lwang831/imitation/cold_start/libero/libero_90/cold_multitask_lib90/multitask_model_latest.pth
