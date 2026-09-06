@@ -70,10 +70,7 @@ secondary () {  # skip a secondary section while the base is still outstanding
 
 echo "=== robomimic long runs (dice-rl repo) ==="
 cd "$DR" || exit 1
-go dppo_b279 scripts/dice_rl_generic.sbatch finetune square ft_ppo_diffusion_mlp 42 \
-   base_policy_path=$CK model.actor.time_dim=32 \
-   '+model.actor.mlp_dims=[1024,1024,1024]' '+model.actor.cond_mlp_dims=[512,64]' \
-   +model.actor.residual_style=True logdir=$L/square_dppo_b279_s42 ++train.auto_resume=true
+# dppo_b279 removed: superseded by nb_dppo on the 0.600 base.
 go dql_cast scripts/dice_rl_generic.sbatch finetune square ft_dql_diffusion_mlp 42 \
    base_policy_path=$CK train.n_train_itr=300 +train.anchor_rho=0.05 \
    logdir=$D/square_dqlCAST_s42 ++train.auto_resume=true
@@ -165,8 +162,13 @@ for sd in 42 43 44; do
   go nb_CAST_s${sd} scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp ${sd} \
      base_policy_path=$NB logdir=$D/newbase_CAST_s${sd} ++train.auto_resume=true
 done
+# DPPO's ft config declares hidden_dim/num_blocks, not the wide trunk's
+# mlp_dims/cond_mlp; without these the checkpoint fails with a 156-vs-115
+# input_proj shape mismatch (cond_mlp embeds obs 23 -> 64: 28+64+64 vs 28+64+23).
 go nb_dppo scripts/dice_rl_generic.sbatch finetune square ft_ppo_diffusion_mlp 42 \
-   base_policy_path=$NB model.actor.time_dim=64 logdir=$D/newbase_dppo_s42 ++train.auto_resume=true
+   base_policy_path=$NB \
+   '+model.actor.mlp_dims=[1024,1024,1024]' '+model.actor.cond_mlp_dims=[512,64]' \
+   +model.actor.residual_style=True logdir=$D/newbase_dppo_s42 ++train.auto_resume=true
 for m in dipo qsm dql idql awr; do
   go nb_${m} scripts/dice_rl_generic.sbatch finetune square ft_${m}_diffusion_mlp 42 \
      base_policy_path=$NB model.actor.time_dim=64 logdir=$D/newbase_${m}_s42 ++train.auto_resume=true
