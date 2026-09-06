@@ -152,6 +152,12 @@ harnesses cannot account for it either.
 $^{\dagger\dagger}$mean of seeds $42/43$ at $288$K steps ($0.93/0.92$), still
 improving; seed $44$ and the paired \method{} seeds are at earlier steps and
 the pair will be re-quoted at a matched budget when all six converge.
+$^{*}$the classic baselines' harness scores success more strictly (a full
+action chunk inside the success state) and reads this same checkpoint at
+$0.348$ under that rule; their fine-tuned numbers are on that stricter scale
+and their $\Delta$ is computed against $0.348$, not $0.600$. DPPO's and the
+paired rows' harnesses read the base at $0.59$--$0.60$, matching the base
+column. $^{\circ}$still training; value at the current budget.
 ``---'' = not measured.}
 \label{tab:baselines}
 \footnotesize
@@ -161,12 +167,12 @@ the pair will be re-quoted at a matched budget when all six converge.
 \toprule
 method & policy class & own base & fine-tuned & $\Delta$ \\
 \midrule
-DIPO \citep{dipo2024}     & diffusion & 0.600 & training & --- \\
-QSM \citep{psenka2024qsm} & diffusion & 0.600 & 0.000 & $-0.600$ \\
-DQL                       & diffusion & 0.600 & 0.000 & $-0.600$ \\
-IDQL                      & diffusion & 0.600 & training & --- \\
-AWR                       & generic   & 0.600 & training & --- \\
-DPPO \citep{ren2024dppo} & diffusion & 0.600 & training & --- \\
+DIPO \citep{dipo2024}     & diffusion & 0.600$^{*}$ & 0.289$^{\circ}$ & $-0.059$ \\
+QSM \citep{psenka2024qsm} & diffusion & 0.600$^{*}$ & 0.000 & $-0.348$ \\
+DQL                       & diffusion & 0.600$^{*}$ & 0.000 & $-0.348$ \\
+IDQL                      & diffusion & 0.600$^{*}$ & 0.274$^{\circ}$ & $-0.083$ \\
+AWR                       & generic   & 0.600$^{*}$ & 0.311$^{\circ}$ & $+0.015$ \\
+DPPO \citep{ren2024dppo} & diffusion & 0.600 & 0.672$^{\circ}$ & $+0.072$ \\
 \midrule
 \multicolumn{5}{l}{\emph{adding \method{} to DICE-RL, paired within each base}} \\
 diffusion $+$ DICE-RL \citep{dicerl2026}$^{\P\P}$   & diffusion & 0.600 & 0.92$^{\dagger\dagger}$ & $+0.32$ \\
