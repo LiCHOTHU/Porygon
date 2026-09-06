@@ -126,12 +126,7 @@ done
 
 # table-5 factorial training arms removed: all 20 cells are evaluated and in the paper.
 
-echo "=== table-3 FM tuning arms ==="
-FMCK=/storage/scratch1/8/lwang831/imitation/cold_start/libero/libero_90/cold_multitask_lib90/multitask_model_latest.pth
-for t in 65 32 81; do
-  go fmTune_t${t} --export=ALL,BASE_CKPT=$FMCK,NUM_INF_STEPS=10 scripts/field_single_task.sbatch B ${t} 10000 _fm_tune \
-     dice.field.q_step_size=2.0 dice.field.total_max_norm=0.25 +dice.field.restore_radius=0.02
-done
+# table-3 FM tuning arms removed: the eta=2 column is final in the paper.
 
 echo "=== retrain the square diffusion base (table 1 base row is 0.279 and must move) ==="
 cd "$DR" || exit 1
