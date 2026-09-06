@@ -163,6 +163,21 @@ pretrain_done "$L/robomimic-pretrain/square_pre_diffusion_wide_td20_lr5e5/checkp
    logdir=$L/robomimic-pretrain/square_pre_diffusion_wide_td20_lr5e5
 cd "$IM" || exit 1
 
+echo "=== NEW BASE (wide_td20_lr5e5 state_24000, 0.61): table-1 diffusion rows ==="
+cd "$DR" || exit 1
+NB=$P/square_pre_diffusion_wide_td20_lr5e5/checkpoint/state_24000.pt
+for sd in 42 43 44; do
+  go nb_DICE_s${sd} scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp ${sd} \
+     base_policy_path=$NB model.actor_mode=residual logdir=$D/newbase_DICE_s${sd} ++train.auto_resume=true
+  go nb_CAST_s${sd} scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp ${sd} \
+     base_policy_path=$NB logdir=$D/newbase_CAST_s${sd} ++train.auto_resume=true
+done
+for m in dipo qsm dql idql awr; do
+  go nb_${m} scripts/dice_rl_generic.sbatch finetune square ft_${m}_diffusion_mlp 42 \
+     base_policy_path=$NB model.actor.time_dim=64 logdir=$D/newbase_${m}_s42 ++train.auto_resume=true
+done
+cd "$IM" || exit 1
+
 echo "=== table-1 rows re-emitting the baseline-comparable strict metric ==="
 cd "$DR" || exit 1
 TD64=$P/square_pre_diffusion_mlp_ta4_td20/fixed_42/checkpoint/state_8000.pt
