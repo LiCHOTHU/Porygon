@@ -179,18 +179,10 @@ for m in dipo qsm dql idql awr; do
 done
 cd "$IM" || exit 1
 
-echo "=== table-1 rows re-emitting the baseline-comparable strict metric ==="
-cd "$DR" || exit 1
-TD64=$P/square_pre_diffusion_mlp_ta4_td20/fixed_42/checkpoint/state_8000.pt
-go sq64_DICE_s42 scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp 42 \
-   base_policy_path=$TD64 model.actor_mode=residual logdir=$D/sq64_DICE_s42 ++train.auto_resume=true
-go sq64_CAST_s42 scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp 42 \
-   base_policy_path=$TD64 logdir=$D/square_diff64CAST_s42 ++train.auto_resume=true
-go square_FMdice_s42 scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp 42 \
-   model.actor_mode=residual logdir=$D/square_FMdice_s42 ++train.auto_resume=true
-go square_FMpory_s42 scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp 42 \
-   logdir=$D/square_FMporygon_s42 ++train.auto_resume=true
-cd "$IM" || exit 1
+# The strict-metric re-emission block is removed. Its two flow rows kept
+# failing on resume (their logdirs hold a 512-wide flow policy, the config
+# builds 128) and their table-1 cells are already final measurements; the two
+# sq64 rows are superseded by the nb_* runs on the 0.600 base.
 
 echo "=== table-5 factorial evaluations (tasks 8/53/75) ==="
 for t in 8 53 75; do
