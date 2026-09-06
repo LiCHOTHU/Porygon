@@ -46,6 +46,28 @@ go () {  # name  command...
   esac
 }
 
+
+# ---------------------------------------------------------------------------
+# PRIORITY GATE. Table 1's diffusion base row is the blocking deliverable, and
+# the 54-job submission cap is shared: secondary work refilling it is what made
+# every base evaluation fail with QOSMaxSubmitJobPerUserLimit while 39 jobs
+# "ran". Until a base number exists, only the retrains, their evaluations and
+# the watchdog are resubmitted. Delete base_evals/ or touch the override file to
+# restore the full sweep.
+BASE_DONE=0
+for f in $L/base_evals/*/evaluation_results.csv; do
+  [ -f "$f" ] && grep -q pretrained "$f" 2>/dev/null && BASE_DONE=1
+done
+[ -f "$IM/scripts/guard/.run_all" ] && BASE_DONE=1
+if [ "$BASE_DONE" -eq 0 ]; then
+  echo "PRIORITY: no diffusion base number yet -- running only the base work."
+fi
+secondary () {  # skip a secondary section while the base is still outstanding
+  [ "$BASE_DONE" -eq 1 ] && return 1
+  echo "  (skipped: base row still outstanding)"
+  return 0
+}
+
 echo "=== robomimic long runs (dice-rl repo) ==="
 cd "$DR" || exit 1
 go dppo_b279 scripts/dice_rl_generic.sbatch finetune square ft_ppo_diffusion_mlp 42 \
@@ -64,6 +86,7 @@ go square_dipoCAST_full scripts/dice_rl_generic.sbatch finetune square ft_dipo_d
    +train.keep_buffer_actions=true train.action_lr=0.005 ++train.auto_resume=true
 
 echo "=== table-7 square column, block (b) ==="
+if ! secondary; then
 go sq_regress_default scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp 42 \
    logdir=$D/sq_regress_default ++train.auto_resume=true
 go sq_hinge scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp 42 \
@@ -74,14 +97,18 @@ go sq_proj scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_dr
 go sq_rho0 scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp 42 \
    logdir=$D/sq_rho0 +model.field.restore_step_size=1.0 +model.field.restore_radius=0.0 ++train.auto_resume=true
 
+fi
 echo "=== LIBERO GRPO cells (matched to the ceiling recipe) ==="
+if ! secondary; then
 cd "$IM" || exit 1
 CEIL="rl.n_iters=200 rl.group_size=16 rl.inits_per_iter=6 rl.filter_low=0.05 rl.filter_high=0.95 rl.eval_interval=5 rl.eval_rollouts_per_env=50"
 for t in 8 21 73 81; do
   go grpoC_t${t} scripts/grpo_single_task.sbatch fm ${t} 10000 $CEIL
 done
 
+fi
 echo "=== table-2 transport (3 seeds x 2 arms) ==="
+if ! secondary; then
 cd "$DR" || exit 1
 for sd in 42 43 44; do
   go transport_DICE_s${sd} scripts/dice_rl_generic.sbatch finetune transport ft_distill_residual_drift_field_mlp ${sd} \
@@ -90,6 +117,7 @@ for sd in 42 43 44; do
      logdir=$D/transport_CAST_s${sd} ++train.auto_resume=true
 done
 
+fi
 echo "=== table-1 classic baselines on the 0.563 base ==="
 TD64=$P/square_pre_diffusion_mlp_ta4_td20/fixed_42/checkpoint/state_8000.pt
 for m in dipo qsm dql idql awr; do
@@ -117,13 +145,19 @@ done
 
 echo "=== retrain the square diffusion base (table 1 base row is 0.279 and must move) ==="
 cd "$DR" || exit 1
-go sqdiff_long scripts/dice_rl_generic.sbatch pretrain square pre_diffusion_mlp 42 \
+# Pretraining has NO auto_resume: a resubmitted run restarts at epoch 0 and
+# OVERWRITES its own checkpoints (state_1000.pt was rewritten after the
+# 12000-epoch checkpoint existed). Resubmit only while the target epoch count
+# has not been reached.
+pretrain_done () { [ -f "$1" ]; }
+
+pretrain_done "$L/robomimic-pretrain/square_pre_diffusion_mlp_ta4_td20_long/checkpoint/state_24000.pt" && echo "  sqdiff_long: finished, not resubmitting" || go sqdiff_long scripts/dice_rl_generic.sbatch pretrain square pre_diffusion_mlp 42 \
    train.n_epochs=24000 logdir=$L/robomimic-pretrain/square_pre_diffusion_mlp_ta4_td20_long
-go sqdiff_wide scripts/dice_rl_generic.sbatch pretrain square pre_diffusion_mlp 42 \
+pretrain_done "$L/robomimic-pretrain/square_pre_diffusion_wide_td20/checkpoint/state_12000.pt" && echo "  sqdiff_wide: finished, not resubmitting" || go sqdiff_wide scripts/dice_rl_generic.sbatch pretrain square pre_diffusion_mlp 42 \
    '+model.network.mlp_dims=[1024,1024,1024]' '+model.network.cond_mlp_dims=[512,64]' \
    +model.network.residual_style=True train.n_epochs=12000 \
    logdir=$L/robomimic-pretrain/square_pre_diffusion_wide_td20
-go sqdiff_wide_long scripts/dice_rl_generic.sbatch pretrain square pre_diffusion_mlp 42 \
+pretrain_done "$L/robomimic-pretrain/square_pre_diffusion_wide_td20_lr5e5/checkpoint/state_24000.pt" && echo "  sqdiff_wide_long: finished, not resubmitting" || go sqdiff_wide_long scripts/dice_rl_generic.sbatch pretrain square pre_diffusion_mlp 42 \
    '+model.network.mlp_dims=[1024,1024,1024]' '+model.network.cond_mlp_dims=[512,64]' \
    +model.network.residual_style=True train.n_epochs=24000 train.learning_rate=5e-5 \
    logdir=$L/robomimic-pretrain/square_pre_diffusion_wide_td20_lr5e5

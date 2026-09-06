@@ -21,23 +21,27 @@ for run in square_pre_diffusion_mlp_ta4_td20_long square_pre_diffusion_wide_td20
   # Newest checkpoint only. Submitting three per variant filled the 54-job cap
   # and every base evaluation then failed with QOSMaxSubmitJobPerUserLimit --
   # the retrains ran but nothing scored them, which is the whole point.
-  for ck in $(ls -t $P/$run/*/checkpoint/state_*.pt $P/$run/checkpoint/state_*.pt 2>/dev/null | head -1); do
+  # Highest EPOCH, not newest mtime: a restarted pretrain rewrites low-epoch
+  # checkpoints with fresh timestamps, so mtime ordering picks epoch 1000 over
+  # the finished 24000 and the "base number" quietly becomes a barely-trained net.
+  for ck in $(ls $P/$run/*/checkpoint/state_*.pt $P/$run/checkpoint/state_*.pt 2>/dev/null \
+              | sort -t_ -k2 -n | sed 's/.*state_//;s/\.pt//' >/dev/null; \
+              ls $P/$run/*/checkpoint/state_*.pt $P/$run/checkpoint/state_*.pt 2>/dev/null \
+              | awk -F'state_' '{split($2,a,".pt"); print a[1], $0}' | sort -n | tail -1 | cut -d' ' -f2); do
     ep=$(basename "$ck" .pt | sed 's/state_//')
     tag="basev_${run: -12}_${ep}"
     dst=$OUT/${run}_${ep}
     [ -f "$dst/evaluation_results.csv" ] && grep -q pretrained "$dst/evaluation_results.csv" 2>/dev/null && continue
     alive "$tag" && { echo "  $tag: alive"; continue; }
-    # wide runs need their trunk declared so the checkpoint loads
+    # NO architecture overrides. DistillResidualRLModel._load_pretrained_policy
+    # rebuilds the base from the checkpoint's OWN .hydra/config.yaml, so this
+    # config has no model.actor node at all and any such override aborts the job
+    # in ~13s with "Key 'actor' is not in struct". Passing base_policy_path alone
+    # is what makes a wide or narrow trunk load correctly.
     ARCH=()
-    case "$run" in *wide*) ARCH=(model.actor.time_dim=64
-        '+model.actor.mlp_dims=[1024,1024,1024]' '+model.actor.cond_mlp_dims=[512,64]'
-        +model.actor.residual_style=True) ;;
-      *) ARCH=(model.actor.time_dim=64 '~model.actor.mlp_dims' '~model.actor.cond_mlp_dims'
-        '~model.actor.residual_style') ;;
-    esac
     jid=$(sbatch --parsable --job-name="$tag" $COMMON scripts/dice_rl_generic.sbatch \
       finetune square ft_distill_residual_drift_field_mlp 42 \
-      base_policy_path="$ck" "${ARCH[@]}" train.n_train_itr=1 logdir="$dst" 2>&1)
+      base_policy_path="$ck" train.n_train_itr=1 logdir="$dst" 2>&1)
     case "$jid" in ''|*[!0-9]*) echo "  $tag: FAILED -> $(echo "$jid"|head -c 60)";;
       *) echo "  $tag -> $jid";; esac
   done
