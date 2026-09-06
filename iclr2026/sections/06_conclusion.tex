@@ -76,8 +76,9 @@ We should be precise about which part of the story generalizes, because two
 claims are easy to conflate. The \emph{update rule} is base-agnostic: it
 consumes a frozen noise-to-action map, a residual head and a critic, and
 never touches how the base draws its action, and it transfers unchanged to a
-diffusion base, where dropping it into DICE-RL raises success from $0.861$ to
-$0.937$. Its \emph{size} of benefit, however, is not base-agnostic: on the
+flow-matching base, where dropping it into DICE-RL raises success on square
+from $0.831$ to $0.934$ (the diffusion-base pair is being re-measured on the
+retrained $0.600$ base at the time of writing; \cref{tab:baselines}). Its \emph{size} of benefit, however, is not base-agnostic: on the
 flow-matching LIBERO base the same recipe is a wash against the base
 ($0.756$ vs $0.753$) and only $+1.3$ points over DICE-RL across the seven
 tasks where both ran. What does \emph{not} generalize is the
@@ -89,10 +90,11 @@ rather than inherited (and costs one base forward pass per particle per
 integration step). The principle we can defend is therefore narrow: \emph{what keeps a
 critic-driven update on the data is a bound on the total displacement in
 action space, not a limit on step size}. We are deliberately not claiming
-more than the location of the constraint. A hard projection onto
-$\|r\|\le\rho$ does as well as our dead-zone anchor and better on one task
-(\cref{tab:locus}), so the anchor is one workable instrument rather than the
-necessary one. The distinction is not cosmetic. A step limit constrains
+more than the location of the constraint. On the two LIBERO tasks a hinge
+penalty and a hard projection onto $\|r\|\le\rho$ both beat our dead-zone
+anchor, while on square the anchor wins by a wide margin
+(\cref{tab:locus}); the anchor is one workable instrument rather than the
+necessary one, and which instrument is best appears task-dependent. The distinction is not cosmetic. A step limit constrains
 speed, and a drift assembled from permitted small steps still arrives; in our
 isolation the limit alone leaves the policy at zero success. A
 behaviour-cloning penalty restores, but does so everywhere, including the
