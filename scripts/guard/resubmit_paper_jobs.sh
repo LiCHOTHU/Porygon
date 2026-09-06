@@ -159,8 +159,12 @@ NB=$P/square_pre_diffusion_wide_td20_lr5e5/checkpoint/state_24000.pt
 for sd in 42 43 44; do
   go nb_DICE_s${sd} scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp ${sd} \
      base_policy_path=$NB model.actor_mode=residual logdir=$D/newbase_DICE_s${sd} ++train.auto_resume=true
-  go nb_CAST_s${sd} scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp ${sd} \
-     base_policy_path=$NB logdir=$D/newbase_CAST_s${sd} ++train.auto_resume=true
+  # CAST must use the DIFFUSION field config: the drift config's defaults are a
+  # different arm entirely (field_distributional/zeroth, no anchor), which sent
+  # the residual to norm ~18 and 0.000 on all three seeds. logdir is v2 so the
+  # wrong-arm history cannot be mistaken for CAST.
+  go nb_CAST_s${sd} scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_diffusion_field_mlp ${sd} \
+     base_policy_path=$NB logdir=$D/newbase_CASTv2_s${sd} ++train.auto_resume=true
 done
 # DPPO's ft config declares hidden_dim/num_blocks, not the wide trunk's
 # mlp_dims/cond_mlp; without these the checkpoint fails with a 156-vs-115
