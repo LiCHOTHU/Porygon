@@ -185,10 +185,10 @@ Against the published flow-matching pipeline we reach parity, not
 superiority: $0.912$--$0.930$ against $0.923$--$0.934$ across three seeds.
 What we can say is that we reach it from a base of $0.382$.
 
-The two finished rows above the line are the ones that matter for this
-paper. DIPO ends at $0.283$ against its own base of $0.279$ --- four tenths
-of a point after $24$M environment steps, inside evaluation noise. QSM
-collapses to exactly $0.000$ in all six evaluation blocks.
+The collapse rows above the line are the ones that matter for this paper,
+and they have now been measured twice: QSM and DQL fall to exactly $0.000$
+from the retrained $0.600$ base just as they did from the weak base it
+replaced. A base twice as strong changes nothing about the failure.
 
 We checked our own setup before reporting a collapse. Every hyperparameter
 matches the published configuration ($n_{\mathrm{critic\ warmup}}{=}5$,
@@ -201,9 +201,9 @@ $290$. Both losses \emph{converge} (actor $0.002$, critic $0.01$) rather
 than diverging. That is the signature of a degenerate fixed point --- once
 the policy stops succeeding every reward is zero, the critic correctly
 learns $Q\approx 0$ everywhere, and $\nabla_a Q$ carries no signal with
-which to recover. One caveat: our diffusion base scores $0.279$ where the
-original authors report roughly $0.4$, and a weaker base implies a worse
-early critic, so we do not claim this reproduces any published QSM number.
+which to recover. An earlier draft caveated that our then-weaker base
+($0.279$) might explain the collapse; the retrained $0.600$ base has since
+reproduced it exactly, so that caveat is retired.
 
 The five rows split cleanly, and the split is the point. Group them by what
 the critic is allowed to do. DIPO, QSM and DQL let the critic \emph{displace}
@@ -249,8 +249,9 @@ it is merely mis-tuned. So we re-tuned. For QSM we swept the score
 coefficient, for DQL the $Q$-loss weight $\eta$, for DIPO the action
 learning rate --- in each case toward the value that would match our
 critic's gradient scale. All three ended at $0.000$: QSM and DIPO collapse
-from the base $0.279$ within one evaluation and stay there, DQL flickers
-back once and then dies.
+from the base within one evaluation and stay there, DQL flickers
+back once and then dies (this sweep predates the base retrain; the collapse
+itself replicates on the $0.600$ base).
 
 The reason is instructive, and it is the same point the paper makes. Two of
 those three knobs are \emph{loss-scale} constants, and Adam is invariant to
