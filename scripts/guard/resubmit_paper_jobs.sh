@@ -197,6 +197,20 @@ for t in 8 53 75; do
   done
 done
 
+echo "=== tab:eta-sweep evaluations (fill the 6 appendix cells as training finishes) ==="
+cd "$IM" || exit 1
+for t in 32 65 81; do
+  for tag in 40 80; do
+    d=$E/field_st_B_t${t}_fm_eta${tag}_s10000
+    ck=$(ls $d/dice_latest.pth $d/*/dice_latest.pth 2>/dev/null | head -1)
+    [ -z "$ck" ] && { echo "  fmEta${tag}_t${t}: no checkpoint yet"; continue; }
+    res=$CEDAR/powered_eval_one_t${t}_fmEta${tag}_t${t}.json
+    if done_already "$res" "$ck"; then echo "  pe_fmEta${tag}_t${t}: result on disk"; continue; fi
+    go pe_fmEta${tag}_t${t} --export=ALL,CELL=t${t},LABEL=fmEta${tag}_t${t},CKPT=$ck,TASKS="[${t}]" \
+       scripts/powered_eval_one.sbatch
+  done
+done
+
 echo "=== tab:eta-sweep, flow-matching eta=4 and eta=8 ==="
 for t in 32 65 81; do
   for eta in 4.0 8.0; do
