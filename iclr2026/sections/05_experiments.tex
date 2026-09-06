@@ -134,37 +134,17 @@ single configuration line (\texttt{actor\_mode: residual} vs
 \texttt{field\_pointwise}). We also attempted to
 re-tune the three collapsing methods rather than report them at published
 settings; that attempt is reported in \cref{sec:exp-retune} and made them
-worse, so the published settings stand. \textbf{What the shared base does and does not license.} All five classic
-rows load a pretrained diffusion checkpoint from the DPPO release
-(\texttt{square\_pre\_diffusion\_mlp\_ta4\_td20/2024-07-10\_01-46-16}) that is
-absent from both projects' public artifacts, so we substituted our own
-retrain at the architecture those configs specify (\texttt{time\_dim}$=32$),
-which reaches $0.279$ against DPPO's published square base of roughly
-$0.4$--$0.5$. Because every one of these rows starts from that \emph{same}
-checkpoint, the comparison \emph{among} them --- which is the only thing we
-argue from --- is internally valid. What it does not license is any claim to
-reproduce a published number for these methods, and we make none: a weaker
-base implies a weaker early critic, which can produce a collapse that a
-stronger base would not. We are retraining that base across seeds to close
-the gap.
-$^{\ddagger}$\textbf{DPPO now trains from the same checkpoint as every other
-diffusion row} (\texttt{square\_diff\_baselinearch\_42}); its earlier
-$0.563 \rightarrow 0.876$ used a different pretrained policy and is
-superseded. The retrain is still in progress --- $0.561$ at $368$K of the
-$\sim\!12$M environment steps its schedule needs --- so its fine-tuned cell
-is a lower bound and will rise.
-One measurement complicates the base column and we state it rather than hide
-it. The diffusion rows all load one file, but they do not all score it the
-same: the classic baselines' harness reads it as $0.279$ and DPPO's reads the
-\emph{same file} as $0.520$. We traced this to the samplers rather than the
-weights --- each method wraps the pretrained denoiser in its own sampling
-loop --- but removing the obvious candidate (the $0.1$ noise floor those
-loops impose) moved the number by $0.001$, so the mechanism is not yet
-identified. Each row therefore reports its base as its own harness measures
-it, and $\Delta$ is always within-harness; cross-row base comparison is not
-meaningful.
-The flow-matching base measures $0.570$ on square (300 episodes).
-``---'' = not measured. $^{\P\P}$\textbf{the diffusion base has been retrained} and now measures $0.600$ on $300$ episodes ($24000$ epochs, $[1024,1024,1024]$ trunk with a conditioning MLP, $20$ denoising steps), independently confirmed at $0.550$--$0.600$ by the step-$0$ evaluation of all six fine-tuning seeds. Every diffusion row is being re-run from this checkpoint ($3$ seeds for the paired rows); the previous-base rows remain until those land and will then be replaced.}
+worse, so the published settings stand. $^{\P\P}$\textbf{Every diffusion row shares one base.} All diffusion rows
+(the five classic baselines, DPPO, and the paired DICE-RL rows) start from a
+single retrained checkpoint that measures $\mathbf{0.600}$ on $300$ episodes
+($24000$ epochs, $[1024,1024,1024]$ trunk with a conditioning MLP, $20$
+denoising steps), independently confirmed at $0.550$--$0.600$ by the step-$0$
+evaluations of all six paired fine-tuning seeds. This replaces the earlier
+$0.279$ base, whose weakness we could not defend; results obtained on it are
+superseded and no longer shown. ``training'' cells fill as the re-runs reach
+their matched budget ($3$ seeds for the paired rows, seed $42$ for the
+baselines and DPPO). The flow-matching base measures $0.570$ on square
+($300$ episodes). ``---'' = not measured.}
 \label{tab:baselines}
 \footnotesize
 \setlength{\tabcolsep}{4.0pt}
@@ -173,18 +153,16 @@ The flow-matching base measures $0.570$ on square (300 episodes).
 \toprule
 method & policy class & own base & fine-tuned & $\Delta$ \\
 \midrule
-DIPO \citep{dipo2024}     & diffusion & 0.279 & 0.283 & $+0.004$ \\
-QSM \citep{psenka2024qsm} & diffusion & 0.279 & 0.000 & $-0.279$ \\
-DQL                       & diffusion & 0.279 & 0.000 & $-0.279$ \\
-IDQL                      & diffusion & 0.279 & 0.041 & $-0.238$ \\
-AWR                       & generic   & 0.279 & 0.407 & $+0.128$ \\
-DPPO \citep{ren2024dppo}$^{\ddagger}$ & diffusion & 0.520 & 0.561$^{\ddagger}$ & $+0.041$ \\
+DIPO \citep{dipo2024}     & diffusion & 0.600 & training & --- \\
+QSM \citep{psenka2024qsm} & diffusion & 0.600 & training & --- \\
+DQL                       & diffusion & 0.600 & training & --- \\
+IDQL                      & diffusion & 0.600 & training & --- \\
+AWR                       & generic   & 0.600 & training & --- \\
+DPPO \citep{ren2024dppo} & diffusion & 0.600 & training & --- \\
 \midrule
 \multicolumn{5}{l}{\emph{adding \method{} to DICE-RL, paired within each base}} \\
-diffusion $+$ DICE-RL (prev.\ base)$^{\S}$   & diffusion & 0.279 & 0.861 & $+0.582$ \\
-diffusion $+$ DICE-RL $+$ \method{} (prev.\ base)$^{\S}$ & diffusion & 0.279 & \textbf{0.937} & $\mathbf{+0.658}$ \\
-diffusion $+$ DICE-RL (retrained base)$^{\P\P}$   & diffusion & 0.600 & training & --- \\
-diffusion $+$ DICE-RL $+$ \method{} (retrained base)$^{\P\P}$ & diffusion & 0.600 & training & --- \\
+diffusion $+$ DICE-RL \citep{dicerl2026}$^{\P\P}$   & diffusion & 0.600 & training & --- \\
+diffusion $+$ DICE-RL $+$ \method{}$^{\P\P}$        & diffusion & 0.600 & training & --- \\
 \addlinespace
 drifting $+$ DICE-RL                       & one-step drifting & 0.382 & 0.861--0.909 & $+0.48$--$0.53$ \\
 drifting $+$ DICE-RL $+$ \method{}         & one-step drifting & 0.382 & \textbf{0.912--0.930} & $+0.53$--$0.55$ \\

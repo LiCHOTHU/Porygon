@@ -172,6 +172,8 @@ for sd in 42 43 44; do
   go nb_CAST_s${sd} scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp ${sd} \
      base_policy_path=$NB logdir=$D/newbase_CAST_s${sd} ++train.auto_resume=true
 done
+go nb_dppo scripts/dice_rl_generic.sbatch finetune square ft_ppo_diffusion_mlp 42 \
+   base_policy_path=$NB model.actor.time_dim=64 logdir=$D/newbase_dppo_s42 ++train.auto_resume=true
 for m in dipo qsm dql idql awr; do
   go nb_${m} scripts/dice_rl_generic.sbatch finetune square ft_${m}_diffusion_mlp 42 \
      base_policy_path=$NB model.actor.time_dim=64 logdir=$D/newbase_${m}_s42 ++train.auto_resume=true
