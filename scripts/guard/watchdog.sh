@@ -14,7 +14,12 @@ IM=/storage/home/hcoda1/8/lwang831/workspace/imitation
 # the queue with zero accumulated priority while every preempted job stays dead
 # -- that cost 13 hours overnight (watchdog ended 23:58, successor started
 # 13:15). Submitted here, it accrues queue priority for 8h while this one runs.
-if ! squeue -u "$USER" -h -o "%j %T" | awk '$1=="watchdog" && $2=="PENDING"{f=1} END{exit !f}'; then
+# Successor guard: count ALL watchdog jobs other than this one, in any state.
+# Guarding only on PENDING caused a spawn loop -- a successor that started
+# running on a free CPU node no longer counted, so every generation submitted
+# another; 13 accumulated within hours and ate 13 of the 54 submit slots.
+n_others=$(squeue -u "$USER" -h -o "%i %j" | awk -v me="$SLURM_JOB_ID" '$2=="watchdog" && $1!=me' | wc -l)
+if [ "$n_others" -eq 0 ]; then
   sbatch $IM/scripts/guard/watchdog.sh
 fi
 END=$(( $(date +%s) + 7*3600 + 1800 ))
