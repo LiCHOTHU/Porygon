@@ -10,6 +10,13 @@
 # then resubmits itself. Without this, preempted work sits dead until someone
 # notices -- which has repeatedly cost a full day.
 IM=/storage/home/hcoda1/8/lwang831/workspace/imitation
+# Submit the successor NOW, not at exit: a successor submitted at exit sits in
+# the queue with zero accumulated priority while every preempted job stays dead
+# -- that cost 13 hours overnight (watchdog ended 23:58, successor started
+# 13:15). Submitted here, it accrues queue priority for 8h while this one runs.
+if ! squeue -u "$USER" -h -o "%j %T" | awk '$1=="watchdog" && $2=="PENDING"{f=1} END{exit !f}'; then
+  sbatch $IM/scripts/guard/watchdog.sh
+fi
 END=$(( $(date +%s) + 7*3600 + 1800 ))
 while [ "$(date +%s)" -lt "$END" ]; do
   echo "=== $(date) ==="
@@ -17,4 +24,4 @@ while [ "$(date +%s)" -lt "$END" ]; do
   bash $IM/scripts/guard/eval_new_diffusion_bases.sh 2>&1 | head -10
   sleep 1200
 done
-sbatch $IM/scripts/guard/watchdog.sh
+# successor already submitted at start
