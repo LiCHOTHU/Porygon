@@ -149,13 +149,12 @@ did on the weak one ($14{+}$ consecutive zero evaluations each), which rules
 out base quality as the explanation for their failure; a collapse to zero
 reads the same under every success rule, so the metric difference between
 harnesses cannot account for it either.
-$^{\dagger\dagger}$both paired rows are still improving and quoted at their
-current budgets (mean of last three evaluations, three seeds each): DICE-RL at
-$368$--$512$K ($0.946/0.959/0.956$), \method{} at $128$K
-($0.781/0.871/0.811$) --- its runs iterate ${\sim}3.5\times$ slower, so it
-trails in wall-clock, not in matched compute. At the matched $128$K point
-\method{} reads $0.821$ against DICE-RL's $0.796$. The pair will be re-quoted
-at a single matched budget when \method{} reaches DICE-RL's step count.
+$^{\dagger\dagger}$the paired rows are quoted at a matched $352$K
+environment steps, the largest budget all six seeds share (mean of last three
+evaluations per seed): \method{} $0.959/0.953/0.952$ against DICE-RL's
+$0.929/0.953/0.942$. Both continue to improve slightly past this point
+(DICE-RL reaches $0.966$ by $720$K); the matched comparison is the one we
+argue from.
 $^{*}$the classic baselines' harness scores success more strictly (a full
 action chunk inside the success state) and reads this same checkpoint at
 $0.348$ under that rule; their fine-tuned numbers are on that stricter scale
@@ -171,16 +170,16 @@ column. $^{\circ}$still training; value at the current budget.
 \toprule
 method & policy class & own base & fine-tuned & $\Delta$ \\
 \midrule
-DIPO \citep{dipo2024}     & diffusion & 0.600$^{*}$ & 0.208$^{\circ}$ & $-0.140$ \\
+DIPO \citep{dipo2024}     & diffusion & 0.600$^{*}$ & 0.156 & $-0.192$ \\
 QSM \citep{psenka2024qsm} & diffusion & 0.600$^{*}$ & 0.000 & $-0.348$ \\
-DQL                       & diffusion & 0.600$^{*}$ & 0.116$^{\circ}$ & $-0.232$ \\
-IDQL                      & diffusion & 0.600$^{*}$ & 0.307$^{\circ}$ & $-0.050$ \\
-AWR                       & generic   & 0.600$^{*}$ & 0.338$^{\circ}$ & $+0.042$ \\
-DPPO \citep{ren2024dppo} & diffusion & 0.600 & 0.672$^{\circ}$ & $+0.072$ \\
+DQL                       & diffusion & 0.600$^{*}$ & 0.000 & $-0.348$ \\
+IDQL                      & diffusion & 0.600$^{*}$ & 0.327 & $-0.030$ \\
+AWR                       & generic   & 0.600$^{*}$ & 0.393 & $+0.097$ \\
+DPPO \citep{ren2024dppo} & diffusion & 0.600 & 0.632$^{\circ}$ & $+0.032$ \\
 \midrule
 \multicolumn{5}{l}{\emph{adding \method{} to DICE-RL, paired within each base}} \\
-diffusion $+$ DICE-RL \citep{dicerl2026}$^{\P\P}$   & diffusion & 0.600 & \textbf{0.95}$^{\dagger\dagger}$ & $\mathbf{+0.35}$ \\
-diffusion $+$ DICE-RL $+$ \method{}$^{\P\P}$        & diffusion & 0.600 & 0.82$^{\dagger\dagger}$ & $+0.22$ \\
+diffusion $+$ DICE-RL \citep{dicerl2026}$^{\P\P}$   & diffusion & 0.600 & 0.941$^{\dagger\dagger}$ & $+0.341$ \\
+diffusion $+$ DICE-RL $+$ \method{}$^{\P\P}$        & diffusion & 0.600 & \textbf{0.955}$^{\dagger\dagger}$ & $\mathbf{+0.355}$ \\
 \addlinespace
 drifting $+$ DICE-RL                       & one-step drifting & 0.382 & 0.861--0.909 & $+0.48$--$0.53$ \\
 drifting $+$ DICE-RL $+$ \method{}         & one-step drifting & 0.382 & \textbf{0.912--0.930} & $+0.53$--$0.55$ \\
