@@ -149,9 +149,11 @@ did on the weak one ($14{+}$ consecutive zero evaluations each), which rules
 out base quality as the explanation for their failure; a collapse to zero
 reads the same under every success rule, so the metric difference between
 harnesses cannot account for it either.
-$^{\dagger\dagger}$mean of seeds $42/43$ at $288$K steps ($0.93/0.92$), still
-improving; seed $44$ and the paired \method{} seeds are at earlier steps and
-the pair will be re-quoted at a matched budget when all six converge.
+$^{\dagger\dagger}$both paired rows are still improving and quoted at their
+current budgets: DICE-RL from seeds $42/43$ at $288$K ($0.93/0.92$), \method{}
+from all three seeds at $128$K ($0.83/0.89/0.82$). At the matched $128$K point
+\method{} reads $0.85$ against DICE-RL's $0.82$; the pair will be re-quoted at
+a single matched budget when all six seeds converge.
 $^{*}$the classic baselines' harness scores success more strictly (a full
 action chunk inside the success state) and reads this same checkpoint at
 $0.348$ under that rule; their fine-tuned numbers are on that stricter scale
@@ -176,7 +178,7 @@ DPPO \citep{ren2024dppo} & diffusion & 0.600 & 0.672$^{\circ}$ & $+0.072$ \\
 \midrule
 \multicolumn{5}{l}{\emph{adding \method{} to DICE-RL, paired within each base}} \\
 diffusion $+$ DICE-RL \citep{dicerl2026}$^{\P\P}$   & diffusion & 0.600 & 0.92$^{\dagger\dagger}$ & $+0.32$ \\
-diffusion $+$ DICE-RL $+$ \method{}$^{\P\P}$        & diffusion & 0.600 & training & --- \\
+diffusion $+$ DICE-RL $+$ \method{}$^{\P\P}$        & diffusion & 0.600 & 0.85$^{\dagger\dagger}$ & $+0.25$ \\
 \addlinespace
 drifting $+$ DICE-RL                       & one-step drifting & 0.382 & 0.861--0.909 & $+0.48$--$0.53$ \\
 drifting $+$ DICE-RL $+$ \method{}         & one-step drifting & 0.382 & \textbf{0.912--0.930} & $+0.53$--$0.55$ \\
