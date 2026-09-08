@@ -124,10 +124,13 @@ their true rewards, exactly as a critic trained on demonstration data would.
   exactly $0.000$. Bounding the displacement around the frozen base keeps the
   policy where the critic is valid and improves it ($0.016\rightarrow0.040$,
   $2.5\times$). The gap between what the critic claims and what the policy
-  earns is the whole failure. \textbf{(d)} The same mechanism measured in the
-  real system: distance from the frozen base during LIBERO the red-mug task training. Without
-  a base-restoring term the policy walks away without bound and success reaches
-  $0.000$; with it the policy sits at the trust radius for the entire run.
+  earns is the whole failure. \textbf{(d)} The same mechanism in the
+  real system: the residual norm logged during LIBERO red-mug training, from
+  the runs behind \cref{tab:constraint}. Without a base-restoring term the
+  residual immediately sits two orders of magnitude outside the dead zone and
+  success is $0.000$; with it the residual stays an order of magnitude
+  \emph{inside} the dead-zone radius --- the bound is slack, not binding ---
+  and success is $0.600$.
   The regime matters: repeating (a)--(c) with $700$ demonstrations instead of
   $25$ removes the effect entirely (critic then learns the band and its
   gradient is trustworthy), which is why this paper scopes its claims to
@@ -173,16 +176,19 @@ and demonstration count are two ways of changing it.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=0.48\linewidth]{figures/toy2_curves_EASY_2d.png}\hfill
-  \includegraphics[width=0.48\linewidth]{figures/toy2_curves_HARD_16d.png}
-  \caption{\textbf{The two-regime toy} (3 seeds). \textbf{Left, easy regime}
-  (2-D actions, dense critic data): the critic's gradient generalizes and
-  backpropagation ($-Q$, with or without a BC anchor) is the best update.
-  \textbf{Right, hard regime} (16-D actions, 60 critic points): the same
-  updates collapse to zero true reward while their internal $Q$-estimate
-  explodes --- the BC anchor does not help --- whereas the bounded field-target
-  update stays on-manifold and holds the base policy. A useful fine-tuner must
-  keep the gradient where it is trustworthy and survive where it is not.
+  \includegraphics[width=\linewidth]{figures/toy_regimes.pdf}
+  \caption{\textbf{The two-regime toy} (3-seed means). \textbf{(a) Easy
+  regime} (2-D actions, dense critic data): the critic's gradient generalizes
+  and backpropagating $-Q$ --- with or without a BC anchor --- is the best
+  update, clearing both the base and the bounded field update.
+  \textbf{(b) Hard regime} (16-D actions, 60 critic points, the coverage
+  post-training actually has): the same updates drive true reward to zero
+  within the first hundred steps, while the collapsing arm's \emph{own}
+  $\hat{Q}$-estimate grows without bound (dotted, right axis) --- the critic
+  rates the policy ever higher as it gets worse, and the BC anchor does not
+  save it. The bounded field updates hold near the base throughout. A useful
+  fine-tuner must exploit the gradient where it is trustworthy and survive
+  where it is not.
   This sweeps the \emph{dimension} of the action space at fixed data, and
   \cref{fig:intuition} sweeps the \emph{amount} of data at fixed dimension;
   both cross the same boundary, which is what the critic's coverage of the

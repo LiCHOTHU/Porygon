@@ -198,6 +198,10 @@ for rg in [Regime(2, 200, 4000, "EASY_2d"), Regime(16, 60, 8000, "HARD_16d")]:
               f"bon16={v['bon16_true']:.3f}")
     # curves
     t = [i * LOG_EVERY for i in range(len(hs[0]["FIELD_tilted"]))]
+    if "curves_dump" not in dir(): curves_dump = {}
+    curves_dump[rg.name] = {"t": t, "base": {k: agg["BASE"][k] for k in ("true_mean","q_mean")},
+        **{nm: {k: [sum(h[nm][i][k] for h in hs)/N_SEEDS for i in range(len(t))]
+                for k in ("true_mean","q_mean")} for nm in NAMES[1:]}}
     fig, axes = plt.subplots(1, 4, figsize=(20, 4))
     for ax, key, ttl in zip(axes, ["true_mean", "gap", "disp", "bon16_true"],
                             ["true reward", "critic-true gap", "dispersion", "best-of-16 true"]):
@@ -209,4 +213,6 @@ for rg in [Regime(2, 200, 4000, "EASY_2d"), Regime(16, 60, 8000, "HARD_16d")]:
 
 json.dump({k: v["agg"] for k, v in results.items()},
           open(f"{OUT}/toy2_results.json", "w"), indent=1)
+# full seed-mean curves, so the paper figure can be redrawn without rerunning
+json.dump(curves_dump, open(f"{OUT}/toy2_curves.json", "w"))
 print(f"\nwrote {OUT}/toy2_results.json + curve plots")
