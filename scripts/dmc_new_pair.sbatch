@@ -16,7 +16,7 @@
 #   2. re-roll those same checkpoints in the SPARSE task for exact sparse labels
 # usage: sbatch dmc_new_pair.sbatch <domain> <dense_task> <sparse_task>
 set -x
-DOMAIN="${1:?domain}"; DENSE="${2:?dense task}"; SPARSE="${3:?sparse task}"
+DOMAIN="${1:?domain}"; DENSE="${2:?dense task}"; SPARSE="${3:?sparse task}"; STEPS="${4:-60000}"
 source ~/.bashrc
 conda activate /storage/project/r-agarg35-0/lwang831/conda/envs/dice-rl
 export MUJOCO_GL=egl EGL_DEVICE_ID=0
@@ -28,7 +28,7 @@ cd /storage/home/hcoda1/8/lwang831/workspace/imitation || exit 1
 nvidia-smi || true
 
 echo "[$(date)] STAGE 1: SAC + demo harvest on ${DOMAIN} ${DENSE}"
-python scripts/dmc_make_base_data.py "${DOMAIN}" "${DENSE}" "${OUT}" || exit 1
+python scripts/dmc_make_base_data.py "${DOMAIN}" "${DENSE}" "${OUT}" "${STEPS}" || exit 1
 
 echo "[$(date)] STAGE 2: sparse re-harvest on ${DOMAIN} ${SPARSE}"
 python scripts/dmc_relabel_sparse.py "${DOMAIN}" "${DENSE}" "${SPARSE}" "${OUT}" || exit 1
