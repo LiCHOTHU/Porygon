@@ -179,6 +179,36 @@ cd "$IM" || exit 1
 # builds 128) and their table-1 cells are already final measurements; the two
 # sq64 rows are superseded by the nb_* runs on the 0.600 base.
 
+echo "=== gym dense-reward suite: pretrains, then the 8-arm fleet per env ==="
+cd "$DR" || exit 1
+for env in hopper-medium-v2 walker2d-medium-v2 halfcheetah-medium-v2; do
+  short=$(echo $env | cut -d- -f1)
+  PD=$L/gym-pretrain/${env}_diff
+  FINAL=$PD/checkpoint/state_3000.pt
+  if [ ! -f "$FINAL" ]; then
+    go gymP_${short} scripts/dice_rl_generic.sbatch gym-pretrain $env pre_diffusion_mlp 42 logdir=$PD
+    echo "  (fleet for $env waits on its pretrain)"; continue
+  fi
+  # base exists: the fleet. Official configs for the baselines; our CAST config
+  # (grafted onto the env's official env-block) for the paired rows.
+  ENV2=$(echo $env | sed 's/-medium//')      # cfg dirs are hopper-v2 etc.
+  for m in dipo qsm dql idql awr ppo; do
+    go gym_${short}_${m} scripts/dice_rl_generic.sbatch gym-finetune $ENV2 ft_${m}_diffusion_mlp 42 \
+       base_policy_path=$FINAL logdir=$L/gym-finetune/${env}_${m} ++train.auto_resume=true
+  done
+  go gym_${short}_DICE scripts/dice_rl_generic.sbatch gym-finetune $ENV2 ft_distill_residual_diffusion_field_mlp 42 \
+     base_policy_path=$FINAL model.actor_mode=residual logdir=$L/gym-finetune/${env}_DICE ++train.auto_resume=true
+  go gym_${short}_CAST scripts/dice_rl_generic.sbatch gym-finetune $ENV2 ft_distill_residual_diffusion_field_mlp 42 \
+     base_policy_path=$FINAL logdir=$L/gym-finetune/${env}_CAST ++train.auto_resume=true
+done
+cd "$IM" || exit 1
+
+echo "=== DMC pair builds (acrobot, cartpole-balance) ==="
+cd "$IM" || exit 1
+DMC=/storage/cedar/cedar0/cedarp-agarg35-0/liquan.w/imitation_scratch/dmc_base
+[ -f "$DMC/demos_acrobot_swingup.npz" ] || go dmcpair_acrobot scripts/dmc_new_pair.sbatch acrobot swingup swingup_sparse
+[ -f "$DMC/demos_cartpole_balance.npz" ] || go dmcpair_cartpole_bal scripts/dmc_new_pair.sbatch cartpole balance balance_sparse
+
 echo "=== table-5 factorial evaluations (tasks 8/53/75) ==="
 for t in 8 53 75; do
   for arm in BNONE BCLIP BANC; do
