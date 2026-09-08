@@ -206,6 +206,14 @@ cd "$IM" || exit 1
 echo "=== DMC pair builds (acrobot, cartpole-balance) ==="
 cd "$IM" || exit 1
 DMC=/storage/cedar/cedar0/cedarp-agarg35-0/liquan.w/imitation_scratch/dmc_base
+for spec in "humanoid_walk:humanoid walk 1500000" "humanoid_run:humanoid run 2000000" \
+            "quadruped_run:quadruped run 800000" "manip_ball:manipulator bring_ball 1500000" \
+            "walker_run:walker run 600000"; do
+  tag=${spec%%:*}; args=${spec##*:}
+  dom=$(echo $args | cut -d' ' -f1); tsk=$(echo $args | cut -d' ' -f2)
+  [ -f "$DMC/demos_${dom}_${tsk}.npz" ] && continue
+  go dmcT_${tag} scripts/dmc_new_task.sbatch $args
+done
 [ -f "$DMC/demos_acrobot_swingup.npz" ] || go dmcpair_acrobot scripts/dmc_new_pair.sbatch acrobot swingup swingup_sparse
 [ -f "$DMC/demos_cartpole_balance.npz" ] || go dmcpair_cartpole_bal scripts/dmc_new_pair.sbatch cartpole balance balance_sparse
 
