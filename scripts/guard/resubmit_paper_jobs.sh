@@ -184,7 +184,11 @@ cd "$DR" || exit 1
 for env in hopper-medium-v2 walker2d-medium-v2 halfcheetah-medium-v2; do
   short=$(echo $env | cut -d- -f1)
   PD=$L/gym-pretrain/${env}_diff
-  FINAL=$PD/checkpoint/state_3000.pt
+  # Gate the fleet on epoch 1000, not 3000. The official 3000-epoch pretrain is
+  # ~4 GPU-days per env on these 1M-transition datasets; diffusion BC saturates
+  # far earlier, and quoting every one of the 8 methods from the SAME epoch-1000
+  # base keeps the comparison internally fair. Stated in the table caption.
+  FINAL=$PD/checkpoint/state_1000.pt
   if [ ! -f "$FINAL" ]; then
     go gymP_${short} scripts/dice_rl_generic.sbatch gym-pretrain $env pre_diffusion_mlp 42 logdir=$PD
     echo "  (fleet for $env waits on its pretrain)"; continue
