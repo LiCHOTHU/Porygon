@@ -8,68 +8,24 @@ Crucially, this is a requirement about \emph{where the policy ends up}, not
 about how fast it travels --- a distinction the experiments turn out to
 hinge on.
 
-Meeting it requires answering one question: \emph{where does the critic stop
-being reliable, and how do we express that boundary in a form an update can
-respect?} Our answer is deliberately blunt. The boundary is not something we
-can compute --- if we could estimate the critic's competence region we would
-already have solved the problem --- so we approximate it by the only landmark
-available: the frozen policy that the critic was trained around. Actions near
-its output are actions the critic has seen; actions far from it are not. The
-constraint therefore takes the form of a radius about the base policy's own
-action, and the method is what follows from taking that seriously.
+Where the critic stops being reliable is not something we can compute --- if
+we could estimate its competence region we would already have solved the
+problem --- so we approximate that boundary by the only landmark available:
+the frozen policy the critic was trained around. Actions near its output the
+critic has seen; actions far from it, it has not. The constraint therefore
+takes the form of a radius about the base policy's own action.
 
-The vehicle is an existing primitive, which we adopt rather than claim:
-\emph{move action samples along a velocity field, then regress the network
-onto the moved samples}. This is how the action-gradient family improves a
-policy \citep{dipo2024,psenka2024qsm}. What that family does not do, and what
-this section contributes, is constrain the displacement: in DIPO the improved
-action is wherever the gradient step lands, and the policy is regressed onto
-it, wherever that is.
-
-Nothing below is specific to a policy class. The update needs a frozen map
-from noise to actions, the ability to draw $K$ samples from it, and a critic.
-It never needs a likelihood, a denoising objective, or access to the
-generator's internals, so it applies unchanged to a one-step map, a few-step
-flow-matching sampler, or a many-step diffusion policy, and we verify this
-empirically across generator classes (\cref{sec:exp-generality}).
-
-The contribution is what happens between the critic and the regression: the
-proposed displacement is \textbf{constrained in action space, on the target,
-before anything is fitted}. The critic proposes an improvement; an explicit
-action-space trust region limits how much of that proposal the actor is asked
-to learn; only the constrained target is regressed. This is the difference
-from the backpropagated control, which admits the same proposal into a loss
-and lets it compete there against a regularizer
-(\cref{sec:critic}).
-
-We instantiate the constraint two ways and claim neither over the other: a
-pointwise clip on each particle's displacement, and an \textbf{anchor field}
-$V_{\mathrm{anc}}$ --- a pull back toward the frozen base that is \emph{silent}
-while the residual stays within a radius $\rho$ and engages only outside it
-(\cref{sec:anchor} gives its form). The anchor is not an ad hoc construction:
-it is the negative gradient of a hinged radial potential, and at $\rho = 0$ it
-reduces exactly to the quadratic residual regularizer the backpropagated
-control already uses. The dead zone is thus a \emph{hinge generalization} of
-standard $L_2$ residual regularization --- which makes $\rho$ an explicit
-interpolation between the loss-space regularizer of prior work and the
-constraint we advocate, and lets us measure the two against each other inside
-one implementation (\cref{sec:exp-locus}).
-
-The \textbf{reward field} $V_Q$ says which direction improves each action, and
-its magnitude enters the target before either bound acts. We do not attribute
-the method's behaviour to any single one of these components: what the
-experiments establish is that \emph{some} action-space bound must be present
-(without one, success is exactly $0.000$), and that within a wide band its
-particular form is not distinguishable at this budget
-(\cref{sec:exp-constraint}).
-
-Neither field is a loss term; both are displacements applied to actions before
-the regression. This does not make the anchor invincible --- where
-$\|V_Q\| > \|V_{\mathrm{anc}}\|$ the net displacement still points outward ---
-but it means the two compete as bounded magnitudes in action space rather than
-through an unbounded parameter gradient, as a behaviour-cloning penalty must
-(\cref{sec:toy}). No likelihood is required, and no critic gradient is ever
-backpropagated into the actor.
+\method{} --- \emph{Constrained Action-Space Transport} --- turns this into
+an update rule. It \emph{transports} candidate actions toward higher critic
+value, and it \emph{constrains} that transport \emph{in action space, on the
+regression target, before anything is fitted}. The transport primitive
+itself (move samples along a velocity field, regress the network onto the
+moved samples) is inherited from the action-gradient family
+\citep{dipo2024,psenka2024qsm}; the contribution is the constraint. Nothing
+in the update needs a likelihood, a denoising objective, or the generator's
+internals --- only a frozen noise-to-action map, $K$ samples from it, and a
+critic --- so it applies unchanged across one-step, flow-matching and
+diffusion policies (\cref{sec:exp-generality}).
 
 \begin{figure}[t]
   \centering
@@ -91,12 +47,6 @@ backpropagated into the actor.
 
 \subsection{\method{} in four steps}
 \label{sec:field-update}
-
-We call the method \method{} --- \emph{Constrained Action-Space Transport} ---
-because that is literally what it does: it \emph{transports} candidate actions
-toward higher critic value, and it \emph{constrains} that transport in
-\emph{action space}, where the damage occurs, rather than in the loss or in
-parameter space.
 
 The critic's answer is treated as advice about \emph{direction}; how far to
 act on it is our choice, and the critic is never differentiated through. One
@@ -145,7 +95,31 @@ clipped to length $\delta_Q$; $V_{\mathrm{anc}}$ is the leash (step 3),
 silent while $\|r_i\|$ stays within $\rho$; the total displacement is clipped
 to $\delta_{\mathrm{tot}}$; and $\mathrm{sg}[\cdot]$ makes the result a fixed
 regression target (step 4). The critic is trained separately
-(\cref{sec:critic}).
+(\cref{sec:critic}). \Cref{tab:design} collects every design choice, its
+role, and the value we run.
+
+\begin{table}[t]
+\centering
+\caption{\textbf{\method{}'s parts, and how each is designed.} One row per
+component of \cref{eq:update}. Defaults are the family-shared recipe
+(LIBERO); robomimic differs only where noted. Each part's sensitivity is
+measured in the referenced experiment.}
+\label{tab:design}
+\small
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{llllc}
+\toprule
+component & role & design & default & ablated in \\
+\midrule
+candidates $K$ & coverage of the base's action modes & noise samples through the frozen base $+$ residual & $16$ & \cref{tab:resolution} \\
+reward field $V_Q$ & \emph{direction} of improvement & normalized critic gradient $\eta_Q \nabla_a \bar Q / q_{\mathrm{scale}}$ & $\eta_Q{=}1$ ($0.5$ robomimic) & \cref{tab:eta-sweep} \\
+step clip $\delta_Q$, $\delta_{\mathrm{tot}}$ & \emph{stride}: caps each displacement & rescale to norm at most $\delta$ & $\delta_{\mathrm{tot}}{=}0.15$ & \cref{tab:constraint} \\
+anchor $V_{\mathrm{anc}}$ & keeps targets near the base & dead-zone restoring field, \cref{eq:anchor} & $\eta_{\mathrm{anc}}{=}1$ & \cref{tab:constraint} \\
+dead zone $\rho$ & region where the critic is trusted freely & radius about the base action ($\rho{=}0$ = $L_2$ penalty) & $0.05$ (rms) & \cref{tab:rho-sweep} \\
+regression (\cref{eq:update}) & converts targets into parameters & MSE onto detached targets; no critic gradient & --- & \cref{tab:matched} \\
+\bottomrule
+\end{tabular}}
+\end{table}
 
 \paragraph{Why displace targets rather than differentiate.} Writing the
 update as regression onto displaced targets is what makes the boundary
@@ -287,9 +261,6 @@ $\delta_Q = \eta_{\mathrm{anc}}(\|r\| - \rho)$, i.e.\ $\|r\| = \rho +
 choosing $\eta_{\mathrm{anc}}$: a learned critic's field varies in direction
 and magnitude with $r$, so there may be several fixed points, cycles, or
 none, and we claim no unique equilibrium.
-pointwise pull $-\eta_{\mathrm{anc}} r$, whose fixed point reproduces
-the DICE-RL anchor; the dead zone matters exactly when the reward field
-is weak (\cref{sec:experiments}, LIBERO).
 
 \subsection{Relation to the backpropagated actor; critic}
 \label{sec:critic}

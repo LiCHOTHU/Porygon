@@ -7,13 +7,10 @@
 \subsection{The setting: post-training a cloned policy}
 \label{sec:setup}
 
-The situation this paper addresses is concrete. A robot policy has been
-trained by behavior cloning on a modest number of demonstrations --- tens,
-not thousands --- and it works, imperfectly. We now want it to get better by
-practising in its environment, and the only feedback available is whether the
-episode succeeded. Three features of this setting do the work in everything
-that follows, and each is a property of practice rather than a modelling
-choice:
+A robot policy has been trained by behavior cloning on tens of
+demonstrations, and it works, imperfectly. We want it to improve by
+practising in its environment, with the only feedback being episode success.
+Three features of this setting drive everything that follows:
 
 \begin{itemize}
   \item \textbf{The demonstrations are few.} Whatever a learned critic knows,
@@ -87,25 +84,22 @@ asymmetrically. A wrong \emph{direction} costs a slightly wrong step. A wrong
 higher critic scores mean worse behavior, because the critic is scoring a
 region it has never been corrected on.
 
-One detail decides which remedy can work, so we state it early: the damage is
-\emph{persistent}, not sudden. The critic's extrapolated optimum does not
-recede as the policy approaches it, so every update points the same way and
-nothing pulls the policy back. A limit on the size of each step therefore does
-not prevent the drift --- it only slows it --- while a force that returns the
-policy toward its starting point does. \Cref{sec:exp-constraint} measures both
-and confirms the distinction.
+One detail decides which remedy can work: the damage is \emph{persistent},
+not sudden. The critic's extrapolated optimum does not recede as the policy
+approaches it, so every update points the same way and nothing pulls the
+policy back. A limit on step size therefore only slows the drift; a force
+that returns the policy toward its starting point prevents it.
+\Cref{sec:exp-constraint} measures both.
 
 \subsection{Watching it happen}
 \label{sec:toy}
 
-The argument above is easy to state and easy to doubt, so we make it visible
-in a setting small enough to draw completely and honest enough to be
-recomputed: two-dimensional actions, a curved band of workable actions
-standing in for the data manifold, and a reward that decays away from that
-band. We sample $25$ demonstrations from the band --- the number a
-post-training run actually has --- and fit a critic to them by regression.
-Nothing about the critic is rigged: it sees only demonstrated actions and
-their true rewards, exactly as a critic trained on demonstration data would.
+We make the argument visible in a setting small enough to draw completely:
+two-dimensional actions, a curved band of workable actions standing in for
+the data manifold, and a reward that decays away from the band. A critic is
+fit by regression to $25$ demonstrations sampled from the band --- only
+demonstrated actions and their true rewards, exactly what a critic trained
+on demonstration data sees.
 
 \begin{figure}[t]
   \centering
@@ -137,32 +131,16 @@ their true rewards, exactly as a critic trained on demonstration data would.
   post-training from few demonstrations.}
   \label{fig:intuition}
 \end{figure}
-Three things follow, and all are computed rather than asserted.
-
-\textbf{The critic is accurate where the data is, and invents elsewhere.}
-Because every demonstration lies on the band, nothing in the critic's training
-tells it that leaving the band is bad. Its predictions there are extrapolation,
-and \cref{fig:intuition}(b) marks the contour beyond which they stop matching
-reality.
-
-\textbf{Following its gradient walks the policy off the band.} Starting from a
-demonstrated action and taking repeated steps along $\nabla_a\hat{Q}$ lands at
-a point the critic scores $\hat{Q} = 1.63$ --- higher than \emph{any} reward
-the task can produce --- where the true reward is exactly $0.000$. The policy
-has not become confused; it has done exactly what it was told, by a critic
-that was confidently wrong. Bounding the displacement around the frozen
-starting action instead keeps the policy where the critic is informative and
-improves it ($0.016 \rightarrow 0.040$).
-
-\textbf{The effect has a data threshold, and that threshold defines this
-paper's scope.} Repeating the identical construction with more
-demonstrations removes it: at $200$ demonstrations the critic's endpoint earns
-a true reward of $0.901$ against its own estimate of $0.910$, and at $700$ the
-two agree just as closely. With enough data the critic learns the band and its
-gradient is worth following without any bound at all. We therefore do not
-claim that critic gradients are untrustworthy in general --- only that they are
-untrustworthy in the regime where post-training actually happens, and we scope
-every claim in this paper accordingly.
+\Cref{fig:intuition}(a--c) shows the outcome: the critic is accurate on the
+band and extrapolates freely beyond it, and following its gradient walks the
+policy to a point scored $\hat{Q}=1.63$ --- above any achievable reward ---
+where true reward is $0.000$, while the bounded update improves the same
+start ($0.016 \rightarrow 0.040$). The effect has a data threshold, and that
+threshold defines this paper's scope: at $200$ demonstrations the critic's
+endpoint earns $0.901$ against its own estimate of $0.910$, so with enough
+data the gradient is worth following without any bound. Critic gradients are
+not untrustworthy in general --- only in the few-demonstration regime where
+post-training happens, and every claim in this paper is scoped to it.
 
 The same boundary can be crossed a second way, which rules out the objection
 that our two-dimensional picture is a special case. Holding the amount of data
