@@ -74,15 +74,18 @@ backpropagated into the actor.
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/method_overview.pdf}
-  \caption{\textbf{\method{} in three steps} (schematic). \emph{Left:} the
-  frozen base maps noise to $K$ candidate actions, which lie on the thin band
-  of actions the demonstrations support. \emph{Middle:} the critic's
-  gradient points \emph{off} that band (faint arrows, unbounded); \method{}
-  keeps only its direction and takes a step of length at most $\delta_Q$
-  (solid), then the dead-zone anchor pulls back any candidate that has left
-  the leash of radius $\rho$ (green). \emph{Right:} the displaced targets are
-  detached and the residual head is regressed onto them, so the policy moves
-  a bounded distance and stops. The base is any frozen noise-to-action map.}
+  \caption{\textbf{\method{} in four steps} (schematic; one candidate drawn
+  bold and followed through the pipeline). \textbf{(1)~Propose:} the frozen
+  base maps $K$ noise samples to candidate actions on the band the
+  demonstrations support. \textbf{(2)~Nudge:} the critic's raw ask points far
+  off that band (dashed); \method{} keeps only its direction and steps at most
+  $\delta_Q$ (solid). \textbf{(3)~Leash:} candidates that end up outside the
+  dead zone of radius $\rho$ around the base action are pulled back to its
+  rim (green); those inside are left alone --- the interior is free.
+  \textbf{(4)~Imitate:} the corrected targets are detached
+  ($\mathrm{sg}[\cdot]$) and the residual head is regressed onto them; no
+  critic gradient ever backpropagates into the policy. The base is any frozen
+  noise-to-action map.}
   \label{fig:method}
 \end{figure}
 
