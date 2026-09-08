@@ -1,18 +1,40 @@
-\section{Additional results}
-\todo{Full seed tables, training curves, hard-8 per-task breakdown.}
-
-\section{Hyperparameters}
-\todo{Family-shared recipe table; official DICE-RL hypers; sweep grids.}
-
 \section{The kernel transport operator}
 \label{app:kernel}
-\todo{Full form of $\mathcal{V}$: global distance scale, per-radius
-softmax-softmax affinity, contested-attractor weighting, self-exclusion,
-per-radius normalization on/off (restoring vs.\ constant-pull), radii
-$\{0.02, 0.05, 0.2\}$. Port from \texttt{drift\_field.py} docstrings.}
+
+Given query particles $x$, attractors $p^{+}$ (weights $w^{+}$), and
+repulsors $p^{-}$, all distances $d(x, p)$ are first divided by a global
+scale --- the weighted mean pairwise distance --- so the operator is
+invariant to the action scale. For each kernel radius
+$R \in \{0.02, 0.05, 0.2\}$ a soft mutual-matching affinity
+\begin{equation}
+  A \;=\; \sqrt{\;\mathrm{softmax}_{\mathrm{row}}(-d/R)\;\odot\;
+                 \mathrm{softmax}_{\mathrm{col}}(-d/R)\;}\;,
+\end{equation}
+weighted by $w$, converts matched targets into forces: each matched
+attractor contributes a pull scaled by the query's total repulsor affinity,
+each matched repulsor a push scaled by its total attractor affinity, so a
+query contested equally from both sides feels no net force. When a target
+block is the query set itself, self-pairs are excluded symmetrically ---
+masking only one block leaves uncancelled self-attraction, producing a
+spurious field even when the two distributions coincide. Forces are summed
+over radii; per-radius normalization by the root-mean-square force is
+enabled for the restoring field (giving a constant-strength pull) and
+disabled for reward fields (preserving magnitude information). The
+implementation is released with the code.
 
 \section{Toy two-regime construction}
-\todo{Details of the hard-critic/easy-critic toy; failure of compass updates.}
+
+Both regimes share one recipe: a frozen base MLP maps $d$-dimensional noise
+to $d$-dimensional actions, a critic is regressed onto $(a, r(a))$ pairs
+drawn from the base's own samples, and each fine-tuner runs against that
+frozen critic with the same budget. The \emph{easy} regime uses $d{=}2$ with
+$200$ critic points; the \emph{hard} regime uses $d{=}16$ with $60$ ---
+coverage, not dimension alone, is the operative variable, and
+\cref{fig:intuition} crosses the same boundary by varying data at fixed
+dimension. Arms: backpropagating $-Q$ with and without a BC anchor
+($\lambda{=}1$), and the bounded field update with tilted and top-$k$
+scoring. Three seeds; curves in \cref{fig:toy} are seed means. The script
+regenerates the figure from scratch.
 
 \subsection{Reward-step sweep}
 \label{app:eta-sweep}

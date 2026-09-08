@@ -98,17 +98,9 @@ toward higher critic value, and it \emph{constrains} that transport in
 \emph{action space}, where the damage occurs, rather than in the loss or in
 parameter space.
 
-Before any notation, here is the whole method in one picture. For a given
-state, the frozen policy can produce many plausible actions --- draw different
-noise, get different candidates. We take a handful of them and ask the critic
-to improve each one, but we treat its answer as \emph{advice about direction}
-and cap how far we act on it. Any candidate that ends up too far from the
-action the frozen policy originally proposed is pulled back toward it. Then we
-simply train the residual head to reproduce the corrected candidates, as if
-they were demonstrations. The critic is never differentiated through; it is
-only ever asked a question and answered.
-
-So one update does four things:
+The critic's answer is treated as advice about \emph{direction}; how far to
+act on it is our choice, and the critic is never differentiated through. One
+update does four things:
 
 \begin{enumerate}
   \item \textbf{Propose.} Draw $K$ noise samples and push them through the

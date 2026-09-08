@@ -89,8 +89,7 @@ conditional velocity regression, so there the same update is bolted on
 rather than inherited (and costs one base forward pass per particle per
 integration step). The principle we can defend is therefore narrow: \emph{what keeps a
 critic-driven update on the data is a bound on the total displacement in
-action space, not a limit on step size}. We are deliberately not claiming
-more than the location of the constraint. On the two LIBERO tasks a hinge
+action space, not a limit on step size}. The claim stops at the \emph{location} of the constraint. On the two LIBERO tasks a hinge
 penalty and a hard projection onto $\|r\|\le\rho$ both beat our dead-zone
 anchor, while on square the anchor wins by a wide margin
 (\cref{tab:locus}); the anchor is one workable instrument rather than the

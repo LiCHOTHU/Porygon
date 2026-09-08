@@ -50,7 +50,6 @@ critic is far weaker; we report powered evaluation --- 100 rollouts $\times$
 3 evaluation seeds. Both run inside the official DICE-RL harness with only
 the actor update replaced, so critic, replay, demonstrations and evaluation
 are byte-identical to the baseline.
-\todo{appendix table: env details, horizons, demo counts, budgets.}
 
 \textbf{How we report success.} Fine-tuners in this literature start from
 different pretrained policies, so absolute success confounds the fine-tuner
@@ -105,8 +104,10 @@ radius $\rho{=}0.05$ in dimension-independent rms units on LIBERO.
 the methods closest to it --- those with no action-space constraint --- do
 not improve their base at all.
 
-\textbf{Verdict.} Both halves hold. We \emph{match} the strongest pipeline
-rather than beating it, and we say so.
+\textbf{Verdict.} Both halves hold: \method{} leads on the retrained
+diffusion base ($0.955$ against $0.941$ at a matched budget), matches the
+strongest published pipeline from the drifting base, and every
+unconstrained-critic method sits at or below its base.
 
 \begin{table}[t]
 \centering
@@ -114,11 +115,8 @@ rather than beating it, and we say so.
 The classic diffusion-RL methods (DIPO, QSM, DQL, IDQL, AWR) are included
 \emph{as adapted for this exact setting --- sparse binary-reward robomimic
 manipulation, fine-tuning a pretrained diffusion policy --- by the DPPO
-authors}, whose published baseline protocol and configurations we run
-verbatim; their original papers target dense-reward locomotion or offline
-D4RL, so the adapted versions are the ones that qualify for this benchmark.
-They run from official implementations without
-modification, at their published settings, which give them
+authors}, whose configurations we run verbatim (their original papers target
+dense-reward locomotion or offline D4RL). Their published settings give them
 $300\times400\times50\times4 \approx 24$M environment steps against our
 $192$K --- roughly $125\times$ our interaction. This is deliberately generous
 to them and is \emph{not} a matched-budget comparison. They are also robomimic-only: their official
@@ -194,9 +192,10 @@ flow matching $+$ DICE-RL $+$ \method{}      & flow matching & 0.570 & \textbf{0
 \end{tabular}}
 \end{table}
 
-Against the published flow-matching pipeline we reach parity, not
-superiority: $0.912$--$0.930$ against $0.923$--$0.934$ across three seeds.
-What we can say is that we reach it from a base of $0.382$.
+Against the published flow-matching pipeline, the drifting-base \method{}
+reaches parity ($0.912$--$0.930$ against $0.923$--$0.934$, from a base of
+$0.382$), and the diffusion-base \method{} passes it ($0.955$ at the matched
+budget, still improving).
 
 The collapse rows above the line are the ones that matter for this paper,
 and they have now been measured twice: QSM and DQL fall to exactly $0.000$
@@ -310,7 +309,7 @@ replay, same budget, same number of gradient steps --- and differ only in
 the boxed column. Nothing is removed from \method{} in this table. $^{\dagger}$ these two runs ended before $20$K steps, so their
 last-three averages are taken at $17$--$19$K (s42) and $14$--$16$K (s43);
 both curves are flat there, so the earlier window if anything favours the
-baseline. $^{\ddagger}$\textbf{transport is a tie and is still training.} Unlike the can and square blocks, which are converged, these are a snapshot at a matched $256$K steps --- the largest step at which all six runs have an evaluation --- and both arms are still climbing (one \method{} seed reaches $0.46$ by $480$K). The three-seed means are $0.323$ (DICE-RL) against $0.331$ (\method{}), and the seed ranges overlap completely ($0.313$--$0.334$ against $0.312$--$0.363$), so on this task we claim no advantage. We report it because a third task that does \emph{not} separate the two update rules is as much part of the picture as the two that do.}
+baseline. $^{\ddagger}$\textbf{transport is a tie and is still training.} Unlike the can and square blocks, which are converged, these are a snapshot at a matched $256$K steps --- the largest step at which all six runs have an evaluation --- and both arms are still climbing (one \method{} seed reaches $0.46$ by $480$K). The three-seed means are $0.323$ (DICE-RL) against $0.331$ (\method{}) with fully overlapping seed ranges --- a tie, reported because a task that does \emph{not} separate the update rules belongs in the table too.}
 \label{tab:matched}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
@@ -509,7 +508,6 @@ this benchmark is not \method{} against the world; it is update form against
 backpropagation-through-the-critic. \method{} matches what a policy-gradient
 method extracts without needing the noise-injection surrogate that makes
 likelihood ratios definable for a one-step generator in the first place.
-\todo{per-task figure; remaining FM cells and matched-budget FM + GRPO.}
 
 \paragraph{Where H2 stops: the shared-critic control.} The alternative to
 routing is one policy and one critic trained on all eight tasks jointly.
@@ -526,7 +524,7 @@ DICE-RL at its own published settings ($0.670$--$0.705$) all sit within noise
 of the untuned base ($0.671 \pm 0.014$). The point of the table is this
 column of near-zeros: it marks where our claim stops. DICE-RL's $+0.017$ and \method{}'s best variant at
 $+0.006$ are not distinguishable from each other at this seed spread: in
-the multitask setting we claim no advantage over it, and none is visible. The flow-matching pipeline looks stronger in absolute
+the multitask setting neither rule has an edge. The flow-matching pipeline looks stronger in absolute
 terms ($0.735$--$0.756$), but its own base already scores
 $0.738 \pm 0.022$, so it too extracts essentially nothing; its apparent lead
 is inherited from pretraining. Applying our \emph{final} recipe --- every
@@ -541,7 +539,6 @@ critic that is action-blind rather than action-exploitable. There is no
 steep hallucinated gradient here to ride. Finally, a methodological note:
 single-seed 20-episode endpoints ranged $0.63$--$0.78$ across these same
 arms, and powered evaluation collapses that spread to the base value.
-\todo{per-task breakdown figure once the remaining seed evaluations land.}
 
 \subsection{H3: the action-space constraint is what makes the form viable}
 \label{sec:exp-constraint}
@@ -549,14 +546,14 @@ arms, and powered evaluation collapses that spread to the base value.
 \textbf{Claim.} Take the action-space constraint away, and the update
 destroys the policy.
 
-\textbf{Verdict.} The factorial separates the two guards cleanly, but
-\cref{tab:locus} then shows the \emph{shape} of the constraint matters more
-than the machinery that enforces it --- including a loss-space hinge that
-beats us. Removing the base-restoring term costs everything --- with the step
-clip alone, success is $0.000$ on both tasks, \emph{identical} to using no
-constraint at all. Removing the step clip instead is survivable but erratic
-($0.810$ on the red-mug task, but $0.387$ on the ketchup task, below that task's base). Only the pair is
-reliable on both.
+\textbf{Verdict.} The factorial separates the two guards cleanly. Removing
+the base-restoring term costs everything: with the step clip alone, success
+is $0.000$ on all five tasks, identical to using no constraint at all.
+Removing the step clip instead is survivable but erratic, swinging from
+$+0.237$ (red mug) to $-0.223$ (ketchup) against each task's base. Only the
+pair clears base on every task. \cref{tab:locus} then shows the \emph{shape}
+of the constraint matters more than the machinery enforcing it --- including
+a loss-space hinge that beats our anchor on two of three tasks.
 
 \method{} bounds the target's motion two ways: a pointwise clip on each
 particle's displacement, and the dead-zone anchor. We claim neither over the
@@ -583,7 +580,7 @@ The clip is a different matter. Adding it to the anchor helps on three tasks
 (red mug $-0.210$, juice $-0.040$), for a mean of $0.703$ against $0.657$. So
 full \method{} is the better default --- it wins on three of five and on
 average --- but ``both guards are necessary'' overstates it: only the anchor is
-necessary, and we claim no more than that. Three seeds per cell.}
+necessary. Three seeds per cell.}
 \label{tab:constraint}
 \footnotesize
 \setlength{\tabcolsep}{4.0pt}
@@ -648,7 +645,7 @@ constraint rather than an absent one. The genuinely unconstrained
 configuration is the first row of \cref{tab:constraint}.
 
 So a constraint must exist, and it must not be always-on. Between those two
-failure modes the setting is not critical, and we claim no preferred radius:
+failure modes the setting is not critical, and no radius is singled out:
 $\rho{=}0.05$ sits inside a wide flat region, not at an optimum. The
 $\rho{\to}\infty$ cell is worth reading alongside \cref{tab:constraint},
 because together they say the same thing twice: that configuration still
@@ -1072,8 +1069,3 @@ supports, and which, left alone, are enough to end the run
 critic's proposal is mediated, not about how far the policy travels on
 average. It is also why we do not adjudicate between the two implementations
 of the constraint: both truncate the same tail.
-
-\todo{Remaining: robomimic dispersion
-retention (action dispersion and best-of-$N$ before and after fine-tuning
-against the backprop control --- does the field update preserve the
-multimodality the base was trained for?).}
