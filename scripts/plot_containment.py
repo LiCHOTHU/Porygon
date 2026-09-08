@@ -24,7 +24,7 @@ ARMS = [
     ("step clip only",           "#E69F00", "--", "*BCLIP_{t}*_1220*",  {"t65": 0.000, "t32": 0.000}),
     ("dead-zone anchor only",    "#56B4E9", "-.", "*BANC_{t}*_1220*",   {"t65": 0.810, "t32": 0.387}),
     ("full CAST (clip+anchor)",  "#0072B2", "-",  "field_st_B_{t}_s1000*", {"t65": 0.781, "t32": 0.684}),
-    ("hinge in the loss (DICE)", "#009E73", ":",  "*A_{t}_hinge*",      {"t65": 0.837, "t32": 0.700}),
+    ("hinge penalty (variant)", "#009E73", ":",  "*A_{t}_hinge*",      {"t65": 0.837, "t32": 0.700}),
 ]
 BASE = {"t65": 0.573, "t32": 0.610}
 TASKNAME = {"t65": "red mug onto plate", "t32": "ketchup into drawer"}
@@ -51,7 +51,7 @@ for label, c, ls, pat, _ in ARMS:
     print(f"{label:26s} n={len(pts):3d} last={pts[-1][1]:.4f}")
 axL.axhspan(3e-3, RHO, color="#0072B2", alpha=0.07, lw=0)
 axL.axhline(RHO, color="#333333", lw=1.0, ls=(0, (2, 2)))
-axL.text(1, RHO * 1.25, r"trust radius $\rho=0.05$", fontsize=8, color="#333333")
+axL.text(1, RHO * 1.25, r"dead-zone radius $\rho=0.05$", fontsize=8, color="#333333")
 axL.text(20, 6e-3, "inside the leash:\nsuccess preserved", fontsize=7.5,
          color="#0072B2", va="center")
 axL.set_yscale("log")
@@ -70,9 +70,9 @@ for label, c, ls, pat, succ in ARMS:
             continue
         axR.scatter(max(pts[-1][1], 1e-3), succ[t], s=62, marker=mk, color=c,
                     edgecolor="white", lw=0.8, zorder=4)
-for t, mk, ls in (("t65", "o", "-"), ("t32", "s", "--")):
+for t, mk, ls, dy in (("t65", "o", "-", 0.012), ("t32", "s", "--", -0.055)):
     axR.axhline(BASE[t], color="#888888", lw=0.9, ls=ls)
-    axR.text(1.0, BASE[t] + 0.012, f"base, {TASKNAME[t]}", fontsize=7, color="#888888", ha="left")
+    axR.text(1.0, BASE[t] + dy, f"base, {TASKNAME[t]}", fontsize=7, color="#888888", ha="left")
 axR.axvspan(6e-3, RHO, color="#0072B2", alpha=0.07, lw=0)
 axR.axvline(RHO, color="#333333", lw=1.0, ls=(0, (2, 2)))
 axR.text(RHO * 1.6, 0.20, "outside the leash:\n" + r"success collapses to $0.000$",

@@ -68,41 +68,52 @@ axA.text(BUDGET/1000 - 0.6, 0.902,
 axA.legend(fontsize=8, frameon=False, loc="lower right")
 axA.spines[["top","right"]].set_visible(False); axA.grid(axis="y", color="#eee", lw=0.7); axA.set_axisbelow(True)
 
-# ---------------- (b) component necessity: change from each task's own base ----
+# ---------------- (b) the constraint factorial, all five tasks ----------------
+# Bars: mean change from each task's own base across the five tasks of
+# tab:constraint. Dots: the five per-task values. The earlier version showed
+# two tasks, used since-corrected full-CAST numbers (0.781/0.684 -> 0.600/0.627),
+# and was titled "each guard is necessary" -- a claim the completed factorial
+# does not support. What it does support: full CAST is the only arm above base
+# on every task.
 arms  = ["no\nconstraint", "clip\nonly", "anchor\nonly", "clip + anchor\n(full CAST)"]
-t65   = [0.000, 0.000, 0.810, 0.781]; b65 = 0.573
-t32   = [0.000, 0.000, 0.387, 0.684]; b32 = 0.610
-d65 = [v - b65 for v in t65]
-d32 = [v - b32 for v in t32]
-x = np.arange(len(arms)); w = 0.36
-c65 = [RED if v <= 0 else BLUE for v in d65]
-c32 = [RED if v <= 0 else BLUE for v in d32]
-axB.bar(x - w/2, d65, w, color=c65, edgecolor="white", lw=0.8)
-axB.bar(x + w/2, d32, w, color=c32, edgecolor="white", lw=0.8, hatch="///")
+TASKS = ["bowl", "juice", "right caddy", "red mug", "ketchup"]
+base  = dict(zip(TASKS, [0.818, 0.785, 0.578, 0.573, 0.610]))
+vals  = {
+    "no\nconstraint":            dict(zip(TASKS, [0.000]*5)),
+    "clip\nonly":                dict(zip(TASKS, [0.000]*5)),
+    "anchor\nonly":              dict(zip(TASKS, [0.807, 0.860, 0.423, 0.810, 0.387])),
+    "clip + anchor\n(full CAST)":dict(zip(TASKS, [0.840, 0.820, 0.630, 0.600, 0.627])),
+}
+x = np.arange(len(arms))
+deltas = {a: [vals[a][t] - base[t] for t in TASKS] for a in arms}
+means  = [np.mean(deltas[a]) for a in arms]
+cols   = [RED if m <= 0 else BLUE for m in means]
+axB.bar(x, means, 0.58, color=cols, alpha=0.35, edgecolor="none", zorder=2)
+rngB = np.random.default_rng(3)
+for xi, a in enumerate(arms):
+    for d in deltas[a]:
+        axB.scatter(xi + rngB.uniform(-0.13, 0.13), d, s=26, zorder=4,
+                    color=(RED if d <= 0 else BLUE), edgecolor="white", lw=0.6)
+    axB.text(xi, means[xi] + (0.022 if means[xi] > 0 else -0.03),
+             f"mean {means[xi]:+.3f}", ha="center",
+             va=("bottom" if means[xi] > 0 else "top"),
+             fontsize=7.2, color=(BLUE if means[xi] > 0 else RED), fontweight="bold")
 axB.axhline(0, color="black", lw=1.2)
-axB.text(-0.48, 0.015, "base level", fontsize=7.5, color="black", ha="left")
-for xi in range(4):
-    for dv, off in ((d65[xi], -w/2), (d32[xi], +w/2)):
-        va, dy = ("bottom", 0.012) if dv > 0 else ("top", -0.012)
-        axB.text(xi + off, dv + dy, f"{dv:+.2f}", ha="center", va=va, fontsize=6.8,
-                 color=(BLUE if dv > 0 else RED))
-axB.text(1.62, -0.52,
-         "anchor alone: helps the red-mug task ($+0.24$)\nbut falls below base on ketchup ($-0.22$)",
-         fontsize=7.2, color=RED, ha="left", va="center", zorder=12,
-         bbox=dict(fc="white", ec=RED, lw=0.6, alpha=0.95, pad=2.5))
-axB.annotate("only the pair helps\non both tasks", xy=(3, d32[3]), xytext=(2.35, 0.34),
-             fontsize=7.5, color=BLUE, fontweight="bold",
+axB.text(-0.45, 0.015, "base level", fontsize=7.5, color="black", ha="left")
+axB.annotate("above base on all five tasks\n($+0.017$ to $+0.052$)",
+             xy=(3, 0.052), xytext=(1.75, 0.24), fontsize=7.6, color=BLUE,
+             fontweight="bold",
              arrowprops=dict(arrowstyle="->", color=BLUE, lw=1.0))
+axB.text(2.0, -0.45,
+         "anchor alone swings $-0.223$ to $+0.237$\ndepending on the task",
+         fontsize=7.2, color=RED, ha="center", va="center",
+         bbox=dict(fc="white", ec=RED, lw=0.6, alpha=0.95, pad=2.5))
 axB.set_xticks(x); axB.set_xticklabels(arms, fontsize=8)
-axB.set_ylim(-0.72, 0.46)
+axB.set_ylim(-0.9, 0.34)
 axB.set_ylabel("change from that task's own base")
-axB.set_title("(b) each guard is necessary; neither alone suffices", fontsize=9.5)
+axB.set_title("(b) only the full pair clears base on every task (5 tasks)", fontsize=9.5)
 axB.spines[["top","right"]].set_visible(False)
 axB.grid(axis="y", color="#eee", lw=0.7); axB.set_axisbelow(True)
-h1 = plt.Rectangle((0,0),1,1, fc="#999999", ec="white")
-h2 = plt.Rectangle((0,0),1,1, fc="#999999", ec="white", hatch="///")
-axB.legend([h1,h2], ["red mug task", "ketchup task"], fontsize=7.5,
-           frameon=False, loc="upper left", bbox_to_anchor=(0.0, 0.99))
 
 fig.tight_layout()
 out = "iclr2026/figures/robomimic_curves.pdf"
