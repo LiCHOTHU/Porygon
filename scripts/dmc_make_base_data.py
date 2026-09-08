@@ -115,7 +115,38 @@ ep_ret, ep_rets = 0.0, []
 CKPT_AT = sorted({int(TOTAL_STEPS * f) for f in (0.35, 0.5, 0.7, 1.0)})
 ckpts = []
 
-for step in range(1, TOTAL_STEPS + 1):
+# ---- preemption-proofing. The harder robots need 1.5-2M SAC steps, far past
+# one 8h slot; without save/resume every preemption restarted from step 0 and
+# the run could never finish. Full state (nets, optimizers, replay buffer,
+# stashed teacher checkpoints) saved every 50k steps, written atomically.
+RESUME_PATH = os.path.join(OUT, f"sac_resume_{DOMAIN}_{TASK}.pt")
+START_STEP = 1
+if os.path.exists(RESUME_PATH):
+    _rs = torch.load(RESUME_PATH, map_location=DEV)
+    actor.load_state_dict(_rs["actor"]); q1.load_state_dict(_rs["q1"]); q2.load_state_dict(_rs["q2"])
+    q1t.load_state_dict(_rs["q1t"]); q2t.load_state_dict(_rs["q2t"])
+    opt_a.load_state_dict(_rs["opt_a"]); opt_q.load_state_dict(_rs["opt_q"])
+    opt_alpha.load_state_dict(_rs["opt_alpha"])
+    with torch.no_grad(): log_alpha.copy_(_rs["log_alpha"].to(DEV))
+    S[:], A[:], R[:], S2[:] = _rs["S"], _rs["A"], _rs["R"], _rs["S2"]
+    ptr, size = int(_rs["ptr"]), int(_rs["size"])
+    ep_rets = list(_rs["ep_rets"]); ckpts = _rs["ckpts"]
+    START_STEP = int(_rs["step"]) + 1
+    print(f"RESUMED at step {START_STEP} (recent return "
+          f"{np.mean(ep_rets[-5:]) if ep_rets else 0:.1f})", flush=True)
+
+def save_resume(step):
+    tmp = RESUME_PATH + ".tmp"
+    torch.save({"actor": actor.state_dict(), "q1": q1.state_dict(), "q2": q2.state_dict(),
+                "q1t": q1t.state_dict(), "q2t": q2t.state_dict(),
+                "opt_a": opt_a.state_dict(), "opt_q": opt_q.state_dict(),
+                "opt_alpha": opt_alpha.state_dict(), "log_alpha": log_alpha.detach().cpu(),
+                "S": S, "A": A, "R": R, "S2": S2, "ptr": ptr, "size": size,
+                "ep_rets": ep_rets, "ckpts": ckpts, "step": step}, tmp)
+    os.replace(tmp, RESUME_PATH)
+    print(f"  -> resume state saved at step {step}", flush=True)
+
+for step in range(START_STEP, TOTAL_STEPS + 1):
     if step < 2000:
         a = np.random.uniform(-1, 1, ADIM).astype(np.float32)
     else:
@@ -162,6 +193,8 @@ for step in range(1, TOTAL_STEPS + 1):
     if step % 5000 == 0:
         recent = np.mean(ep_rets[-5:]) if ep_rets else 0.0
         print(f"step {step:6d}  recent_return {recent:8.2f}", flush=True)
+    if step % 50000 == 0:
+        save_resume(step)
     if step in CKPT_AT:
         ckpts.append({k: v.detach().clone() for k, v in actor.state_dict().items()})
         print(f"  -> stashed checkpoint at step {step} "
