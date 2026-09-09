@@ -105,6 +105,10 @@ done
 
 fi
 echo "=== table-2 transport (3 seeds x 2 arms) ==="
+go transport_CASTloose scripts/dice_rl_generic.sbatch finetune transport ft_distill_residual_drift_field_mlp 42 \
+   +model.field.restore_radius=0.15 model.field.total_max_norm=0.45 \
+   logdir=$D/transport_CASTloose_s42 ++train.auto_resume=true
+
 if ! secondary; then
 cd "$DR" || exit 1
 for sd in 42 43 44; do
