@@ -207,6 +207,28 @@ for env in hopper-medium-v2 walker2d-medium-v2 halfcheetah-medium-v2; do
 done
 cd "$IM" || exit 1
 
+echo "=== DMC distills for the four good teachers, then their three arms ==="
+cd "$DR" || exit 1
+for t in quadruped-run walker-run humanoid-walk cartpole-balance; do
+  PD=$L/dmc-pretrain/${t}
+  FINAL=$(ls $PD/checkpoint/state_*.pt 2>/dev/null | sed 's/.*state_//;s/\.pt//' | sort -n | tail -1)
+  if [ "${FINAL:-0}" -lt 3000 ]; then
+    go dmcP_${t} scripts/dice_rl_generic.sbatch dmc-pretrain $t pre_drifting_mlp 42 \
+       logdir=$PD ++train.auto_resume=true
+    echo "  (arms for $t wait on the distill)"; continue
+  fi
+  CKPT=$PD/checkpoint/state_${FINAL}.pt
+  go dmc_${t}_CAST scripts/dice_rl_generic.sbatch dmc-finetune $t ft_distill_residual_drift_field_mlp 42 \
+     base_policy_path=$CKPT logdir=$L/dmc-finetune/${t}_CAST ++train.auto_resume=true
+  go dmc_${t}_BP scripts/dice_rl_generic.sbatch dmc-finetune $t ft_distill_residual_drift_mlp 42 \
+     base_policy_path=$CKPT logdir=$L/dmc-finetune/${t}_BP ++train.auto_resume=true
+  go dmc_${t}_FREE scripts/dice_rl_generic.sbatch dmc-finetune $t ft_distill_residual_drift_field_mlp 42 \
+     base_policy_path=$CKPT model.field.total_max_norm=1e9 model.field.q_max_norm=1e9 \
+     model.field.bc_step_size=0.0 +model.field.restore_step_size=0.0 \
+     logdir=$L/dmc-finetune/${t}_FREE ++train.auto_resume=true
+done
+cd "$IM" || exit 1
+
 echo "=== DMC pair builds (acrobot, cartpole-balance) ==="
 cd "$IM" || exit 1
 DMC=/storage/cedar/cedar0/cedarp-agarg35-0/liquan.w/imitation_scratch/dmc_base

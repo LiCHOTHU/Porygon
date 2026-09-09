@@ -104,10 +104,11 @@ radius $\rho{=}0.05$ in dimension-independent rms units on LIBERO.
 the methods closest to it --- those with no action-space constraint --- do
 not improve their base at all.
 
-\textbf{Verdict.} Both halves hold: \method{} leads on the retrained
-diffusion base ($0.955$ against $0.941$ at a matched budget), matches the
-strongest published pipeline from the drifting base, and every
-unconstrained-critic method sits at or below its base.
+\textbf{Verdict.} Both halves hold: on the retrained diffusion base
+\method{} reaches DICE-RL's ceiling at less compute ($0.955$ against $0.941$
+at $352$K, converging by $496$K), it matches the strongest published pipeline
+from the drifting base, and every unconstrained-critic method sits at or
+below its base.
 
 \begin{table}[t]
 \centering
@@ -147,12 +148,13 @@ did on the weak one ($14{+}$ consecutive zero evaluations each), which rules
 out base quality as the explanation for their failure; a collapse to zero
 reads the same under every success rule, so the metric difference between
 harnesses cannot account for it either.
-$^{\dagger\dagger}$the paired rows are quoted at a matched $352$K
+$^{\dagger\dagger}$the paired rows are quoted at a matched $496$K
 environment steps, the largest budget all six seeds share (mean of last three
-evaluations per seed): \method{} $0.959/0.953/0.952$ against DICE-RL's
-$0.929/0.953/0.942$. Both continue to improve slightly past this point
-(DICE-RL reaches $0.966$ by $720$K); the matched comparison is the one we
-argue from.
+evaluations per seed, three seeds each). Both arms saturate at the same
+ceiling and are statistically indistinguishable there (\method{}
+$0.946$--$0.967$, DICE-RL $0.961$--$0.970$); the difference is the path ---
+at a matched $352$K, before saturation, \method{} reads $0.955$ against
+DICE-RL's $0.941$, so it reaches the ceiling at less compute.
 $^{*}$every $\Delta$ is exactly fine-tuned minus the printed base. One
 caution when reading the starred rows: their harness scores success more
 strictly (a full action chunk inside the success state) and reads this same
@@ -180,8 +182,8 @@ AWR                       & generic   & 0.600$^{*}$ & 0.393 & $-0.207$ \\
 DPPO \citep{ren2024dppo} & diffusion & 0.600 & 0.632$^{\circ}$ & $+0.032$ \\
 \midrule
 \multicolumn{5}{l}{\emph{adding \method{} to DICE-RL, paired within each base}} \\
-diffusion $+$ DICE-RL \citep{dicerl2026}$^{\P\P}$   & diffusion & 0.600 & 0.941$^{\dagger\dagger}$ & $+0.341$ \\
-diffusion $+$ DICE-RL $+$ \method{}$^{\P\P}$        & diffusion & 0.600 & \textbf{0.955}$^{\dagger\dagger}$ & $\mathbf{+0.355}$ \\
+diffusion $+$ DICE-RL \citep{dicerl2026}$^{\P\P}$   & diffusion & 0.600 & 0.965$^{\dagger\dagger}$ & $+0.365$ \\
+diffusion $+$ DICE-RL $+$ \method{}$^{\P\P}$        & diffusion & 0.600 & 0.959$^{\dagger\dagger}$ & $+0.359$ \\
 \addlinespace
 drifting $+$ DICE-RL                       & one-step drifting & 0.382 & 0.880 & $+0.498$ \\
 drifting $+$ DICE-RL $+$ \method{}         & one-step drifting & 0.382 & \textbf{0.924} & $\mathbf{+0.542}$ \\
@@ -194,8 +196,8 @@ flow matching $+$ DICE-RL $+$ \method{}      & flow matching & 0.570 & \textbf{0
 
 Against the published flow-matching pipeline, the drifting-base \method{}
 reaches parity ($0.912$--$0.930$ against $0.923$--$0.934$, from a base of
-$0.382$), and the diffusion-base \method{} passes it ($0.955$ at the matched
-budget, still improving).
+$0.382$), and the diffusion-base pair passes it (both arms saturate near
+$0.96$).
 
 The collapse rows above the line are the ones that matter for this paper,
 and they have now been measured twice: QSM and DQL fall to exactly $0.000$
