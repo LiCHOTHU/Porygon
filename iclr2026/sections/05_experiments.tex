@@ -311,7 +311,16 @@ replay, same budget, same number of gradient steps --- and differ only in
 the boxed column. Nothing is removed from \method{} in this table. $^{\dagger}$ these two runs ended before $20$K steps, so their
 last-three averages are taken at $17$--$19$K (s42) and $14$--$16$K (s43);
 both curves are flat there, so the earlier window if anything favours the
-baseline. $^{\ddagger}$\textbf{transport is a tie and is still training.} Unlike the can and square blocks, which are converged, these are a snapshot at a matched $256$K steps --- the largest step at which all six runs have an evaluation --- and both arms are still climbing (one \method{} seed reaches $0.46$ by $480$K). The three-seed means are $0.323$ (DICE-RL) against $0.331$ (\method{}) with fully overlapping seed ranges --- a tie, reported because a task that does \emph{not} separate the update rules belongs in the table too.}
+baseline. $^{\ddagger}$\textbf{transport is the task \method{} loses, and we report it
+as such.} At a matched $2.24$M steps (three seeds, converged) the
+backpropagated actor reaches $0.912$ where \method{} plateaus at $0.594$. An
+earlier snapshot at $256$K read as a tie; the gap opened as training
+continued. Transport is the hardest task here (two arms, longest horizon),
+and one reading is that its critic, trained on far more successful
+experience at this budget, earns the trust that \method{}'s conservatism
+withholds. Two tasks favour \method{}, one favours backpropagation ---
+the honest summary is that the update rule's advantage is largest where the
+critic is weakest, and transport is where it is strongest.}
 \label{tab:matched}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
@@ -323,8 +332,8 @@ baseline. $^{\ddagger}$\textbf{transport is a tie and is still training.} Unlike
 actor update & how the critic is used & s42 & s43 & s44 & s42 & s43 & s44 & s42 & s43 & s44 \\
 \midrule
 frozen base, no RL & critic never queried & \multicolumn{3}{c}{0.877} & \multicolumn{3}{c}{0.382} & \multicolumn{3}{c}{---} \\
-DICE-RL actor \emph{(baseline)} & $Q$ differentiated \emph{through} the policy & 0.970$^{\dagger}$ & 0.946$^{\dagger}$ & 0.940 & 0.870 & 0.909 & 0.861 & 0.313 & 0.321 & 0.334 \\
-\textbf{\method{} actor \emph{(ours)}} & $Q$ only \emph{queried}; targets displaced, bounded, regressed & \textbf{0.988} & \textbf{0.993} & \textbf{0.978} & \textbf{0.912} & \textbf{0.930} & \textbf{0.929} & 0.312 & 0.317 & 0.363 \\
+DICE-RL actor \emph{(baseline)} & $Q$ differentiated \emph{through} the policy & 0.970$^{\dagger}$ & 0.946$^{\dagger}$ & 0.940 & 0.870 & 0.909 & 0.861 & \textbf{0.908} & \textbf{0.937} & \textbf{0.891} \\
+\textbf{\method{} actor \emph{(ours)}} & $Q$ only \emph{queried}; targets displaced, bounded, regressed & \textbf{0.988} & \textbf{0.993} & \textbf{0.978} & \textbf{0.912} & \textbf{0.930} & \textbf{0.929} & 0.569 & 0.634 & 0.578 \\
 \bottomrule
 \end{tabular}}
 \end{table}
