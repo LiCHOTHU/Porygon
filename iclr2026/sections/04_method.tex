@@ -115,7 +115,7 @@ candidates $K$ & coverage of the base's action modes & noise samples through the
 reward field $V_Q$ & \emph{direction} of improvement & normalized critic gradient $\eta_Q \nabla_a \bar Q / q_{\mathrm{scale}}$ & $\eta_Q{=}1$ ($0.5$ robomimic) & \cref{tab:eta-sweep} \\
 step clip $\delta_Q$, $\delta_{\mathrm{tot}}$ & \emph{stride}: caps each displacement & rescale to norm at most $\delta$ & $\delta_{\mathrm{tot}}{=}0.15$ & \cref{tab:constraint} \\
 anchor $V_{\mathrm{anc}}$ & keeps targets near the base & dead-zone restoring field, \cref{eq:anchor} & $\eta_{\mathrm{anc}}{=}1$ & \cref{tab:constraint} \\
-dead zone $\rho$ & region where the critic is trusted freely & radius about the base action ($\rho{=}0$ = $L_2$ penalty) & $0.05$ (rms) & \cref{tab:rho-sweep} \\
+dead zone $\rho$ & region where the critic is trusted freely & radius about the base action ($\rho{=}0$ = always-on pull) & $0.05$ rms (LIBERO); $0$ (robomimic, DMC) & \cref{tab:rho-sweep} \\
 regression (\cref{eq:update}) & converts targets into parameters & MSE onto detached targets; no critic gradient & --- & \cref{tab:matched} \\
 \bottomrule
 \end{tabular}}
