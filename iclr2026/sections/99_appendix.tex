@@ -280,3 +280,70 @@ drifting $+$ DICE-RL $+$ \method{} & 0.692 & $+0.023$ & 0.663 \\
 \end{tabular}
 \end{table}
 
+\section{When \method{} wins, and when it must lose}
+\label{app:regime}
+
+Every result in this paper, wins and losses alike, is predicted by one
+property of the update rule, and we state it here explicitly.
+
+\paragraph{\method{} is a fixed trust region anchored at a frozen reference.}
+The anchor gives the residual an equilibrium: the clipped reward field pushes
+outward with at most $\eta_Q$ per step, the restoring field pulls back toward
+the frozen base, and the balance point sits near
+$\|r\| \approx \rho + \delta_Q/\eta_{\mathrm{anc}}$. The consequence is
+structural: \method{} can only ever express the best policy that lies inside
+a small action-space ball around $\pi_0$. The same property that prevents the
+critic from dragging the policy off the data manifold prevents it from
+dragging the policy anywhere far --- including toward a genuinely better
+policy outside the ball. This is measured, not hypothetical: on transport the
+residual settles at $\|r\| \approx 0.007$ while the critic requests
+displacements of ${\sim}0.25$ per step (\cref{tab:matched}), and in the
+flagship LIBERO regime the residual sits an order of magnitude \emph{inside}
+the dead zone (\cref{fig:intuition}d) --- there the bound is slack and
+\method{} wins on direction quality alone.
+
+\paragraph{Two conditions decide the outcome.} (i) Does a substantially
+better policy lie \emph{inside} the ball --- does the base need refinement
+rather than new behaviour? (ii) Is the critic \emph{dangerous outside} the
+ball --- few demonstrations and sparse reward, so that off-manifold $Q$ is
+extrapolation? The four cells of this $2\times 2$ are each occupied by one of
+our measurements:
+
+\begin{center}
+\small
+\begin{tabular}{p{0.30\linewidth}p{0.30\linewidth}p{0.30\linewidth}}
+\toprule
+ & critic dangerous outside & critic trustworthy outside \\
+\midrule
+better policy inside the ball &
+\textbf{\method{} dominates}: LIBERO hard-8 ($+9.4$ vs $+0.9$), square on
+every base, can, DMC swingup &
+\method{} ties at the ceiling but arrives at less compute: square, retrained
+base ($0.955$ vs $0.941$ at $352$K; both $\approx 0.96$ converged) \\
+\addlinespace
+better policy outside the ball &
+nothing works: multitask LIBERO with a shared, action-blind critic
+(\cref{tab:libero}) &
+\textbf{\method{} loses}: transport ($0.594$ vs $0.912$) --- the base barely
+solves the task, and a critic trained on abundant successful experience
+earns the trust that the bound withholds \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Transport occupies the one cell where a bounded update must lose. The
+backpropagated actor wins there through the exact mechanism this paper
+documents as a flaw: its loss-space penalty leaks --- the regularizer
+competes against an unbounded gradient and loses --- so its residual can grow
+as large as the task demands. Where the critic deserves that trust, the leak
+is an advantage; where it does not, it is the collapse of
+\cref{tab:baselines}.
+
+\paragraph{Scope, restated.} \method{} is the right tool when a competent
+base cloned from few demonstrations must improve under sparse reward with a
+per-task critic --- the post-training setting of \cref{sec:setup}. It is the
+wrong tool when the base lacks the skill outright and the critic has earned
+trust far from the data; there, methods that follow the critic freely are
+correct to do so. The practical design rule this suggests --- grow the radius
+with the critic's earned trust --- is tested by a loosened-leash transport
+run in progress at the time of writing.
