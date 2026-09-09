@@ -206,11 +206,28 @@ for t in quadruped-run walker-run humanoid-walk cartpole-balance; do
 done
 cd "$IM" || exit 1
 
+echo "=== DMC sparse twin: cartpole-balance_sparse arms (share the dense distill) ==="
+cd "$DR" || exit 1
+PD=$L/dmc-pretrain/cartpole-balance
+FINAL=$(ls $PD/checkpoint/state_*.pt 2>/dev/null | sed 's/.*state_//;s/\.pt//' | sort -n | tail -1)
+if [ "${FINAL:-0}" -ge 3000 ]; then
+  CKPT=$PD/checkpoint/state_${FINAL}.pt
+  go dmc_balS_CAST scripts/dice_rl_generic.sbatch dmc-finetune cartpole-balance_sparse ft_distill_residual_drift_field_mlp 42 \
+     base_policy_path=$CKPT logdir=$L/dmc-finetune/cartpole-balance_sparse_CAST ++train.auto_resume=true
+  go dmc_balS_BP scripts/dice_rl_generic.sbatch dmc-finetune cartpole-balance_sparse ft_distill_residual_drift_mlp 42 \
+     base_policy_path=$CKPT logdir=$L/dmc-finetune/cartpole-balance_sparse_BP ++train.auto_resume=true
+  go dmc_balS_FREE scripts/dice_rl_generic.sbatch dmc-finetune cartpole-balance_sparse ft_distill_residual_drift_field_mlp 42 \
+     base_policy_path=$CKPT model.field.total_max_norm=1e9 model.field.q_max_norm=1e9 \
+     model.field.bc_step_size=0.0 +model.field.restore_step_size=0.0 \
+     logdir=$L/dmc-finetune/cartpole-balance_sparse_FREE ++train.auto_resume=true
+fi
+cd "$IM" || exit 1
+
 echo "=== DMC pair builds (acrobot, cartpole-balance) ==="
 cd "$IM" || exit 1
 DMC=/storage/cedar/cedar0/cedarp-agarg35-0/liquan.w/imitation_scratch/dmc_base
 for spec in "humanoid_walk:humanoid walk 1500000" "humanoid_run:humanoid run 2000000" \
-            "quadruped_run:quadruped run 800000" "manip_ball:manipulator bring_ball 1500000" \
+            "quadruped_run:quadruped run 800000" "manip_ball:manipulator bring_ball 4000000" \
             "walker_run:walker run 600000"; do
   tag=${spec%%:*}; args=${spec##*:}
   dom=$(echo $args | cut -d' ' -f1); tsk=$(echo $args | cut -d' ' -f2)
