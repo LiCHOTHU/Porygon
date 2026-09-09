@@ -2,26 +2,18 @@
 % this setting (e.g. ResFiT, arXiv 2509.19301): (1) BC works but saturates,
 % (2) RL is the complement, (3) residual RL is the practical recipe, (4) the
 % specific gap we hit, (5) what we propose, (6) contributions.
-Behavior cloning has become the default way to build visuomotor robot policies,
-and it works: given enough demonstrations, a cloned policy performs the task it
-was shown. Its ceiling, however, is the demonstrations themselves. Teleoperated
-data is expensive to collect, human operators are rarely optimal, and there is
-mounting evidence that policy performance saturates as demonstrations
-accumulate. Getting a deployed policy past that ceiling is now one of the
-practical bottlenecks in robot learning.
-
-Reinforcement learning is the natural complement: let the policy practice in
-its environment and improve from its own experience. Applying it directly to a
-modern generative policy is awkward, though, because such policies map noise to
-multimodal action chunks and expose no tractable likelihood, which rules out
-the PPO-style machinery that most of RL is built on. The workarounds either
-inject noise into the deployed policy \citep{reinflow2025}, changing what
-ships, or assume a denoising objective the policy does not have
-\citep{mcallister2025flowmatchingpolicygradients}. This is why the dominant
-practical recipe is \emph{residual} RL: freeze the pretrained policy, learn a
-small corrective term on top of it, and score candidate actions with a learned
-critic \citep{dicerl2026}. The base supplies competence and the critic supplies
-improvement.
+Behavior cloning is the default way to build visuomotor robot policies, and
+its ceiling is the demonstrations themselves: teleoperated data is expensive,
+operators are rarely optimal, and performance saturates as demonstrations
+accumulate. Reinforcement learning is the natural way past that ceiling, but
+modern generative policies map noise to multimodal action chunks and expose
+no tractable likelihood, which rules out PPO-style machinery; the workarounds
+either change the deployed policy by injecting noise \citep{reinflow2025} or
+assume a denoising objective the policy does not have
+\citep{mcallister2025flowmatchingpolicygradients}. The dominant practical
+recipe is therefore \emph{residual} RL: freeze the pretrained policy, learn a
+small corrective term on top, and score candidates with a learned critic
+\citep{dicerl2026}.
 
 That recipe has a failure mode we believe is underappreciated, and it is
 specific to the setting practitioners care about most: a policy cloned from few
@@ -32,17 +24,15 @@ action-gradient fine-tuners from their authors' own code, at $125\times$ our
 interaction budget, none improves its starting policy and two collapse to
 exactly $0.000$ success (\cref{tab:baselines}).
 
-The cause is a division of labour nobody chose deliberately. A critic is
-trained to rank actions in the region its data covers, and it does that well.
-Nothing constrains it outside that region, where it can be confidently and
-steeply wrong \citep{fujimoto2018td3,fujimoto2019bcq,savo2025}. Yet the
-standard update lets the critic decide not only \emph{which way} the policy
-should change but --- through the magnitude of its gradient --- \emph{how far}.
-Only the first is a question the critic was trained to answer. The consequences
-are not symmetric: a slightly wrong direction gives a slightly wrong step,
-whereas a wrongly large distance carries the policy out of the region the
-critic understands, and the further out it goes the better it looks to the
-critic that sent it there.
+The cause is a division of labour nobody chose deliberately. A critic ranks
+actions well where its data is and is unconstrained --- confidently, steeply
+wrong --- beyond it \citep{fujimoto2018td3,fujimoto2019bcq,savo2025}. The
+standard update nevertheless lets the critic set both the \emph{direction} of
+each policy change and, through its gradient magnitude, the \emph{distance}.
+Only the first is a question it was trained to answer, and the errors are not
+symmetric: a wrong direction costs one bad step, while a wrong distance
+carries the policy out of the region the critic understands --- where the
+further it goes, the better it looks to the critic that sent it.
 
 \Cref{fig:intuition} shows this with nothing hidden. We fit a critic to $25$
 demonstrations lying on a narrow band of workable actions and follow its
@@ -57,14 +47,12 @@ recover, and we verify that the same unconstrained update survives there; under
 success-only reward, a policy that has stopped succeeding sees nothing but
 zeros and has no signal with which to return.
 
-We propose to split the two roles apart, in a method we call \method{}
-(\emph{Constrained Action-Space Transport}). The critic keeps the job it is good at
---- choosing the direction in which each action should change --- and the
-algorithm takes the job the critic was never trained for: deciding how far the
-policy may end up from the policy we started with. Concretely, candidate
-actions are drawn from the frozen base, displaced along the critic's gradient,
-pulled back whenever they stray beyond a fixed radius of their starting action,
-and regressed into a lightweight residual head. Nothing else in the pipeline
+\method{} (\emph{Constrained Action-Space Transport}) splits the two roles:
+the critic chooses each action's direction of change; the algorithm decides
+how far the policy may end up from where it started. Candidate actions are
+drawn from the frozen base, displaced along the critic's gradient, pulled
+back whenever they stray beyond a fixed radius of their starting action, and
+regressed into a lightweight residual head. Nothing else in the pipeline
 changes, so the actor update is the only variable in every comparison we
 report.
 

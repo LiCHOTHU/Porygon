@@ -16,32 +16,20 @@ the critic sets the direction, while a bound --- a pointwise clip on each
 particle's displacement, a restoring pull outside a radius of the frozen
 base, or both --- sets how far any single update may carry the policy.
 
-The experiments locate the advantage precisely. Given the \emph{same} base,
-critic, data and budget, the field-target form extracts far more than
-backpropagating that critic: $+55$ points on robomimic square, and
-$+9.4$ versus $+0.9$ on average across the eight hardest LIBERO-90 tasks,
-where the backpropagated actor falls below its base on the two
-highest-headroom tasks and \method{} improves on every one. The same
-ordering holds when the base is swapped for the stronger flow-matching
-policy, so the effect is attributable to the update rule rather than to the
-starting point. Against a critic-free policy-gradient baseline at matched
-interaction budget, \method{} is at parity ($+10.1$ versus $+9.5$ per-task
-mean on LIBERO; $0.878$ versus $0.883$ on the flow-matching base's one
-high-headroom task) --- while requiring none of the noise injection that
-makes likelihood ratios definable for a deterministic one-step generator in
-the first place. Ablations confirm the mechanism rather than the
-hyperparameters, and they constrain what we may claim. Replacing the
-dead-zone with an always-on penalty ($\rho{=}0$, exactly a behaviour-cloning
-term) falls back to base level ($0.549$ and $0.601$ against bases of $0.573$
-and $0.610$), so the constraint must be shaped in action space rather than
-added to the loss. Switching the two guards on and off independently
-separates them cleanly. Removing both collapses success to exactly $0.000$ on
-both tasks; keeping \emph{only} the pointwise step clip gives exactly
-$0.000$ as well, no better than no constraint at all. The base-restoring term
-is what makes the update viable ($0.810$ on the red-mug task with the clip removed),
-though on its own it is unreliable across tasks ($0.387$ on the ketchup task), and the two
-together are what hold on both. The constraint that matters is therefore not
-a limit on how fast the policy moves but a tether to where it started.
+Given the \emph{same} base, critic, data and budget, the field-target form
+extracts far more than backpropagating that critic: $+55$ points on
+robomimic square, and $+9.4$ versus $+0.9$ across the eight hardest
+LIBERO-90 tasks, with the same ordering after swapping in a stronger
+flow-matching base --- so the effect belongs to the update rule, not the
+starting point. Against a critic-free policy gradient at matched budget,
+\method{} is at parity while needing none of the noise injection that makes
+likelihood ratios definable for a one-step generator. The ablations then
+pin the mechanism: removing every action-space bound gives exactly $0.000$
+success on all five factorial tasks, the step clip alone also gives
+$0.000$, the always-on penalty ($\rho{=}0$, exactly a BC term) falls back
+to base, and only configurations with a restoring term toward the frozen
+base survive. The constraint that matters is not a limit on how fast the
+policy moves but a tether to where it started.
 
 \textbf{Limitations.}
 \label{sec:limitations}

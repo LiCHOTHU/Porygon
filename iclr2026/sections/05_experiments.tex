@@ -267,21 +267,14 @@ from the base within one evaluation and stay there, DQL flickers
 back once and then dies (this sweep predates the base retrain; the collapse
 itself replicates on the $0.600$ base).
 
-The reason is instructive, and it is the same point the paper makes. Two of
-those three knobs are \emph{loss-scale} constants, and Adam is invariant to
-loss scale: changing QSM's coefficient by $6.5\times$ moved the resulting
-policy displacement from $0.030$ to $0.033$, which is nothing. The knob that
-is \emph{not} loss-scale --- DIPO's action learning rate, which acts
-directly on stored actions --- did have an effect, and it destroyed a
-baseline that was working at $0.283$. This is exactly the asymmetry we
-build on: constants in the loss do not control how far the policy moves in
-action space, and the one constant that does is a blunt instrument. A bound
-placed on the displacement itself is what these methods lack. We previously
-reported a ``DIPO $+$ displacement bound'' row here; it enabled only the step
-clip (\texttt{action\_trust\_radius}) without the base-restoring anchor, which
-is the configuration \cref{tab:constraint} shows scores $0.000$ --- so it did
-not test what its name claimed and we have removed it. The arms that add
-\method{}'s \emph{anchor} to DIPO's own code are running and will replace it.
+The reason is the paper's point in miniature. Two of the three knobs are
+loss-scale constants, and Adam is invariant to loss scale: a $6.5\times$
+change in QSM's coefficient moved the policy displacement from $0.030$ to
+$0.033$. The one knob that acts on actions directly --- DIPO's action
+learning rate --- destroyed a baseline that had been working at $0.283$.
+Constants in the loss do not control how far the policy moves in action
+space, and the one constant that does is a blunt instrument; what these
+methods lack is a bound on the displacement itself.
 
 \subsection{H2: the update form is what converts critic signal into success}
 \label{sec:exp-form}
@@ -400,49 +393,24 @@ per-task tuning.
 
 \begin{table}[t]
 \centering
-\caption{LIBERO hard-8, \emph{per-task} fine-tuning: one frozen multitask
-base, one small residual head and critic trained on each task's own
-interactions, task-ID routing at deployment. Powered evaluation (100
-rollouts $\times$ 3 evaluation seeds); \method{} rows average the last three
-training checkpoints, and two training seeds on the ketchup, orange-juice
-and red-mug tasks. \textbf{One recipe across all eight tasks, no per-task
-tuning}: every \method{} cell uses a single shared reward step, chosen for its
-mean over the eight tasks rather than per task. The full sweep is
-\cref{tab:eta-sweep} --- per-task optima disagree ($\eta_Q{=}4$ is best on the
-red-mug task, $\eta_Q{=}1$ on ketchup), and reporting each task at its own
-optimum would raise our numbers while giving us a tuning budget the baselines
-do not get.
-Task names are the LIBERO-90 scene and instruction; indices in that suite
-are $8, 21, 32, 53, 65, 73, 75, 81$ in table order. Within each block every column shares that block's base, so
-``\method{}'' in the left block means \method{} fine-tuning the
-\emph{drifting} base and in the right block the \emph{flow-matching} base;
-across blocks only same-block comparisons are meaningful. ``backprop'' is the backpropagated actor (DICE-RL's update on this base).
-$\method{}_{\eta 1}$ and $\method{}_{\eta 2}$ are \method{} at reward step
-$\eta_Q{=}1$ and $\eta_Q{=}2$ --- the single hyperparameter we varied, and
-the only place in this table where a method appears at two settings.
-\textbf{The like-for-like cross-base comparison is therefore
-$\eta_Q{=}1$ against $\eta_Q{=}1$}: that setting is shared by the drifting
-and flow-matching columns, and gives means of $0.738$ and $0.756$. We report
-$\eta_Q{=}2$ on the drifting base because we ran it there and it is better
-($0.755$), but the matching flow-matching run does not yet exist, so the
-$\eta_Q{=}2$ column should not be read across bases. $^{\ddagger}$\textbf{these four GRPO cells are provisional and not comparable
-to the other four.} They come from a shorter run (40 vs 200 iterations) scored
-by a single 20-rollout deterministic evaluation, not the 100-rollout
-$\times$ 3-seed powered protocol used everywhere else in this table; the
-matched-recipe runs are queued and will replace them. We show them marked
-rather than blank, The GRPO row mean of $0.717$ therefore mixes protocols and is marked;
-over the four matched-protocol cells alone it is $0.771$. Within each base block, bold marks the best \emph{fine-tuning method} on that
-row; the no-RL base is a reference rather than a competitor and is never
-bolded. The two blocks use different bases, so bolding is never applied
-across them --- and note that on three flow-matching rows every method is
-below its own base, which the bold does not indicate. Across the five tasks
-run with two seeds the seed spread is $0.000$--$0.089$, so only gaps above
-$\sim\!9$ points are meaningful on the red-mug task and above
-$\sim\!2$ points elsewhere. ``---'' = unrun cell: \method{}'s eight cells
-are complete on both bases, while the DICE-RL and GRPO rows on the
-flow-matching base still have gaps, so their row means are withheld. The
-multitask
-(single-policy) version of this comparison is \cref{tab:libero}.}
+\caption{\textbf{LIBERO hard-8, per-task fine-tuning} (task-ID routing at
+deployment, the architecture published LIBERO fine-tuners use). Powered
+evaluation: $100$ rollouts $\times$ $3$ evaluation seeds; \method{} averages
+its last three checkpoints, with two training seeds on the ketchup,
+orange-juice and red-mug tasks (seed spread $0.000$--$0.089$; treat
+same-size gaps as noise). \textbf{One shared recipe across all eight tasks}
+--- per-task tuning would raise our numbers (\cref{tab:eta-sweep}) but give
+us a budget the baselines lack. \emph{Reading rules:} each block's columns
+share that block's base, so comparisons are within-block only; bold marks
+the best fine-tuning method per row (never the no-RL reference, never across
+blocks). $\method{}_{\eta 1}$/$\method{}_{\eta 2}$ differ only in the reward
+step; the cross-base comparison is $\eta_Q{=}1$ against $\eta_Q{=}1$ (means
+$0.738$ and $0.756$), as the flow-matching $\eta_Q{=}2$ run does not exist.
+$^{\ddagger}$the four marked GRPO cells are provisional --- shorter runs
+under a single $20$-rollout evaluation --- so the GRPO mean mixes protocols
+($0.771$ over its four matched cells). ``---'' = unrun; row means with gaps
+are withheld. The multitask version of this comparison is
+\cref{tab:libero}.}
 \label{tab:libero-single}
 \footnotesize
 \setlength{\tabcolsep}{3.0pt}

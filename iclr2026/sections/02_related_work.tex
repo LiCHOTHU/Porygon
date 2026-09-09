@@ -8,22 +8,13 @@ likelihood ratios are intractable for diffusion and flow policies, and
 workarounds either reformulate the denoising chain as an MDP
 \citep{ren2024dppo,black2023ddpo} --- a construction with no analog for
 one-step generators --- or avoid likelihoods entirely
-\citep{park2025fql,reinflow2025,parl2024}. FPO
-\citep{mcallister2025flowmatchingpolicygradients} is the strongest form of
-the likelihood-free ratio: it replaces $\pi_\theta/\pi_{\theta_{\text{old}}}$
-with the exponentiated difference of per-sample conditional flow-matching
-losses, which the CFM--ELBO relationship makes a valid proxy, and it does
-so without perturbing the deployed policy. It is therefore the right
-policy-gradient method for a flow or diffusion policy --- but the
-surrogate is defined by a denoising loss over a flow time $\tau$, and a
-one-step drifting model has neither: its training objective is
-field-target regression, with no ELBO to bound. FPO also fine-tunes (or
-trains from scratch) the full policy on continuous-control suites, where
-we update a residual on a frozen base for manipulation. The two are
-complementary --- FPO makes the \emph{ratio} tractable, we make the
-\emph{critic} safe to follow --- and we regard evaluating FPO on a
-flow-matching base against our update as the clearest missing comparison
-in this paper. Closest to our setting, DICE-RL
+\citep{park2025fql,reinflow2025,parl2024}. FPO \citep{mcallister2025flowmatchingpolicygradients} is the strongest
+likelihood-free ratio --- it substitutes differences of conditional
+flow-matching losses for $\pi_\theta/\pi_{\theta_{\text{old}}}$, without
+perturbing the deployed policy --- but its surrogate requires a denoising
+loss over a flow time, which a one-step drifting model does not have. The
+two approaches are complementary: FPO makes the \emph{ratio} tractable, we
+make the \emph{critic} safe to follow. Closest to our setting, DICE-RL
 \citep{dicerl2026} fine-tunes a frozen one-step distillation of a
 flow-matching policy by training a residual head with a backpropagated
 critic and a filtered BC anchor; it is our primary baseline and the
@@ -36,17 +27,13 @@ RL for diffusion and flow policies divides into four families
 (Diffusion-QL, and DICE-RL's residual actor); ratio-based methods that make
 a likelihood tractable (DPPO, FPO); $Q$-weighted regression; and
 \emph{action-gradient} methods, which improve actions with $\nabla_a Q$ and
-then regress the policy onto the improved actions. \method{} belongs to the
-last family, and we want to be exact about what is and is not new in it.
-The primitive of displacing actions along $\nabla_a Q$ and regressing onto
-the result is \emph{not} ours: DIPO \citep{dipo2024} introduced it, updating
-replay-buffer actions by gradient ascent and fitting a diffusion policy to
-them, and QSM \citep{psenka2024qsm} reaches the same signal differently, by
-matching the policy's score to $\nabla_a Q$. What the family lacks --- and
-what the survey notes none of its members supply --- is any bound on how far
-that displacement may carry the policy, or any restoring force toward a
-behavior policy. That gap is also its documented weakness: action-gradient
-methods are reported to degrade when the critic's gradient is biased, and to
+then regress the policy onto the improved actions. \method{} belongs to the last family. Its primitive is not ours: DIPO
+\citep{dipo2024} updates replay-buffer actions by gradient ascent and fits a
+diffusion policy to them, and QSM \citep{psenka2024qsm} matches the policy's
+score to $\nabla_a Q$. What no member of the family supplies
+\citep{dprlsurvey2026} is a bound on how far the displacement may carry the
+policy or a restoring force toward a behavior policy --- and that gap is the
+family's documented weakness: degradation under biased critic gradients, and
 drift away from the behavior distribution.
 
 Our contribution is precisely that missing piece, and our ablations measure
