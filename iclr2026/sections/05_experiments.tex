@@ -950,7 +950,14 @@ $0.000$. The sparse column here is not interpretable --- the unconstrained
 arm returns 57 on one seed and 514 on the other --- so we draw no conclusion
 from it and report it only for completeness. What the dense column supports
 is the boundary claim: sparsity is not what causes the policy to leave the
-data, it is what removes any route back.}
+data, it is what removes any route back. The lower block stages the
+expansion: per task we report the demonstration average (what the distilled
+base should score), the best single demonstration (the bar an arm must clear
+to beat its data), and the SAC teacher's final return --- all measured, with
+the three arms training. Humanoid \emph{run} and manipulator bring-ball are
+excluded: their teachers plateaued at returns $10$ and $0.2$ respectively,
+below demonstration quality (the manipulator teacher is retraining at a
+$4$M-step budget).}
 \label{tab:dmc-scope}
 \small
 \resizebox{\linewidth}{!}{%
@@ -965,11 +972,13 @@ unconstrained transport      & 508 / 642 & 0.51 / 0.64 & no & 57 / 514 \\
 backprop $-Q$ (DICE-RL form) & 294 / 343 & 0.29 / 0.34 & no & 4 / 26 \\
 \method{}                    & \textbf{802} / 628 & \textbf{0.80} / 0.63 & s42 only & 23 / 12 \\
 \midrule
-\multicolumn{5}{p{0.95\linewidth}}{\emph{in progress, same three arms:
-dense/sparse pairs acrobot swingup (teacher retraining at a $10\times$ budget)
-and cartpole balance; dense-only harder robots walker run, quadruped run,
-humanoid walk, humanoid run, and manipulator bring-ball. Cells fill as each
-task's teacher, distilled base and arms complete.}} \\
+\multicolumn{5}{l}{\emph{new tasks, same three arms (training). Reference points measured from our data:}} \\
+\emph{task} & demo avg ($=$ base) & best demo (the bar) & SAC teacher & arms \\
+quadruped run              & 829 & 952  & 914 & training \\
+walker run                 & 522 & 706  & 691 & training \\
+humanoid walk              & 451 & 575  & 468 & training \\
+cartpole balance           & 931 & 1000 & 995 & training \\
+cartpole balance (sparse)  & 807 & 1000 & same teacher & training \\
 \bottomrule
 \end{tabular}}
 \end{table}
