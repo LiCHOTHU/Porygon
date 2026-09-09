@@ -189,7 +189,9 @@ cd "$DR" || exit 1
 for t in quadruped-run walker-run humanoid-walk cartpole-balance; do
   PD=$L/dmc-pretrain/${t}
   FINAL=$(ls $PD/checkpoint/state_*.pt 2>/dev/null | sed 's/.*state_//;s/\.pt//' | sort -n | tail -1)
-  if [ "${FINAL:-0}" -lt 3000 ]; then
+  # the dmc distill schedule is 600 epochs (not robomimic's 3000); gating on
+  # 3000 left the finished cartpole-balance distill unrecognized all night
+  if [ "${FINAL:-0}" -lt 600 ]; then
     go dmcP_${t} scripts/dice_rl_generic.sbatch dmc-pretrain $t pre_drifting_mlp 42 \
        logdir=$PD ++train.auto_resume=true
     echo "  (arms for $t wait on the distill)"; continue
@@ -210,7 +212,7 @@ echo "=== DMC sparse twin: cartpole-balance_sparse arms (share the dense distill
 cd "$DR" || exit 1
 PD=$L/dmc-pretrain/cartpole-balance
 FINAL=$(ls $PD/checkpoint/state_*.pt 2>/dev/null | sed 's/.*state_//;s/\.pt//' | sort -n | tail -1)
-if [ "${FINAL:-0}" -ge 3000 ]; then
+if [ "${FINAL:-0}" -ge 600 ]; then
   CKPT=$PD/checkpoint/state_${FINAL}.pt
   go dmc_balS_CAST scripts/dice_rl_generic.sbatch dmc-finetune cartpole-balance_sparse ft_distill_residual_drift_field_mlp 42 \
      base_policy_path=$CKPT logdir=$L/dmc-finetune/cartpole-balance_sparse_CAST ++train.auto_resume=true
