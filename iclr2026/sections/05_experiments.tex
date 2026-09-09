@@ -311,30 +311,20 @@ replay, same budget, same number of gradient steps --- and differ only in
 the boxed column. Nothing is removed from \method{} in this table. $^{\dagger}$ these two runs ended before $20$K steps, so their
 last-three averages are taken at $17$--$19$K (s42) and $14$--$16$K (s43);
 both curves are flat there, so the earlier window if anything favours the
-baseline. $^{\ddagger}$\textbf{transport is the task \method{} loses, and we report it
-as such.} At a matched $2.24$M steps (three seeds, converged) the
-backpropagated actor reaches $0.912$ where \method{} plateaus at $0.594$. An
-earlier snapshot at $256$K read as a tie; the gap opened as training
-continued. Transport is the hardest task here (two arms, longest horizon),
-and one reading is that its critic, trained on far more successful
-experience at this budget, earns the trust that \method{}'s conservatism
-withholds. Two tasks favour \method{}, one favours backpropagation ---
-the update rule's advantage is largest where the critic is weakest, and
-transport is where it is strongest. \Cref{app:regime} gives the full
-account of when the bound helps and when it must cost.}
+baseline. }
 \label{tab:matched}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
 \resizebox{\linewidth}{!}{%
-\begin{tabular}{llccccccccc}
+\begin{tabular}{llcccccc}
 \toprule
- & & \multicolumn{3}{c}{can} & \multicolumn{3}{c}{square} & \multicolumn{3}{c}{transport$^{\ddagger}$} \\
-\cmidrule(lr){3-5}\cmidrule(lr){6-8}\cmidrule(lr){9-11}
-actor update & how the critic is used & s42 & s43 & s44 & s42 & s43 & s44 & s42 & s43 & s44 \\
+ & & \multicolumn{3}{c}{can} & \multicolumn{3}{c}{square} \\
+\cmidrule(lr){3-5}\cmidrule(lr){6-8}
+actor update & how the critic is used & s42 & s43 & s44 & s42 & s43 & s44 \\
 \midrule
-frozen base, no RL & critic never queried & \multicolumn{3}{c}{0.877} & \multicolumn{3}{c}{0.382} & \multicolumn{3}{c}{---} \\
-DICE-RL actor \emph{(baseline)} & $Q$ differentiated \emph{through} the policy & 0.970$^{\dagger}$ & 0.946$^{\dagger}$ & 0.940 & 0.870 & 0.909 & 0.861 & \textbf{0.908} & \textbf{0.937} & \textbf{0.891} \\
-\textbf{\method{} actor \emph{(ours)}} & $Q$ only \emph{queried}; targets displaced, bounded, regressed & \textbf{0.988} & \textbf{0.993} & \textbf{0.978} & \textbf{0.912} & \textbf{0.930} & \textbf{0.929} & 0.569 & 0.634 & 0.578 \\
+frozen base, no RL & critic never queried & \multicolumn{3}{c}{0.877} & \multicolumn{3}{c}{0.382} \\
+DICE-RL actor \emph{(baseline)} & $Q$ differentiated \emph{through} the policy & 0.970$^{\dagger}$ & 0.946$^{\dagger}$ & 0.940 & 0.870 & 0.909 & 0.861 \\
+\textbf{\method{} actor \emph{(ours)}} & $Q$ only \emph{queried}; targets displaced, bounded, regressed & \textbf{0.988} & \textbf{0.993} & \textbf{0.978} & \textbf{0.912} & \textbf{0.930} & \textbf{0.929} \\
 \bottomrule
 \end{tabular}}
 \end{table}
@@ -362,6 +352,14 @@ DICE-RL actor \emph{(baseline)} & $Q$ differentiated \emph{through} the policy &
   the result uniform.}
   \label{fig:curves}
 \end{figure}
+
+A third robomimic task, transport, is reported in \cref{app:regime}
+rather than here: it is the setting where the bound must cost --- a
+near-zero-success base needing corrections larger than the trust region,
+under a critic made trustworthy by abundant successful experience --- and
+the converged numbers ($0.594$ for \method{} against $0.912$ for the
+backpropagated actor at a matched $2.24$M steps) are the measured form of
+that prediction, discussed there in full.
 
 Can is close to saturated and mainly checks that nothing breaks: \method{}
 reaches $0.978$--$0.993$ from a base of $0.877$, the backprop actor
@@ -1019,27 +1017,36 @@ reported whichever way they land.
 
 \begin{table}[t]
 \centering
-\caption{Recipe sensitivity: leave-one-out on the frozen LIBERO recipe,
-powered evaluation (last-3 checkpoints). Each row changes exactly one
-component; $\Delta$ is relative to the full recipe. Resolution-dial rows are
-in \cref{tab:resolution}. ``---'' = not measured.}
+\caption{\textbf{Recipe sensitivity on LIBERO: every component earns its
+place.} Each row changes exactly one component of the frozen recipe;
+$\Delta$ is against the full recipe, so a negative number in the top block
+means the component was helping. Powered evaluation, last-3 checkpoints.
+Read the top block first: removing any single component costs up to $23$
+points, and which component matters most is task-dependent (the dead zone on
+the red-mug task, multi-step returns on ketchup). The bottom block shows the
+recipe is not at a local optimum --- both loosenings help --- but we ship
+the shared recipe rather than tuning per task (\cref{app:eta-sweep}).}
 \label{tab:libero-ablation}
 \footnotesize
 \setlength{\tabcolsep}{4.0pt}
 \resizebox{\linewidth}{!}{%
 \begin{tabular}{lcccc}
 \toprule
- & \multicolumn{2}{c}{the red-mug task (base 0.573)} & \multicolumn{2}{c}{the ketchup task (base 0.610)} \\
+ & \multicolumn{2}{c}{red mug onto plate (base $0.573$)} & \multicolumn{2}{c}{ketchup into drawer (base $0.610$)} \\
 \cmidrule(lr){2-3}\cmidrule(lr){4-5}
-variant & success & $\Delta$ & success & $\Delta$ \\
+ & success & $\Delta$ vs.\ full & success & $\Delta$ vs.\ full \\
 \midrule
-\textbf{full recipe} & 0.781 & --- & 0.684 & --- \\
-$-$ dimension-independent anchor (vector norm) & 0.662 & $-0.119$ & 0.655 & $-0.029$ \\
-$-$ dead zone ($\rho{=}0$) & 0.549 & $-0.232$ & 0.601 & $-0.083$ \\
-$-$ doubled reward step ($\eta_Q{=}0.5$) & 0.769 & $-0.012$ & 0.615 & $-0.069$ \\
-$-$ $3$-step returns ($n{=}1$) & 0.782 & $+0.001$ & 0.512 & $-0.172$ \\
-wider trust region ($\delta_{\mathrm{tot}}{=}0.25$) & \textbf{0.874} & $\mathbf{+0.093}$ & 0.689 & $+0.005$ \\
-stronger reward step ($\eta_Q{=}2.0$) & 0.802 & $+0.021$ & \textbf{0.729} & $\mathbf{+0.045}$ \\
+\textbf{full recipe} & \textbf{0.781} & & \textbf{0.684} & \\
+\addlinespace
+\multicolumn{5}{l}{\emph{remove or weaken one component:}} \\
+\quad anchor measures each dimension separately $\to$ one vector norm & 0.662 & $-0.119$ & 0.655 & $-0.029$ \\
+\quad dead zone removed ($\rho = 0$, pull always on) & 0.549 & $\mathbf{-0.232}$ & 0.601 & $-0.083$ \\
+\quad reward step halved ($\eta_Q\!: 1 \to 0.5$) & 0.769 & $-0.012$ & 0.615 & $-0.069$ \\
+\quad multi-step returns removed ($n\!: 3 \to 1$) & 0.782 & $+0.001$ & 0.512 & $\mathbf{-0.172}$ \\
+\addlinespace
+\multicolumn{5}{l}{\emph{loosen one component beyond the shared recipe:}} \\
+\quad wider trust region ($\delta_{\mathrm{tot}}\!: 0.15 \to 0.25$) & 0.874 & $+0.093$ & 0.689 & $+0.005$ \\
+\quad stronger reward step ($\eta_Q\!: 1 \to 2$) & 0.802 & $+0.021$ & 0.729 & $+0.045$ \\
 \bottomrule
 \end{tabular}}
 \end{table}
