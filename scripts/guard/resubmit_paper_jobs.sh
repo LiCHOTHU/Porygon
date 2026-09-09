@@ -47,28 +47,20 @@ go () {  # name  command...
 }
 
 
+
 # ---------------------------------------------------------------------------
-# PRIORITY GATE. Table 1's diffusion base row is the blocking deliverable, and
-# the 54-job submission cap is shared: secondary work refilling it is what made
-# every base evaluation fail with QOSMaxSubmitJobPerUserLimit while 39 jobs
-# "ran". Until a base number exists, only the retrains, their evaluations and
-# the watchdog are resubmitted. Delete base_evals/ or touch the override file to
-# restore the full sweep.
-BASE_DONE=0
-for f in $L/base_evals/*/evaluation_results.csv; do
-  [ -f "$f" ] && grep -q pretrained "$f" 2>/dev/null && BASE_DONE=1
-done
-[ -f "$IM/scripts/guard/.run_all" ] && BASE_DONE=1
-if [ "$BASE_DONE" -eq 0 ]; then
-  echo "PRIORITY: no diffusion base number yet -- running only the base work."
-fi
-secondary () {  # skip a secondary section while the base is still outstanding
-  [ "$BASE_DONE" -eq 1 ] && return 1
-  echo "  (skipped: base row still outstanding)"
-  return 0
+# DMC FOCUS (user directive 2026-09-09): while any DMC distill or arm is
+# outstanding, only DMC work (and the transport_CASTloose diagnostic) is
+# resubmitted. Everything else is parked so fairshare priority flows to DMC.
+# Delete this flag file to restore the full sweep: touch scripts/guard/.dmc_only off
+DMC_ONLY=1
+secondary () {
+  [ "${DMC_ONLY:-0}" -eq 1 ] && { echo "  (parked: DMC focus)"; return 0; }
+  return 1
 }
 
 echo "=== robomimic long runs (dice-rl repo) ==="
+if ! secondary; then
 cd "$DR" || exit 1
 # dppo_b279 removed: superseded by nb_dppo on the 0.600 base.
 go dql_cast scripts/dice_rl_generic.sbatch finetune square ft_dql_diffusion_mlp 42 \
@@ -82,6 +74,7 @@ go square_dipoCAST_full scripts/dice_rl_generic.sbatch finetune square ft_dipo_d
    +train.anchor_to_base_radius=0.05 +train.action_trust_radius=0.15 \
    +train.keep_buffer_actions=true train.action_lr=0.005 ++train.auto_resume=true
 
+fi
 echo "=== table-7 square column, block (b) ==="
 if ! secondary; then
 go sq_regress_default scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp 42 \
@@ -95,6 +88,7 @@ go sq_rho0 scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_dr
    logdir=$D/sq_rho0 +model.field.restore_step_size=1.0 +model.field.restore_radius=0.0 ++train.auto_resume=true
 
 fi
+fi
 echo "=== LIBERO GRPO cells (matched to the ceiling recipe) ==="
 if ! secondary; then
 cd "$IM" || exit 1
@@ -103,6 +97,7 @@ for t in 8 21 73 81; do
   go grpoC_t${t} scripts/grpo_single_task.sbatch fm ${t} 10000 $CEIL
 done
 
+fi
 fi
 echo "=== table-2 transport (3 seeds x 2 arms) ==="
 go transport_CASTloose scripts/dice_rl_generic.sbatch finetune transport ft_distill_residual_drift_field_mlp 42 \
@@ -118,6 +113,7 @@ for sd in 42 43 44; do
      logdir=$D/transport_CAST_s${sd} ++train.auto_resume=true
 done
 
+fi
 fi
 echo "=== table-1 classic baselines on the 0.563 base ==="
 TD64=$P/square_pre_diffusion_mlp_ta4_td20/fixed_42/checkpoint/state_8000.pt
@@ -161,6 +157,7 @@ cd "$IM" || exit 1
 # sq64 rows are superseded by the nb_* runs on the 0.600 base.
 
 echo "=== gym dense-reward suite: pretrains, then the 8-arm fleet per env ==="
+if ! secondary; then
 cd "$DR" || exit 1
 for env in hopper-medium-v2 walker2d-medium-v2 halfcheetah-medium-v2; do
   short=$(echo $env | cut -d- -f1)
@@ -188,6 +185,7 @@ for env in hopper-medium-v2 walker2d-medium-v2 halfcheetah-medium-v2; do
 done
 cd "$IM" || exit 1
 
+fi
 echo "=== DMC distills for the four good teachers, then their three arms ==="
 cd "$DR" || exit 1
 for t in quadruped-run walker-run humanoid-walk cartpole-balance; do
