@@ -870,36 +870,6 @@ the constraint prevents the one-way step through the trapdoor that
 sparsity cannot undo.
 
 
-\begin{table}[t]
-\centering
-\caption{\textbf{Dense-reward suite (gym locomotion): the \cref{tab:baselines}
-roster under dense reward.} Hopper, Walker2d and HalfCheetah (medium D4RL
-data), the environments the diffusion-RL baselines' own papers report on; each
-method runs its official released configuration, and DICE-RL/\method{} share
-the same pretrained diffusion base per task. Scores are normalized episode
-return. Every method fine-tunes from the same epoch-$1000$ pretrained base
-per task (the official pretrain schedule runs to $3000$; BC quality saturates
-far earlier, and sharing one checkpoint keeps the eight-way comparison
-internally fair). All runs are training at the time of writing; cells fill as
-each converges, and no cell will be quoted before its curve supports it.}
-\label{tab:gym-dense}
-\small
-\begin{tabular}{lccc}
-\toprule
-method & hopper & walker2d & halfcheetah \\
-\midrule
-DIPO   & training & training & training \\
-QSM    & training & training & training \\
-DQL    & training & training & training \\
-IDQL   & training & training & training \\
-AWR    & training & training & training \\
-DPPO   & training & training & training \\
-\midrule
-diffusion $+$ DICE-RL              & training & training & training \\
-diffusion $+$ DICE-RL $+$ \method{} & training & training & training \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 \begin{table}[t]
 \centering
