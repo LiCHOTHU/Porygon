@@ -923,14 +923,23 @@ $0.000$. The sparse column here is not interpretable --- the unconstrained
 arm returns 57 on one seed and 514 on the other --- so we draw no conclusion
 from it and report it only for completeness. What the dense column supports
 is the boundary claim: sparsity is not what causes the policy to leave the
-data, it is what removes any route back. The lower block stages the
-expansion: per task we report the demonstration average (what the distilled
-base should score), the best single demonstration (the bar an arm must clear
-to beat its data), and the SAC teacher's final return --- all measured, with
-the three arms training. Humanoid \emph{run} and manipulator bring-ball are
-excluded: their teachers plateaued at returns $10$ and $0.2$ respectively,
-below demonstration quality (the manipulator teacher is retraining at a
-$4$M-step budget).}
+data, it is what removes any route back. The lower block reports the expansion in progress, one seed per arm.
+``base'' is the \emph{measured} return of the distilled base, with the
+demonstration average it was distilled from in parentheses --- on
+cartpole-balance the distill preserves far less of the teacher than on
+swingup, so gains must be read against the measured base.
+$^{\circ}$still training, quoted at the current budget;
+$^{\mathrm{v}}$high evaluation variance ($490$--$908$ across its last five).
+The one converged cell is the sparse \method{} arm: at the $1000$ ceiling ---
+the maximum return the environment can emit --- for five consecutive
+evaluations spanning $100$K steps, from a base of $90$.
+$^{\mathrm{d}}$the walker and humanoid bases lost nearly all teacher
+performance in distillation ($17$ from a $691$ teacher; $1$ from $468$);
+those rows currently measure the distill, not the fine-tuner, and a longer
+distill is running. Unconstrained-arm cells fill as those runs mature.
+Humanoid \emph{run} and manipulator bring-ball are excluded: their teachers
+plateaued at $10$ and $0.2$ (the manipulator teacher is retraining at
+$4$M steps).}
 \label{tab:dmc-scope}
 \small
 \resizebox{\linewidth}{!}{%
@@ -945,13 +954,13 @@ unconstrained transport      & 508 / 642 & 0.51 / 0.64 & no & 57 / 514 \\
 backprop $-Q$ (DICE-RL form) & 294 / 343 & 0.29 / 0.34 & no & 4 / 26 \\
 \method{}                    & \textbf{802} / 628 & \textbf{0.80} / 0.63 & s42 only & 23 / 12 \\
 \midrule
-\multicolumn{5}{l}{\emph{new tasks, same three arms (training). Reference points measured from our data:}} \\
-\emph{task} & demo avg ($=$ base) & best demo (the bar) & SAC teacher & arms \\
-quadruped run              & 829 & 952  & 914 & training \\
-walker run                 & 522 & 706  & 691 & training \\
-humanoid walk              & 451 & 575  & 468 & training \\
-cartpole balance           & 931 & 1000 & 995 & training \\
-cartpole balance (sparse)  & 807 & 1000 & same teacher & training \\
+\multicolumn{5}{l}{\emph{new tasks, single seed, quoted at the current budget ($200$--$260$K steps)$^{\circ}$:}} \\
+\emph{task} & base (demo avg) & backprop $-Q$ & \method{} & unconstrained \\
+cartpole balance           & 378 (931) & \textbf{834}$^{\circ}$ & 823$^{\circ}$ & --- \\
+cartpole balance (sparse)  & 90 (807)  & 795$^{\circ\mathrm{v}}$ & \textbf{1000} & --- \\
+quadruped run              & 238 (829) & 267$^{\circ}$ & 246$^{\circ}$ & --- \\
+walker run                 & 17 (522)$^{\mathrm{d}}$  & 29$^{\circ}$ & 23$^{\circ}$ & --- \\
+humanoid walk              & 1 (451)$^{\mathrm{d}}$   & 1$^{\circ}$  & 1$^{\circ}$  & --- \\
 \bottomrule
 \end{tabular}}
 \end{table}
