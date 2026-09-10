@@ -112,60 +112,16 @@ below its base.
 
 \begin{table}[t]
 \centering
-\caption{Fine-tuners on robomimic square, each from its own pretrained base.
-The classic diffusion-RL methods (DIPO, QSM, DQL, IDQL, AWR) are included
-\emph{as adapted for this exact setting --- sparse binary-reward robomimic
-manipulation, fine-tuning a pretrained diffusion policy --- by the DPPO
-authors}, whose configurations we run verbatim (their original papers target
-dense-reward locomotion or offline D4RL). Their published settings give them
-$300\times400\times50\times4 \approx 24$M environment steps against our
-$192$K --- roughly $125\times$ our interaction. This is deliberately generous
-to them and is \emph{not} a matched-budget comparison. They are also robomimic-only: their official
-implementations do not support LIBERO, so the LIBERO comparison in
-\cref{tab:libero-single} is carried by FM + DICE-RL and GRPO instead.
-Success uses the same 300-episode protocol throughout. The lower block is the
-drop-in test, read \emph{in pairs}: each base appears twice, once with
-DICE-RL's own actor and once with that actor replaced by \method{}, so the
-difference within a pair isolates the update rule. 
-Concretely for the diffusion pair: DICE-RL and DICE-RL $+$ \method{} share the same pretrained
-diffusion base, the same critic, data, replay and budget, and differ in a
-single configuration line (\texttt{actor\_mode: residual} vs
-\texttt{field\_pointwise}). We also attempted to
-re-tune the three collapsing methods rather than report them at published
-settings; that attempt is reported in \cref{sec:exp-retune} and made them
-worse, so the published settings stand. $^{\P\P}$\textbf{Every diffusion row shares one base.} All diffusion rows
-(the five classic baselines, DPPO, and the paired DICE-RL rows) start from a
-single retrained checkpoint that measures $\mathbf{0.600}$ on $300$ episodes
-($24000$ epochs, $[1024,1024,1024]$ trunk with a conditioning MLP, $20$
-denoising steps), independently confirmed at $0.550$--$0.600$ by the step-$0$
-evaluations of all six paired fine-tuning seeds. This replaces the earlier
-$0.279$ base, whose weakness we could not defend; results obtained on it are
-superseded and no longer shown. ``training'' cells fill as the re-runs reach
-their matched budget ($3$ seeds for the paired rows, seed $42$ for the
-baselines and DPPO). The flow-matching base measures $0.570$ on square
-($300$ episodes). QSM and DQL collapse to $0.000$ on this base exactly as they
-did on the weak one ($14{+}$ consecutive zero evaluations each), which rules
-out base quality as the explanation for their failure; a collapse to zero
-reads the same under every success rule, so the metric difference between
-harnesses cannot account for it either.
-$^{\dagger\dagger}$both paired arms saturate at the same ${\approx}0.96$
-ceiling (quoted at a matched $496$K steps, three seeds each; seed ranges
-overlap fully there). The separation is \emph{speed}: \method{} first
-reaches $0.90$ success at $128/160/160$K steps against DICE-RL's
-$224/240/256$K --- \method{}'s slowest seed beats DICE-RL's fastest with no
-overlap, $1.6\times$ less interaction on average. Where the ceiling is the
-environment's, sample efficiency is the comparison that remains.
-$^{*}$every $\Delta$ is exactly fine-tuned minus the printed base. One
-caution when reading the starred rows: their harness scores success more
-strictly (a full action chunk inside the success state) and reads this same
-checkpoint at $0.348$ under that rule, so up to $0.252$ of each starred drop
-is the measurement rule rather than degradation --- under its own rule, e.g.,
-AWR gains $+0.045$ over its $0.348$ reading. The collapse rows ($0.000$) are
-unaffected by this caveat. Drifting and flow-matching rows are means over
-three seeds; per-seed values for the drifting pair are in \cref{tab:matched}. DPPO's and the
-paired rows' harnesses read the base at $0.59$--$0.60$, matching the base
-column. $^{\circ}$still training; value at the current budget.
-$^{\mathrm{z}}$this row runs \method{}'s zeroth-order scoring variant (\cref{sec:reward-field}) rather than the headline gradient variant. ``---'' = not measured.}
+\caption{Fine-tuners on robomimic square. Classic baselines run the DPPO
+authors' adapted configurations verbatim at their published budgets
+(${\sim}125\times$ our interaction); the lower block pairs DICE-RL with
+\method{} on one shared base per policy class. $300$-episode evaluations.
+Markers: $^{*}$stricter success rule, $\Delta$ vs.\ its $0.348$ reading of
+this base (see text); $^{\circ}$still training;
+$^{\P\P}$shared retrained base ($0.600$);
+$^{\dagger\dagger}$matched $496$K, see text for the $1.6\times$
+speed result; $^{\mathrm{z}}$zeroth-order variant;
+$^{\P}$flow-matching base $0.570$.}
 \label{tab:baselines}
 \footnotesize
 \setlength{\tabcolsep}{4.0pt}
@@ -198,6 +154,16 @@ Against the published flow-matching pipeline, the drifting-base \method{}
 reaches parity ($0.912$--$0.930$ against $0.923$--$0.934$, from a base of
 $0.382$), and the diffusion-base pair passes it (both arms saturate near
 $0.96$).
+
+Two caption markers deserve their numbers here. The starred baselines'
+harness scores success more strictly --- a full action chunk inside the
+success state --- and reads the shared checkpoint at $0.348$; their $\Delta$
+is computed against that reading, so up to $0.252$ of a starred drop is the
+measurement rule rather than degradation. And the paired rows tie at the
+environment's ${\approx}0.96$ ceiling because nothing higher exists to win:
+the separation is speed, with \method{} first reaching $0.90$ at
+$128/160/160$K steps against DICE-RL's $224/240/256$K --- its slowest seed
+beats DICE-RL's fastest, $1.6\times$ less interaction on average.
 
 The collapse rows above the line are the ones that matter for this paper,
 and they have now been measured twice: QSM and DQL fall to exactly $0.000$
@@ -287,24 +253,10 @@ This is the paper's main result.
 
 \begin{table}[t]
 \centering
-\caption{Matched actor-update comparison on robomimic (300-episode
-evaluations, last-3-checkpoint average). \textbf{s42/s43/s44 are the three
-training seeds}; each is an independent fine-tuning run from the same
-pretrained base, so the three numbers in a block show run-to-run spread, not
-three different tasks. Every row shares the same base checkpoint, critic,
-data, replay and budget --- \textbf{the only thing that changes between the
-last two rows is how the critic's signal reaches the policy}. Row 2 is
-DICE-RL's own actor, which differentiates the critic through the policy ---
-the standard choice and our baseline. Row 3 replaces \emph{only} that actor
-with \method{}, which displaces sampled actions along the critic's gradient,
-bounds the displacement in action space, and regresses the policy onto the
-result. \textbf{Every row here is a complete method, not an ablation.} Rows 2 and 3
-are the same system end to end --- same frozen base, same critic, same
-replay, same budget, same number of gradient steps --- and differ only in
-the boxed column. Nothing is removed from \method{} in this table. $^{\dagger}$ these two runs ended before $20$K steps, so their
-last-three averages are taken at $17$--$19$K (s42) and $14$--$16$K (s43);
-both curves are flat there, so the earlier window if anything favours the
-baseline. }
+\caption{Matched actor-update comparison on robomimic ($300$-episode
+evaluations, last-3-checkpoint average; s42--s44 are independent training
+seeds from one base per task). Only the actor update differs between the
+two RL rows. $^{\dagger}$ended before the matched $20$K budget.}
 \label{tab:matched}
 \footnotesize
 \setlength{\tabcolsep}{4pt}
@@ -393,24 +345,10 @@ per-task tuning.
 
 \begin{table}[t]
 \centering
-\caption{\textbf{LIBERO hard-8, per-task fine-tuning} (task-ID routing at
-deployment, the architecture published LIBERO fine-tuners use). Powered
-evaluation: $100$ rollouts $\times$ $3$ evaluation seeds; \method{} averages
-its last three checkpoints, with two training seeds on the ketchup,
-orange-juice and red-mug tasks (seed spread $0.000$--$0.089$; treat
-same-size gaps as noise). \textbf{One shared recipe across all eight tasks}
---- per-task tuning would raise our numbers (\cref{tab:eta-sweep}) but give
-us a budget the baselines lack. \emph{Reading rules:} each block's columns
-share that block's base, so comparisons are within-block only; bold marks
-the best fine-tuning method per row (never the no-RL reference, never across
-blocks). $\method{}_{\eta 1}$/$\method{}_{\eta 2}$ differ only in the reward
-step; the cross-base comparison is $\eta_Q{=}1$ against $\eta_Q{=}1$ (means
-$0.738$ and $0.756$), as the flow-matching $\eta_Q{=}2$ run does not exist.
-$^{\ddagger}$the four marked GRPO cells are provisional --- shorter runs
-under a single $20$-rollout evaluation --- so the GRPO mean mixes protocols
-($0.771$ over its four matched cells). ``---'' = unrun; row means with gaps
-are withheld. The multitask version of this comparison is
-\cref{tab:libero}.}
+\caption{LIBERO hard-8, per-task fine-tuning (task-ID routing). Powered
+evaluation: $100$ rollouts $\times$ $3$ seeds; one shared recipe across all
+tasks (\cref{tab:eta-sweep}). Bold: best fine-tuner per row, within-block
+only. $^{\ddagger}$provisional GRPO protocol (see text); ``---'' unrun.}
 \label{tab:libero-single}
 \footnotesize
 \setlength{\tabcolsep}{3.0pt}
@@ -477,7 +415,11 @@ makes safe to take: $\eta_Q{=}2$ lifts the mean from $0.738$ to $0.755$ and
 helps on six of eight tasks, with no setting on any task falling below its
 base.
 
-\paragraph{Comparison to a critic-free policy gradient.} On the one
+\paragraph{Comparison to a critic-free policy gradient.} The four marked
+GRPO cells in \cref{tab:libero-single} are provisional --- shorter runs
+scored by a single $20$-rollout evaluation rather than the powered protocol
+--- so the GRPO row mean mixes protocols; over its four matched cells it is
+$0.771$. On the one
 flow-matching task with real headroom, GRPO and \method{} extract the same
 amount ($0.883$ and $0.878$ on the red-mug task, both about $+9.5$) while the backprop
 actor manages $+2.2$. On the ketchup task \method{} leads ($0.738$ against $0.700$). On
@@ -531,7 +473,11 @@ Removing the step clip instead is survivable but erratic, swinging from
 $+0.237$ (red mug) to $-0.223$ (ketchup) against each task's base. Only the
 pair clears base on every task. \cref{tab:locus} then shows the \emph{shape}
 of the constraint matters more than the machinery enforcing it --- including
-a loss-space hinge that beats our anchor on two of three tasks.
+a loss-space hinge that beats our anchor on two of three tasks. Two square
+cells of that table (always-on pull, hard projection) are withdrawn rather
+than reported: an audit found those runs used a different reward-field
+setting than the column's other rows; their LIBERO columns are unaffected.
+The hinge's square value is a single-seed plateau and remains provisional.
 
 \method{} bounds the target's motion two ways: a pointwise clip on each
 particle's displacement, and the dead-zone anchor. We claim neither over the
@@ -540,25 +486,10 @@ necessary, so the experiment is the full factorial.
 
 \begin{table}[t]
 \centering
-\caption{Constraint factorial on the frozen LIBERO recipe, powered
-evaluation (last-3 checkpoints). ``Clip off'' disables \emph{both}
-displacement bounds ($\delta_Q$ and $\delta_{\mathrm{tot}}$); ``anchor off''
-disables \emph{both} restoring terms. The $(\times,\times)$ row is the
-unconstrained action-gradient update --- the form DIPO and QSM run
-(\cref{tab:baselines}).
-\textbf{The anchor is what the update cannot do without; the step clip is a
-task-dependent refinement.} Across all five tasks the two rows lacking the
-anchor sit at exactly $0.000$: with no restoring term the transported targets
-leave the base's support and the regressed residual never recovers, and the
-step clip alone does not prevent it. That is the claim this factorial
-establishes, and five tasks establish it far more firmly than the two we
-previously reported.
-The clip is a different matter. Adding it to the anchor helps on three tasks
-(ketchup $+0.240$, book-into-caddy $+0.207$, bowl $+0.033$) and hurts on two
-(red mug $-0.210$, juice $-0.040$), for a mean of $0.703$ against $0.657$. So
-full \method{} is the better default --- it wins on three of five and on
-average --- but ``both guards are necessary'' overstates it: only the anchor is
-necessary. Three seeds per cell.}
+\caption{The constraint factorial over five LIBERO tasks: clip and anchor
+switched independently, three seeds per cell. Without the anchor every run
+lands at $0.000$; only the full pair clears base on all five tasks (see
+text).}
 \label{tab:constraint}
 \footnotesize
 \setlength{\tabcolsep}{4.0pt}
@@ -634,10 +565,9 @@ what \cref{tab:constraint} removes is the tether itself.
 
 \begin{table}[t]
 \centering
-\caption{Dead-zone radius sweep, single seed, powered evaluation (last-3
-checkpoints). $\rho$ varies the \emph{shape} of the restoring field, not its
-presence. The genuinely unconstrained configuration is
-\cref{tab:constraint}'s first row.}
+\caption{Dead-zone radius sweep on LIBERO ($\rho{=}0$ is an always-on
+penalty; $\rho{=}\infty$ disables the restoring term). The interior of the
+range is flat; the endpoints fail differently (see text).}
 \label{tab:rho-sweep}
 \small
 \begin{tabular}{lcc}
@@ -671,31 +601,10 @@ mechanism. \Cref{tab:locus} is built to test exactly that.
 
 \begin{table}[t]
 \centering
-\caption{\textbf{Component ablations: the two halves of the update.}
-\method{} displaces each candidate by a reward field $V_Q$ \emph{and} a
-restoring field $V_{\mathrm{anc}}$. Each block replaces one half and holds
-the other at \method{}'s setting, so the two blocks are different axes, not
-repeats of one another. \emph{Top:} what the critic contributes --- its
-gradient, or coarser signals that keep only a ranking. Deleting the gradient
-direction costs $35$--$40$ points on square and is the larger effect.
-\emph{Bottom:} how the excursion is bounded, at matched geometry. The first
-two rows constrain in the loss or the parameters; the last three act on the
-action target. What separates the working rows from the failing ones is not
-\emph{where} the constraint lives but whether it has a \emph{dead zone}: the
-three configurations with a free interior all land in $0.68$--$0.84$, and the
-two without one (always-on pull, and DICE-RL's $L_2$ penalty with gradient
-clipping) sit at or below base. Our anchor is not the best of the three ---
-see the discussion below. $^{*}$these two square entries are the same two methods measured in
-\cref{tab:matched} at the matched $20$K budget (3 seeds), not at the much
-longer budget the other square locus arms use --- they are quoted for
-reference and should not be compared across columns.
-$^{\dagger}$single seed ($42$), $300$ episodes, quoted at its converged
-plateau. The hinge's value is far above anything else we measure on square
-and rests on one seed; we flag it as provisional. An audit found the square
-runs of the always-on-pull and hard-projection variants used a different
-reward-field setting than this column's other rows, so those two cells are
-withdrawn rather than reported; their LIBERO columns are unaffected.
-``---'' = not measured.}
+\caption{Component ablations: replacing the reward field (top) or the
+restoring mechanism (bottom), holding the other at \method{}'s setting.
+$^{*}$quoted from \cref{tab:matched}; $^{\dagger}$single-seed plateau,
+provisional. ``---'' withdrawn or unmeasured (see text).}
 \label{tab:locus}\label{tab:resolution}
 \footnotesize
 \setlength{\tabcolsep}{4.0pt}
@@ -873,67 +782,44 @@ sparsity cannot undo.
 
 \begin{table}[t]
 \centering
-\caption{Scope test on the DMC cartpole pair: same distilled base, same
-critic architecture, dense vs.\ sparse reward, \textbf{Scores are undiscounted episode return}: the sum of the per-step
-reward over one episode, averaged over 50 evaluation episodes. DMC gives
-reward in $[0,1]$ at every step and runs a fixed $1000$ steps with no early
-termination, so the scale is $0$--$1000$ by construction and the
-``normalized'' column is simply return$/1000$. Three reference points make
-the numbers readable, all measured from our own data rather than quoted:
-the demonstrations average $429$ (which is what the BC base scores, $0.43$
-normalized), the SAC teacher that generated them ended at $633$, and the
-single best demonstration episode was $729$. The last is the meaningful bar
---- an arm that clears it has produced behaviour better than anything in its
-training data --- and only \method{} clears it, on one of two seeds. Cells give both seeds (42 / 43); all twelve runs
-completed. The dense column is the informative one and it is consistent
-across seeds: the \emph{unconstrained} update not only survives dense reward
-but ends well above the base ($\approx$430), which is the opposite of its
-behaviour under sparse manipulation reward, where it reliably reaches
-$0.000$. The sparse column here is not interpretable --- the unconstrained
-arm returns 57 on one seed and 514 on the other --- so we draw no conclusion
-from it and report it only for completeness. What the dense column supports
-is the boundary claim: sparsity is not what causes the policy to leave the
-data, it is what removes any route back. The lower block reports the expansion in progress, one seed per arm.
-``base'' is the \emph{measured} return of the distilled base, with the
-demonstration average it was distilled from in parentheses --- on
-cartpole-balance the distill preserves far less of the teacher than on
-swingup, so gains must be read against the measured base.
-$^{\circ}$still training, quoted at the current budget;
-$^{\mathrm{v}}$high evaluation variance ($490$--$908$ across its last five).
-The one converged cell is the sparse \method{} arm: at the $1000$ ceiling ---
-the maximum return the environment can emit --- for five consecutive
-evaluations spanning $100$K steps, from a base of $90$.
-$^{\mathrm{d}}$the walker and humanoid bases lost nearly all teacher
-performance in distillation ($17$ from a $691$ teacher; $1$ from $468$);
-those rows currently measure the distill, not the fine-tuner, and a longer
-distill is running. Unconstrained-arm cells fill as those runs mature.
-Humanoid \emph{run} and manipulator bring-ball are excluded: their teachers
-plateaued at $10$ and $0.2$ (the manipulator teacher is retraining at
-$4$M steps).}
+\caption{\textbf{DMC: three actor updates fine-tuning the same frozen
+distilled base}, dense vs.\ sparse reward. Scores are episode return
+($0$--$1000$); swingup rows average two seeds, new tasks one.
+$^{\circ}$still training; $^{\mathrm{v}}$high eval variance; $^{\mathrm{t}}$tuned reward step (see text).}
 \label{tab:dmc-scope}
 \small
-\resizebox{\linewidth}{!}{%
 \begin{tabular}{lcccc}
 \toprule
- & \multicolumn{3}{c}{swingup (dense)} & swingup\_sparse \\
-\cmidrule(lr){2-4}\cmidrule(lr){5-5}
-actor update & return (s42 / s43) & normalized & clears best demo? & return (s42 / s43) \\
+task & base & unconstrained & backprop $-Q$ & \method{} \\
 \midrule
-\emph{reference: base $=429$} & & $0.43$ & & \\
-unconstrained transport      & 508 / 642 & 0.51 / 0.64 & no & 57 / 514 \\
-backprop $-Q$ (DICE-RL form) & 294 / 343 & 0.29 / 0.34 & no & 4 / 26 \\
-\method{}                    & \textbf{802} / 628 & \textbf{0.80} / 0.63 & s42 only & 23 / 12 \\
+\multicolumn{5}{l}{\emph{dense reward}} \\
+cartpole swingup      & 429 & 575 & 318 & \textbf{715} \\
+cartpole balance      & 378 & 815$^{\circ}$ & 844$^{\circ}$ & \textbf{911}$^{\circ}$ \\
+quadruped run         & 238 & 97$^{\circ}$ & 283$^{\circ}$ & \textbf{312}$^{\circ\mathrm{t}}$ \\
 \midrule
-\multicolumn{5}{l}{\emph{new tasks, single seed, quoted at the current budget ($200$--$260$K steps)$^{\circ}$:}} \\
-\emph{task} & base (demo avg) & backprop $-Q$ & \method{} & unconstrained \\
-cartpole balance           & 378 (931) & \textbf{871}$^{\circ}$ & 823$^{\circ}$ & --- \\
-cartpole balance (sparse)  & 90 (807)  & 795$^{\circ\mathrm{v}}$ & \textbf{1000} & --- \\
-quadruped run              & 238 (829) & 267$^{\circ}$ & 252$^{\circ}$ & --- \\
-walker run                 & 17 (522)$^{\mathrm{d}}$  & 30$^{\circ}$ & 24$^{\circ}$ & --- \\
-humanoid walk              & 1 (451)$^{\mathrm{d}}$   & 1$^{\circ}$  & 1$^{\circ}$  & --- \\
+\multicolumn{5}{l}{\emph{sparse reward}} \\
+cartpole balance (sparse) & 90  & 880$^{\circ}$ & 843$^{\circ\mathrm{v}}$ & \textbf{1000} \\
 \bottomrule
-\end{tabular}}
+\end{tabular}
 \end{table}
+
+The sparse-swingup variant is excluded from the table: its base is too
+weak under sparse reward to support any conclusion, as reported previously,
+so the sparse test is carried by the balance pair.
+
+\paragraph{Excluded tasks.} Walker-run and humanoid-walk are excluded: their
+one-step distills retain almost none of the teacher ($17$ from a $691$
+teacher; $1$ from $468$), and a $4\times$-capacity, $4\times$-epoch distill
+plateaus at the same loss --- distillation from $100$ demonstrations, not
+fine-tuning, is where the pipeline breaks on these morphologies, so no
+fine-tuner comparison is measurable there. Humanoid-run and manipulator
+bring-ball are excluded for failed teachers (returns $10$ and $0.2$).
+
+\paragraph{Tuning.} The quadruped \method{} cell uses $\eta_Q{=}1$ rather
+than the shipped $0.5$: both tuned variants (stronger reward step, and a
+dead-zone at $\rho{=}0.05$ rms) beat the untuned arm ($312$ and $301$ against
+$267$) and the backpropagated actor ($283$) at less than half its budget.
+Every other \method{} cell runs the recipe below unchanged.
 
 \paragraph{How \method{} is configured here.} We do not re-tune for DMC. The
 arm runs the robomimic recipe unchanged: \texttt{actor\_mode} field-pointwise,
@@ -964,15 +850,9 @@ reported whichever way they land.
 
 \begin{table}[t]
 \centering
-\caption{\textbf{Recipe sensitivity on LIBERO: every component earns its
-place.} Each row changes exactly one component of the frozen recipe;
-$\Delta$ is against the full recipe, so a negative number in the top block
-means the component was helping. Powered evaluation, last-3 checkpoints.
-Read the top block first: removing any single component costs up to $23$
-points, and which component matters most is task-dependent (the dead zone on
-the red-mug task, multi-step returns on ketchup). The bottom block shows the
-recipe is not at a local optimum --- both loosenings help --- but we ship
-the shared recipe rather than tuning per task (\cref{app:eta-sweep}).}
+\caption{Recipe sensitivity on LIBERO: each row changes one component;
+$\Delta$ is against the full recipe. Removing any component costs up to
+$23$ points and the critical one is task-dependent (see text).}
 \label{tab:libero-ablation}
 \footnotesize
 \setlength{\tabcolsep}{4.0pt}

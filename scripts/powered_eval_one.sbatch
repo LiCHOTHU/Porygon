@@ -15,7 +15,9 @@
 
 # Powered eval of a SINGLE checkpoint (one target) so it fits in one 8h segment.
 # 100 rollouts/env x 3 seeds (300/task) over hard-8 = 2400 rollouts (~7h).
-# Pass via --export:  CELL, LABEL, CKPT
+# Pass via --export:  CELL, LABEL, CKPT [, TASKS]
+# TASKS defaults to the full hard-8 list; single-task arms MUST pass their
+# own task (e.g. TASKS=[65]) or the average is diluted by 7 unseen tasks.
 # Gap vs BC is computed offline against the already-stored powered_eval_2x2_${CELL}.json BC row.
 
 CONDA_ENV="porygon"
@@ -36,7 +38,7 @@ echo "[$(date)] START powered_eval_one CELL=${CELL} LABEL=${LABEL} CKPT=${CKPT}"
 
 python scripts/powered_eval.py \
   ++targets="[['${LABEL}','${CKPT}']]" \
-  ++task_indices=[8,21,32,53,65,73,75,81] \
+  ++task_indices=${TASKS:-[8,21,32,53,65,73,75,81]} \
   ++n_seeds=3 \
   ++base_seed=1000 \
   ++rollouts_per_env=100 \

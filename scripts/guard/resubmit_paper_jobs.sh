@@ -30,10 +30,13 @@ go () {
 echo "=== DMC teachers still needed ==="
 cd "$IM" || exit 1
 [ -f "$DMC/demos_manipulator_bring_ball.npz" ] || go dmcT_manip_ball scripts/dmc_new_task.sbatch manipulator bring_ball 4000000
+[ -f "$DMC/demos_finger_spin.npz" ] || go dmcT_finger_spin scripts/dmc_new_task.sbatch finger spin 500000
+[ -f "$DMC/demos_ball_in_cup_catch.npz" ] || go dmcT_bic_catch scripts/dmc_new_task.sbatch ball_in_cup catch 400000
+[ -f "$DMC/demos_reacher_hard.npz" ] || go dmcT_reacher_hard scripts/dmc_new_task.sbatch reacher hard 400000
 
 echo "=== DMC distills (600 epochs), then three arms per task ==="
 cd "$DR" || exit 1
-for t in quadruped-run walker-run humanoid-walk cartpole-balance; do
+for t in quadruped-run cartpole-balance; do   # walker/humanoid deleted: distillation-infeasible
   PD=$L/dmc-pretrain/${t}
   FINAL=$(ls $PD/checkpoint/state_*.pt 2>/dev/null | sed 's/.*state_//;s/\.pt//' | sort -n | tail -1)
   if [ "${FINAL:-0}" -lt 600 ]; then
@@ -66,6 +69,23 @@ if [ "${FINAL:-0}" -ge 600 ]; then
      model.field.bc_step_size=0.0 ++model.field.restore_step_size=0.0 \
      logdir=$L/dmc-finetune/cartpole-balance_sparse_FREE ++train.auto_resume=true
 fi
+
+echo "=== tuned CAST variants (quadruped, balance) and wide rescue distills ==="
+cd "$DR" || exit 1
+QP=$L/dmc-pretrain/quadruped-run/checkpoint/state_600.pt
+BPC=$L/dmc-pretrain/cartpole-balance/checkpoint/state_600.pt
+go dmcT_quad_e2 scripts/dice_rl_generic.sbatch dmc-finetune quadruped-run ft_distill_residual_drift_field_mlp 42 \
+  base_policy_path=$QP model.field.q_step_size=1.0 \
+  logdir=$L/dmc-finetune/quadruped-run_CASTe2 ++train.auto_resume=true
+go dmcT_quad_dz scripts/dice_rl_generic.sbatch dmc-finetune quadruped-run ft_distill_residual_drift_field_mlp 42 \
+  base_policy_path=$QP ++model.field.restore_radius=0.05 ++model.field.restore_radius_rms=true \
+  model.field.total_max_norm=0.25 \
+  logdir=$L/dmc-finetune/quadruped-run_CASTdz ++train.auto_resume=true
+go dmcT_bal_e2 scripts/dice_rl_generic.sbatch dmc-finetune cartpole-balance ft_distill_residual_drift_field_mlp 42 \
+  base_policy_path=$BPC model.field.q_step_size=1.0 \
+  logdir=$L/dmc-finetune/cartpole-balance_CASTe2 ++train.auto_resume=true
+# dmcP3 wide distills run LOCALLY (do not resubmit; logdirs owned by local run)
+cd "$IM" || exit 1
 
 echo "=== transport leash diagnostic (answers whether the bound caps CAST there) ==="
 go transport_CASTloose scripts/dice_rl_generic.sbatch finetune transport ft_distill_residual_drift_field_mlp 42 \
