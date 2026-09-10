@@ -69,7 +69,7 @@ fi
 
 echo "=== transport leash diagnostic (answers whether the bound caps CAST there) ==="
 go transport_CASTloose scripts/dice_rl_generic.sbatch finetune transport ft_distill_residual_drift_field_mlp 42 \
-   +model.field.restore_radius=0.15 model.field.total_max_norm=0.45 \
+   ++model.field.restore_radius=0.15 model.field.total_max_norm=0.45 \
    logdir=$D/transport_CASTloose_s42 ++train.auto_resume=true
 
 if [ "$DMC_ONLY" -eq 0 ]; then
