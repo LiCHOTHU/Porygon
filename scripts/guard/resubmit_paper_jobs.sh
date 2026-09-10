@@ -48,7 +48,7 @@ for t in quadruped-run walker-run humanoid-walk cartpole-balance; do
      base_policy_path=$CKPT logdir=$L/dmc-finetune/${t}_BP ++train.auto_resume=true
   go dmc_${t}_FREE scripts/dice_rl_generic.sbatch dmc-finetune $t ft_distill_residual_drift_field_mlp 42 \
      base_policy_path=$CKPT model.field.total_max_norm=1e9 +model.field.q_max_norm=1e9 \
-     model.field.bc_step_size=0.0 +model.field.restore_step_size=0.0 \
+     model.field.bc_step_size=0.0 ++model.field.restore_step_size=0.0 \
      logdir=$L/dmc-finetune/${t}_FREE ++train.auto_resume=true
 done
 
@@ -63,7 +63,7 @@ if [ "${FINAL:-0}" -ge 600 ]; then
      base_policy_path=$CKPT logdir=$L/dmc-finetune/cartpole-balance_sparse_BP ++train.auto_resume=true
   go dmc_balS_FREE scripts/dice_rl_generic.sbatch dmc-finetune cartpole-balance_sparse ft_distill_residual_drift_field_mlp 42 \
      base_policy_path=$CKPT model.field.total_max_norm=1e9 +model.field.q_max_norm=1e9 \
-     model.field.bc_step_size=0.0 +model.field.restore_step_size=0.0 \
+     model.field.bc_step_size=0.0 ++model.field.restore_step_size=0.0 \
      logdir=$L/dmc-finetune/cartpole-balance_sparse_FREE ++train.auto_resume=true
 fi
 
