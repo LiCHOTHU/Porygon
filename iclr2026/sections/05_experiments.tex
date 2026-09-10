@@ -148,13 +148,13 @@ did on the weak one ($14{+}$ consecutive zero evaluations each), which rules
 out base quality as the explanation for their failure; a collapse to zero
 reads the same under every success rule, so the metric difference between
 harnesses cannot account for it either.
-$^{\dagger\dagger}$the paired rows are quoted at a matched $496$K
-environment steps, the largest budget all six seeds share (mean of last three
-evaluations per seed, three seeds each). Both arms saturate at the same
-ceiling and are statistically indistinguishable there (\method{}
-$0.946$--$0.967$, DICE-RL $0.961$--$0.970$); the difference is the path ---
-at a matched $352$K, before saturation, \method{} reads $0.955$ against
-DICE-RL's $0.941$, so it reaches the ceiling at less compute.
+$^{\dagger\dagger}$both paired arms saturate at the same ${\approx}0.96$
+ceiling (quoted at a matched $496$K steps, three seeds each; seed ranges
+overlap fully there). The separation is \emph{speed}: \method{} first
+reaches $0.90$ success at $128/160/160$K steps against DICE-RL's
+$224/240/256$K --- \method{}'s slowest seed beats DICE-RL's fastest with no
+overlap, $1.6\times$ less interaction on average. Where the ceiling is the
+environment's, sample efficiency is the comparison that remains.
 $^{*}$every $\Delta$ is exactly fine-tuned minus the printed base. One
 caution when reading the starred rows: their harness scores success more
 strictly (a full action chunk inside the success state) and reads this same
@@ -183,7 +183,7 @@ DPPO \citep{ren2024dppo} & diffusion & 0.600 & 0.632$^{\circ}$ & $+0.032$ \\
 \midrule
 \multicolumn{5}{l}{\emph{adding \method{} to DICE-RL, paired within each base}} \\
 diffusion $+$ DICE-RL \citep{dicerl2026}$^{\P\P}$   & diffusion & 0.600 & 0.965$^{\dagger\dagger}$ & $+0.365$ \\
-diffusion $+$ DICE-RL $+$ \method{}$^{\P\P}$        & diffusion & 0.600 & 0.959$^{\dagger\dagger}$ & $+0.359$ \\
+diffusion $+$ DICE-RL $+$ \method{}$^{\P\P}$        & diffusion & 0.600 & 0.959$^{\dagger\dagger}$, \textbf{1.6$\times$ faster} & $+0.359$ \\
 \addlinespace
 drifting $+$ DICE-RL                       & one-step drifting & 0.382 & 0.880 & $+0.498$ \\
 drifting $+$ DICE-RL $+$ \method{}         & one-step drifting & 0.382 & \textbf{0.924} & $\mathbf{+0.542}$ \\
