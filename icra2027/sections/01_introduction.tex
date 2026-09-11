@@ -1,0 +1,70 @@
+Learning from demonstrations gives robots a useful starting point, but a
+policy that usually succeeds may still need practice to become reliable.
+Reinforcement learning can provide that practice without requiring additional
+demonstrations, and recent methods apply it to generative policies that
+produce sequences of robot actions~\cite{ren2024dppo,reinflow2025}. The
+challenge is to improve an existing skill while preserving the behavior that
+already works. We study this problem when feedback is limited to task
+success, so failed attempts provide little information about how to recover.
+
+A practical approach is residual fine-tuning: freeze the pretrained policy
+and learn a correction to its actions, guided by a learned
+critic~\cite{dicerl2026}. The critic predicts the return of an action, and
+the correction network is trained to increase that prediction. However,
+critic accuracy is limited by the data available during training.
+Optimizing its predictions can exploit errors outside well-covered regions
+of the action space~\cite{fujimoto2018td3,fujimoto2019bcq}. The policy may
+then move away from successful pretrained behavior even as its predicted
+return increases. With success-only rewards, losing that behavior also
+reduces the successful experience available to correct the critic.
+
+This raises a concrete design question: \emph{should fine-tuning limit the
+size of each update, or the accumulated departure from the pretrained
+policy?} These are different constraints. Many small updates can move a
+policy far from its starting point. A restoring term tied to a frozen
+reference instead opposes that accumulated departure. Yet restoring too
+strongly everywhere can suppress the corrections needed to improve. The
+desired behavior is to permit local changes while resisting larger ones.
+Fig.~\ref{fig:problem} illustrates why this distinction matters.
+
+\input{sections/03_problem_figure}
+
+We present \method{} (Constrained Action-Space Transport), a residual
+fine-tuning method that implements this principle. At each update, it samples
+actions from the frozen base plus the current correction, moves them along
+the critic's action gradient, and trains the correction network to reproduce
+the adjusted actions. This action-improvement approach builds on prior
+critic-guided training of generative policies~\cite{dipo2024,psenka2024qsm}.
+\method{} combines displacement clipping with a restoring field toward the
+corresponding frozen-base action. A dead zone in this field leaves small
+corrections unpenalized by that term and pulls back larger departures.
+The adjusted actions become fixed regression targets, so the actor update
+requires neither policy likelihoods nor differentiation through the frozen
+generator.
+
+We evaluate the method on simulated manipulation tasks from LIBERO and
+robomimic, using matched base policies, critic-training procedures, and
+interaction budgets for the residual-actor comparison. On eight challenging
+LIBERO-90 tasks, per-task fine-tuning improves mean success by $9.4$
+percentage points, compared with $0.9$ points for the standard DICE-RL actor.
+On robomimic square, \method{} reaches $91.2$--$93.0\%$ success from a
+$38.2\%$ base, compared with $86.1$--$90.9\%$ for the standard actor at the
+reported budget. These gains are conditional: staying near the base can
+also limit improvement when a task requires substantially different actions.
+
+Our five-task LIBERO ablation isolates the two constraints. Removing all
+base-restoring terms causes zero success, even with step clipping.
+Restoration alone avoids complete collapse but is inconsistent across tasks;
+the full combination improves on every task's base. A dead-zone penalty in
+the standard actor's loss also enables improvement. These results identify
+restoring geometry as a useful principle shared by both actor updates.
+
+Our contributions are:
+\begin{itemize}
+  \item A controlled study distinguishing per-update clipping from
+  fixed-base restoration in critic-guided robot policy fine-tuning.
+  \item \method{}, a likelihood-free residual update that combines
+  critic-guided action targets with clipping and base-restoring fields.
+  \item Manipulation experiments identifying the benefits and limits of
+  anchoring, including its transfer to a standard actor's loss.
+\end{itemize}

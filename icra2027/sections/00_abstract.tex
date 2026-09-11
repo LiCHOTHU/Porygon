@@ -1,0 +1,14 @@
+Reinforcement learning can improve robot policies learned from demonstrations,
+but errors in a learned critic can also destroy their existing skills.
+We present \method{} (Constrained Action-Space Transport), a method for
+fine-tuning generative robot policies using task-success rewards. \method{}
+learns corrections to a frozen pretrained policy: it adjusts sampled actions
+using the critic and trains a small network to reproduce them. A restoring
+term permits small corrections while resisting larger departures from the
+pretrained behavior. On eight challenging LIBERO-90 tasks, per-task
+fine-tuning raises mean success from $66.1\%$ to $75.5\%$, compared with
+$67.0\%$ for the standard residual actor update. On robomimic square,
+success rises from $38.2\%$ to $91.2$--$93.0\%$. Removing the restoring term
+causes zero success on all five LIBERO ablation tasks, even with step clipping.
+The key is to limit accumulated departure from the pretrained policy,
+not merely the size of each update.

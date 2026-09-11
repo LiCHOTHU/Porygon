@@ -1,0 +1,83 @@
+{
+  "config": {
+    "seed": 0,
+    "n_demo": 25,
+    "train_steps": 3000,
+    "train_lr": 0.003,
+    "steps": 60,
+    "action_lr": 0.09,
+    "cap": 0.06,
+    "radius": 0.15,
+    "n_particles": 384,
+    "base_std_x": 0.18,
+    "base_std_y": 0.035,
+    "kde_bandwidth": 0.06,
+    "start_rule": "training action closest to x=0",
+    "device": "cuda",
+    "torch_version": "2.11.0+cu130",
+    "numpy_version": "2.3.5",
+    "gpu": "NVIDIA GeForce RTX 5090"
+  },
+  "diagnostic": "Synthetic fixed-action optimization, not a robot training run or full CAST",
+  "training_mse": 8.047668011676646e-06,
+  "initial_reward": 0.5794012223475585,
+  "arms": {
+    "clip_only": {
+      "final_reward": 0.0,
+      "final_prediction": 1.8467979431152344,
+      "max_step": 0.06000000983476639,
+      "final_distance": 1.963956594467163
+    },
+    "anchored": {
+      "final_reward": 0.7498419880867004,
+      "final_prediction": 0.8728832006454468,
+      "max_step": 0.06000000983476639,
+      "final_distance": 0.15000002086162567
+    }
+  },
+  "particle_distributions": {
+    "base": "Analytic curved Gaussian around the reference; not a learned robot policy",
+    "n_particles": 384,
+    "summaries": {
+      "base": {
+        "mean_reward": 0.5413306355476379,
+        "mean_prediction": 0.555009663105011,
+        "mean_distance_from_base": 0.0,
+        "kde_grid_mass": 1.0000000987720943,
+        "contour_enclosed_mass": [
+          0.9500320553779602,
+          0.8002150058746338,
+          0.5006843209266663
+        ]
+      },
+      "vanilla": {
+        "mean_reward": 4.512181055125911e-43,
+        "mean_prediction": 1.8437622785568237,
+        "mean_distance_from_base": 1.9796794652938843,
+        "kde_grid_mass": 0.9999961292015719,
+        "contour_enclosed_mass": [
+          0.9500737190246582,
+          0.8000210523605347,
+          0.5009243488311768
+        ]
+      },
+      "anchored": {
+        "mean_reward": 0.6393613219261169,
+        "mean_prediction": 0.8226895928382874,
+        "mean_distance_from_base": 0.14999999105930328,
+        "kde_grid_mass": 1.0000000377017786,
+        "contour_enclosed_mass": [
+          0.9500706195831299,
+          0.8000142574310303,
+          0.5001010298728943
+        ]
+      }
+    },
+    "contour_masses": [
+      0.5,
+      0.8,
+      0.95
+    ],
+    "kde_bandwidth": 0.06
+  }
+}

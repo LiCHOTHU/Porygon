@@ -1,0 +1,11 @@
+{
+  "source": "iclr2026/sections/05_experiments.tex, tab:constraint",
+  "description": "Transcribed table means, not new robot evaluations. The source reports three seeds per cell; raw per-seed results are not stored here.",
+  "tasks": [
+    {"name": "Red mug", "id": 65, "base": 0.573, "clip_only": 0.0, "cast": 0.600},
+    {"name": "Ketchup", "id": 32, "base": 0.610, "clip_only": 0.0, "cast": 0.627},
+    {"name": "Bowl", "id": 8, "base": 0.818, "clip_only": 0.0, "cast": 0.840},
+    {"name": "Juice", "id": 53, "base": 0.785, "clip_only": 0.0, "cast": 0.820},
+    {"name": "Book", "id": 75, "base": 0.578, "clip_only": 0.0, "cast": 0.630}
+  ]
+}

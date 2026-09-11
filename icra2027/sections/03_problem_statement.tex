@@ -1,0 +1,38 @@
+\subsection{Setting}
+
+We consider online fine-tuning of a generative robot policy pretrained from
+demonstrations. An observation $s$ includes the inputs used by the policy,
+and an action $a \in \mathbb{R}^{H d}$ is a chunk of $H$ controls with $d$
+dimensions each. A frozen generator $\pi_0$ maps $s$ and noise $z$ to an
+action. Following residual RL~\cite{dicerl2026}, we learn a correction:
+\begin{equation}
+  a_\theta(s,z)=\pi_0(s,z)+r_\theta(s,z),
+  \qquad z\sim\mathcal{N}(0,I).
+  \label{eq:residual}
+\end{equation}
+An ensemble critic estimates return from replayed experience. Reward is
+provided on task success. The goal is to increase success through online
+interaction while retaining useful pretrained behavior. Our controlled
+comparison varies the actor update while matching the base, critic-training
+procedure, and interaction budget.
+
+\subsection{The Problem: Accumulated Departure}
+
+A critic can assign high values to actions outside its training coverage.
+Repeatedly following those predictions may move the policy away from actions
+that actually succeed~\cite{fujimoto2019bcq}. A step cap alone does not
+prevent this: $\|a_{t+1}-a_t\|\leq\delta$ permits distance from the initial
+action to grow with the number of updates. Here $t$ indexes optimization
+steps, not control steps. Fig.~\ref{fig:problem} follows an entire base
+action distribution through paired particle updates. Unanchored critic
+ascent moves its probability mass into an overestimated region; anchoring
+each particle to its own base action permits improvement nearby.
+
+The design question is how to permit useful corrections without allowing
+uncontrolled departure from the frozen base. We measure this departure by
+the residual's root-mean-square action magnitude,
+$D_{\mathrm{base}}=\mathbb{E}_{s,z}[\|r_\theta(s,z)\|_2/\sqrt{H d}]$,
+with states sampled from replay. A fixed-base restoring term acts on this
+departure, whereas step clipping limits only each proposed displacement.
+We study both empirically: bounded regression targets do not themselves
+guarantee bounded outputs after fitting a shared neural network.
