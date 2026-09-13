@@ -1,0 +1,114 @@
+\subsection{Real-robot fine-tuning on stair-based manipulation tasks}
+\label{sec:exp-real-robot}
+
+We extend the study to physical manipulation on an OpenArm platform, asking
+whether post-training can improve a demonstration-trained policy when the
+feedback available after each attempt is a human success/failure label.
+The real-robot study is in progress: the task setup and demonstrations are
+available, while the four-way quantitative comparison below remains to be
+completed. This study tests refinement of an existing skill rather than
+learning a new policy from scratch.
+
+\paragraph{Platform and tasks.}
+The robot operates its left seven-joint arm and gripper using RGB images from
+a chest-mounted camera and a left-wrist camera, together with left-arm joint
+and gripper positions and a fixed task-language prompt. We consider two tasks:
+\emph{Jigglypuff into the case}, in which the robot grasps the toy from a stair
+tread and releases it into an adjacent open case; and \emph{red-on-purple
+stacking}, in which it picks up the red cube and places it on the purple cube.
+Both use a hand-made staircase. The stepped support surfaces introduce
+different approach heights and nearby edges, making grasping and placement
+sensitive to alignment; stacking additionally requires the upper cube to be
+positioned accurately before release. \Cref{fig:real-robot-tasks} illustrates
+the tasks through successful teleoperated demonstrations from both views.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/real_robot_tasks.pdf}
+  \caption{\textbf{Two real-robot tasks on a hand-made staircase.}
+  Each task is shown as a five-stage sequence, with chest and wrist views in
+  paired rows: initial arrangement, grasp, transfer, alignment, and release.
+  The wrist view shows the toy released into the case in (a) and the red cube
+  resting on the purple cube with the gripper open in (b).
+  Frames are extracted from successful \emph{teleoperated demonstrations},
+  not autonomous evaluations of the compared methods. Times are nominal video
+  times at 15\,fps; the two views are approximately aligned by frame index.
+  A consistent top-background crop is applied to all panels.}
+  \label{fig:real-robot-tasks}
+\end{figure}
+
+\paragraph{Pretrained policy and refinement methods.}
+For each task, we first train a flow-matching BC policy on teleoperated
+demonstrations. The current policy predicts 30-step chunks of absolute
+left-arm joint and gripper targets at 15\,Hz, using a 10-step Euler sampler.
+The deployed interface executes a prefix of each chunk before replanning.
+The comparison uses one fixed base checkpoint per task and four conditions:
+\begin{itemize}
+  \item \textbf{Base FM:} deploy the demonstration-trained checkpoint without
+  online refinement.
+  \item \textbf{Success-only BC refinement:} initialize from that same
+  checkpoint and continue supervised flow-matching training using only
+  successful online rollout trajectories. Failed attempts are excluded from
+  these imitation targets.
+  \item \textbf{DICE-RL:} fine-tune a residual actor and critic over the same
+  frozen base using both successful and failed online rollouts, with the
+  standard DICE-RL actor objective~\citep{dicerl2026}.
+  \item \textbf{DICE-RL $+$ \method{}:} use the same residual RL setup and both
+  rollout outcomes, replacing the actor update with \method{}'s clipped,
+  base-restoring action-target regression.
+\end{itemize}
+Thus all three refinement conditions start from pretrained weights; none
+trains a task policy from scratch. Success-only BC tests how much improvement
+can be obtained by imitating successful practice, while the two RL conditions
+test whether failed experience and the choice of actor update yield further
+benefit.
+
+\begin{table}[t]
+  \centering
+  \caption{\textbf{Planned real-robot comparison.} Task success rate for a
+  shared pretrained FM checkpoint per task and three fine-tuning methods.
+  All eight result entries are \emph{not yet measured}; ``---'' is a placeholder,
+  not zero success. Evaluation trial counts and uncertainty will accompany
+  the completed measurements.}
+  \label{tab:real-robot}
+  \small
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{llcc}
+    \toprule
+    Method & Online refinement data & \makecell{Jigglypuff\\into case} &
+      \makecell{Red cube\\onto purple cube} \\
+    \midrule
+    Base FM & None & --- & --- \\
+    Success-only BC refinement & Successes only & --- & --- \\
+    DICE-RL & Successes and failures & --- & --- \\
+    DICE-RL $+$ \method{} (ours) & Successes and failures & --- & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Rollout collection and evaluation protocol.}
+The evaluation interface records camera observations, measured robot states,
+and executed commands during each attempt. After stopping the robot, an
+operator assigns success or failure and chooses whether to retain the
+trajectory. The label is the sparse task-outcome feedback; it is not inferred
+from the BC loss or a critic score. For the RL comparison, valid failed trials
+must be retained alongside successful ones, with discarded or invalid trials
+accounted for explicitly to avoid success-selection bias.
+
+The planned comparison matches the starting checkpoint, robot-interaction
+budget, reset and object-placement distribution, and evaluation conditions.
+DICE-RL and DICE-RL $+$ \method{} additionally share the critic architecture,
+critic-training procedure, demonstration-replay settings, exploration, and
+update schedule, isolating the actor update. All methods use the same
+observation/action interface and execution limits. Replay transitions must
+correspond to the commands actually executed, including chunk-prefix execution
+and command limiting, rather than unexecuted predictions. Evaluation trials
+are held out from all refinement data.
+
+We will count Jigglypuff placement as successful when the toy is released
+fully inside the case and remains there, and stacking as successful when the
+red cube remains supported by the purple cube after release and gripper
+withdrawal. A common post-release observation interval and matched trial
+counts will be fixed before scoring the four methods. \Cref{tab:real-robot}
+reserves the success-rate comparison; the demonstration sequences establish
+the task setup but do not supply any of its quantitative entries.

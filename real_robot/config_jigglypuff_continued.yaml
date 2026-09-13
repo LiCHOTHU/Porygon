@@ -1,0 +1,54 @@
+data_root: /home/pair/Desktop/openarm_exp/openarm_ws/data_collection_jigglypuff
+data_roots:
+  - /home/pair/Desktop/openarm_exp/openarm_ws/data_collection_jigglypuff
+  - /home/pair/Desktop/openarm_exp/openarm_ws/data_collection_jigglypuff_supplementary
+cache_dir: /home/pair/workspaces/Porygon/real_robot/cache/jigglypuff_continued
+output_dir: /home/pair/workspaces/Porygon/real_robot/runs/jigglypuff_continued
+initial_checkpoint: /home/pair/workspaces/Porygon/real_robot/runs/jigglypuff/best.pt
+prompt: grasp and drop the jigglypuff toy in the box
+# Original eight held-out takes plus twelve supplementary takes across the session.
+validation_takes:
+  - '20260910_162335'
+  - '20260910_162649'
+  - '20260910_162924'
+  - '20260910_163439'
+  - '20260910_163709'
+  - '20260910_164653'
+  - '20260910_165346'
+  - '20260910_165705'
+  - '20260911_142604'
+  - '20260911_143409'
+  - '20260911_143751'
+  - '20260911_144241'
+  - '20260911_144829'
+  - '20260911_145044'
+  - '20260911_145245'
+  - '20260911_145703'
+  - '20260911_150017'
+  - '20260911_150159'
+  - '20260911_150443'
+  - '20260911_160244'
+image_size: 128
+fps: 15
+chunk_size: 30
+action_dim: 8
+proprio_dim: 8
+hidden_dim: 256
+num_blocks: 4
+num_heads: 4
+feedforward_dim: 512
+dropout: 0.1
+flow_alpha: 1.5
+flow_beta: 1.0
+flow_sigma_min: 0.001
+inference_steps: 10
+batch_size: 32
+epochs: 200
+learning_rate: 0.00003
+weight_decay: 0.000001
+warmup_steps: 500
+num_workers: 4
+seed: 42
+validation_seed: 1729
+patience: 40
+action_eval_every: 5

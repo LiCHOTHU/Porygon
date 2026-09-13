@@ -1,0 +1,127 @@
+{
+  "kind": "successful teleoperated task illustrations, not autonomous evaluation",
+  "alignment": "same nominal video index at 15 fps; no per-frame capture timestamps available",
+  "crop_xyxy": [
+    0,
+    70,
+    640,
+    480
+  ],
+  "stages": [
+    "Initial",
+    "Grasp",
+    "Transfer",
+    "Align",
+    "Release"
+  ],
+  "sequences": [
+    {
+      "task": "jigglypuff",
+      "take": "20260910_162109",
+      "title": "(a) Jigglypuff into the case",
+      "frames": [
+        0,
+        64,
+        97,
+        129,
+        159
+      ],
+      "sources": {
+        "chest": {
+          "video": "/home/pair/Desktop/openarm_exp/openarm_ws/data_collection_jigglypuff/20260910_162109/chest_rgb_20260910_202109.avi",
+          "sha256": "10d04766023890e755c3f77745e4e2c7cc682ad371ad1d6747545591d230f8bb",
+          "frame_count": 162,
+          "fps": 15.0,
+          "selected_indices_zero_based": [
+            0,
+            64,
+            97,
+            129,
+            159
+          ],
+          "nominal_times_s": [
+            0.0,
+            4.267,
+            6.467,
+            8.6,
+            10.6
+          ]
+        },
+        "left_wrist": {
+          "video": "/home/pair/Desktop/openarm_exp/openarm_ws/data_collection_jigglypuff/20260910_162109/left_wrist_rgb_20260910_202109.avi",
+          "sha256": "82c7f58a9857f29608eadeb3bbb4c5a8c3a2114cf1242ebe7681ea5cac206a32",
+          "frame_count": 162,
+          "fps": 15.0,
+          "selected_indices_zero_based": [
+            0,
+            64,
+            97,
+            129,
+            159
+          ],
+          "nominal_times_s": [
+            0.0,
+            4.267,
+            6.467,
+            8.6,
+            10.6
+          ]
+        }
+      }
+    },
+    {
+      "task": "stack",
+      "take": "20260910_165952",
+      "title": "(b) Red cube onto the purple cube",
+      "frames": [
+        0,
+        78,
+        118,
+        140,
+        160
+      ],
+      "sources": {
+        "chest": {
+          "video": "/home/pair/Desktop/openarm_exp/openarm_ws/data_collection_stack/20260910_165952/chest_rgb_20260910_205952.avi",
+          "sha256": "6601adddc0d041095b708348eabac7dcae105b667110ba51e97f4dc4ef8915bf",
+          "frame_count": 197,
+          "fps": 15.0,
+          "selected_indices_zero_based": [
+            0,
+            78,
+            118,
+            140,
+            160
+          ],
+          "nominal_times_s": [
+            0.0,
+            5.2,
+            7.867,
+            9.333,
+            10.667
+          ]
+        },
+        "left_wrist": {
+          "video": "/home/pair/Desktop/openarm_exp/openarm_ws/data_collection_stack/20260910_165952/left_wrist_rgb_20260910_205952.avi",
+          "sha256": "4faab6e302d97d4357486179e98799f89b199cceef7a6d83f4fbd51b8cce9a96",
+          "frame_count": 197,
+          "fps": 15.0,
+          "selected_indices_zero_based": [
+            0,
+            78,
+            118,
+            140,
+            160
+          ],
+          "nominal_times_s": [
+            0.0,
+            5.2,
+            7.867,
+            9.333,
+            10.667
+          ]
+        }
+      }
+    }
+  ]
+}

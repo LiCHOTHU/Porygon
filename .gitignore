@@ -41,6 +41,7 @@ wandb/
 .coverage
 htmlcov/
 cache/
+/real_robot/runs/
 
 # Jupyter Notebook
 .ipynb_checkpoints
