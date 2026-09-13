@@ -31,4 +31,7 @@ critic set the distance fail to improve their base and in two cases collapse to
 zero. Ablating our own components isolates why: bounding how far the policy
 moves per step changes nothing, and the component that matters is the one
 holding the policy near where it started. The effective constraint is a leash
-to a fixed anchor, not a speed limit.
+to a fixed anchor, not a speed limit. The update is unchanged across
+diffusion, flow-matching and one-step bases, and across sparse and dense
+reward --- on dense DMC control it wins outright while the unconstrained
+update can still fall below its base.

@@ -5,9 +5,12 @@ from both sides. Inside it, any update that lets the critic displace actions
 without an action-space bound destroys the policy --- in our system and in
 the official implementations of an entire method family --- because the
 critic is only competent in the narrow tube its data covers and sparse
-reward offers no route back once the policy leaves it. Outside it --- dense
-reward, or broad-coverage training --- the same unconstrained updates
-survive and can even gain, so we claim nothing there. Within the regime, the
+reward offers no route back once the policy leaves it. Outside it, the claim weakens but does not vanish: under dense reward the
+failure stops being terminal, yet on three DMC tasks \method{} still wins
+--- dense reward removes the catastrophe, not the cost of wandering, and
+the unconstrained update still falls below its base on quadruped
+(\cref{tab:dmc-scope}). Only at saturating critic coverage
+(\cref{fig:toy}a) does backpropagation become the better tool. Within the regime, the
 missing update rule is field-target regression under an action-space bound
 anchored to the frozen base. \method{} expresses reward and anchoring as composable velocity fields over
 action particles, and recovers the backpropagated direction in the
@@ -65,8 +68,9 @@ claims are easy to conflate. The \emph{update rule} is base-agnostic: it
 consumes a frozen noise-to-action map, a residual head and a critic, and
 never touches how the base draws its action, and it transfers unchanged to a
 flow-matching base, where dropping it into DICE-RL raises success on square
-from $0.831$ to $0.934$ (the diffusion-base pair is being re-measured on the
-retrained $0.600$ base at the time of writing; \cref{tab:baselines}). Its \emph{size} of benefit, however, is not base-agnostic: on the
+from $0.831$ to $0.934$; the diffusion-base pair converges to a shared
+${\approx}0.96$ ceiling with \method{} arriving $1.6\times$ sooner
+(\cref{tab:baselines}). Its \emph{size} of benefit, however, is not base-agnostic: on the
 flow-matching LIBERO base the same recipe is a wash against the base
 ($0.756$ vs $0.753$) and only $+1.3$ points over DICE-RL across the seven
 tasks where both ran. What does \emph{not} generalize is the

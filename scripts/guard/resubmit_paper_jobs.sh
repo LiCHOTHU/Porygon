@@ -34,6 +34,30 @@ cd "$IM" || exit 1
 [ -f "$DMC/demos_ball_in_cup_catch.npz" ] || go dmcT_bic_catch scripts/dmc_new_task.sbatch ball_in_cup catch 400000
 [ -f "$DMC/demos_reacher_hard.npz" ] || go dmcT_reacher_hard scripts/dmc_new_task.sbatch reacher hard 400000
 
+echo "=== replacement-task distills (one job, three tasks) ==="
+cd "$IM" || exit 1
+NT_DONE=1
+for t in finger-spin ball_in_cup-catch reacher-hard; do
+  hi=$(ls $L/dmc-pretrain/${t}/checkpoint/state_*.pt 2>/dev/null | sed 's/.*state_//;s/\.pt//' | sort -n | tail -1)
+  [ "${hi:-0}" -lt 600 ] && NT_DONE=0
+done
+[ "$NT_DONE" -eq 0 ] && go dmcP_newtasks scripts/dmc_newtask_distills.sbatch
+if [ "$NT_DONE" -eq 1 ]; then
+  cd "$DR" || exit 1
+  for t in finger-spin ball_in_cup-catch reacher-hard; do
+    CKPT=$L/dmc-pretrain/${t}/checkpoint/state_600.pt
+    go dmc_${t}_CAST scripts/dice_rl_generic.sbatch dmc-finetune $t ft_distill_residual_drift_field_mlp 42 \
+       base_policy_path=$CKPT logdir=$L/dmc-finetune/${t}_CAST ++train.auto_resume=true
+    go dmc_${t}_BP scripts/dice_rl_generic.sbatch dmc-finetune $t ft_distill_residual_drift_mlp 42 \
+       base_policy_path=$CKPT logdir=$L/dmc-finetune/${t}_BP ++train.auto_resume=true
+    go dmc_${t}_FREE scripts/dice_rl_generic.sbatch dmc-finetune $t ft_distill_residual_drift_field_mlp 42 \
+       base_policy_path=$CKPT model.field.total_max_norm=1e9 +model.field.q_max_norm=1e9 \
+       model.field.bc_step_size=0.0 ++model.field.restore_step_size=0.0 \
+       logdir=$L/dmc-finetune/${t}_FREE ++train.auto_resume=true
+  done
+  cd "$IM" || exit 1
+fi
+
 echo "=== DMC distills (600 epochs), then three arms per task ==="
 cd "$DR" || exit 1
 for t in quadruped-run cartpole-balance; do   # walker/humanoid deleted: distillation-infeasible
@@ -86,6 +110,54 @@ go dmcT_bal_e2 scripts/dice_rl_generic.sbatch dmc-finetune cartpole-balance ft_d
   logdir=$L/dmc-finetune/cartpole-balance_CASTe2 ++train.auto_resume=true
 # dmcP3 wide distills run LOCALLY (do not resubmit; logdirs owned by local run)
 cd "$IM" || exit 1
+
+echo "=== Table 7 drifting-base square cells (matched reward field) ==="
+cd "$DR" || exit 1
+DB=$L/robomimic-pretrain/square_pre_drifting_mlp_ta4_td1/fixed_42/checkpoint/state_8000.pt
+for sd in 42 43 44; do
+  go sqL_rho0_s$sd scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp $sd \
+    base_policy_path=$DB model.field.q_source=grad +model.field.restore_step_size=1.0 +model.field.restore_radius=0.0 \
+    logdir=$L/robomimic-finetune/sqL_rho0_s$sd ++train.auto_resume=true
+  go sqL_proj_s$sd scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_drift_field_mlp $sd \
+    base_policy_path=$DB model.field.q_source=grad model.field.bc_step_size=0.0 +model.field.restore_step_size=0.0 +model.field.project_radius=0.05 \
+    logdir=$L/robomimic-finetune/sqL_proj_s$sd ++train.auto_resume=true
+done
+cd "$IM" || exit 1
+
+echo "=== Experiment 1: square hard-projection (proper field), 3 seeds ==="
+cd "$DR" || exit 1
+NB=$L/robomimic-pretrain/square_pre_diffusion_wide_td20_lr5e5/checkpoint/state_24000.pt
+for sd in 42 43 44; do
+  go sq_hinge2_s${sd} scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_diffusion_field_mlp ${sd} \
+     base_policy_path=$NB model.actor_mode=residual +model.bc_hinge_rho=0.05 \
+     logdir=$L/robomimic-finetune/square_hinge2_s${sd} ++train.auto_resume=true
+  go sq_proj2_s${sd} scripts/dice_rl_generic.sbatch finetune square ft_distill_residual_diffusion_field_mlp ${sd} \
+     base_policy_path=$NB model.field.bc_step_size=0.0 ++model.field.restore_step_size=0.0 \
+     +model.field.project_radius=0.05 \
+     logdir=$L/robomimic-finetune/square_proj2_s${sd} ++train.auto_resume=true
+done
+cd "$IM" || exit 1
+
+echo "=== Experiment 1: hinge/proj seeds on LIBERO t65/t32, then powered evals ==="
+cd "$IM" || exit 1
+EDIR=$CEDAR/imitation/experiments_dice/libero/libero_90 2>/dev/null || EDIR=/storage/cedar/cedar0/cedarp-agarg35-0/liquan.w/imitation_scratch/imitation/experiments_dice/libero/libero_90
+CED=/storage/cedar/cedar0/cedarp-agarg35-0/liquan.w/imitation_scratch
+for spec in "hinge 65 10002 field_st_A_t65_hinge_s10002" "hinge 32 10002 field_st_A_t32_hinge_s10002" \
+            "proj 65 10001 field_st_BNONE_t65_proj_s10001" "proj 65 10002 field_st_BNONE_t65_proj_s10002" \
+            "proj 32 10001 field_st_BNONE_t32_proj_s10001" "proj 32 10002 field_st_BNONE_t32_proj_s10002" \
+            "hinge 65 10001 field_st_A_t65_hinge_s10001" "hinge 32 10001 field_st_A_t32_hinge_s10001" \
+            "B 65 10001 field_st_B_t65_s10001" "B 32 10001 field_st_B_t32_s10001" \
+            "B 65 20002 field_st_B_t65_s20002" "B 32 20002 field_st_B_t32_s20002"; do
+  set -- $spec; arm=$1; t=$2; sd=$3; name=$4
+  ck=$EDIR/$name/dice_latest.pth
+  res=$CED/powered_eval_one_t${t}_${arm}_s${sd}.json
+  if [ ! -f "$ck" ]; then
+    go e1_${arm}_t${t}_s${sd} scripts/exp1_arm.sbatch $arm $t $sd
+  elif [ ! -f "$res" ] || [ "$ck" -nt "$res" ]; then
+    go pe_e1_${arm}_t${t}_s${sd} --export=ALL,CELL=t${t},LABEL=${arm}_s${sd},CKPT=$ck,TASKS="[${t}]" \
+       scripts/powered_eval_one.sbatch
+  fi
+done
 
 echo "=== transport leash diagnostic (answers whether the bound caps CAST there) ==="
 go transport_CASTloose scripts/dice_rl_generic.sbatch finetune transport ft_distill_residual_drift_field_mlp 42 \

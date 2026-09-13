@@ -135,7 +135,7 @@ QSM \citep{psenka2024qsm} & diffusion & 0.600$^{*}$ & 0.000 & $-0.600$ \\
 DQL                       & diffusion & 0.600$^{*}$ & 0.000 & $-0.600$ \\
 IDQL                      & diffusion & 0.600$^{*}$ & 0.327 & $-0.273$ \\
 AWR                       & generic   & 0.600$^{*}$ & 0.393 & $-0.207$ \\
-DPPO \citep{ren2024dppo} & diffusion & 0.600 & 0.632$^{\circ}$ & $+0.032$ \\
+DPPO \citep{ren2024dppo} & diffusion & 0.600 & 0.678$^{\circ}$ & $+0.078$ \\
 \midrule
 \multicolumn{5}{l}{\emph{adding \method{} to DICE-RL, paired within each base}} \\
 diffusion $+$ DICE-RL \citep{dicerl2026}$^{\P\P}$   & diffusion & 0.600 & 0.965$^{\dagger\dagger}$ & $+0.365$ \\
@@ -563,28 +563,45 @@ and when every restoring term is removed and only the displacement clip is
 left, success is $0.000$. What the sweep varies is the shape of the tether;
 what \cref{tab:constraint} removes is the tether itself.
 
+
+
+\subsection{Does a simpler constraint suffice? \method{} vs.\ two alternatives}
+\label{sec:exp1}
+
+\textbf{Claim.} \method{}'s restoring field earns its place by being the
+\emph{most consistent} constraint across tasks, not by dominating every one.
+Two simpler alternatives each match or beat it on some tasks but collapse on
+another: the loss-space hinge fails on square ($0.29$), and the hard
+projection fails on ketchup ($0.54$), while \method{} is the only variant
+strong on all three. The lesson is that the constraint must act in
+\emph{action-target} space --- both target-space variants (projection and
+\method{}) beat the loss-space hinge on square by a wide margin --- and that
+a restoring field is the more reliable target-space instantiation than a hard
+projection.
+Square is three seeds at matched budget; the hinge's seeds span
+$0.03$--$0.77$, an instability the mean understates.
+
 \begin{table}[t]
 \centering
-\caption{Dead-zone radius sweep on LIBERO ($\rho{=}0$ is an always-on
-penalty; $\rho{=}\infty$ disables the restoring term). The interior of the
-range is flat; the endpoints fail differently (see text).}
-\label{tab:rho-sweep}
+\caption{The core comparison: full \method{} against two simpler
+constraints, from one shared frozen base per task, matched critic, replay,
+budget and evaluation. Three training seeds each; square is $300$-episode
+success, LIBERO is powered evaluation. $^{\circ}$below the matched budget.}
+\label{tab:exp1}
 \small
-\begin{tabular}{lcc}
+\begin{tabular}{lccc}
 \toprule
-dead-zone radius $\rho$ & \makecell{red mug\\onto plate ($0.573$)} & \makecell{ketchup\\into drawer ($0.610$)} \\
+method & robomimic square & LIBERO red mug & LIBERO ketchup \\
 \midrule
-$0$ \;(always-on penalty)      & 0.549 & 0.601 \\
-$0.02$                         & \textbf{0.863} & \textbf{0.734} \\
-$0.05$ \;(recipe)              & 0.781 & 0.684 \\
-$0.10$                         & 0.812 & 0.694 \\
-$0.20$                         & 0.771 & 0.671 \\
-$\infty$ \;(dead zone inert; weak pull + clip remain) & 0.803 & 0.671 \\
+DICE $+$ dead-zone hinge (loss)     & 0.28 & 0.77 & 0.65 \\
+hard projection (target)            & 0.96 & \textbf{0.93} & 0.54 \\
+\textbf{full \method{}}             & 0.94 & 0.78 & \textbf{0.68} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{H4: the constraint has to act on the action target}
+
 \label{sec:exp-locus}
 
 \textbf{Claim.} The constraint has to act on the action target. The same
@@ -620,9 +637,9 @@ variant & acts on & square (3 seeds) & \makecell{red mug\\onto plate ($0.573$)} 
 \midrule
 \multicolumn{5}{l}{\emph{(b) the restoring field --- reward held at \method{}'s gradient}} \\
 \quad $L_2$ penalty $+$ grad clip (DICE-RL) & loss $+$ params & 0.861--0.909$^{*}$ & 0.550 & 0.587 \\
-\quad always-on pull ($\rho{=}0$)           & action target   & --- & 0.549 & 0.601 \\
+\quad always-on pull ($\rho{=}0$)           & action target   & running & 0.549 & 0.601 \\
 \quad hinge $(\|r\|-\rho)_{+}^{2}$          & loss            & \textbf{0.991}$^{\dagger}$ & \textbf{0.837} & 0.700 \\
-\quad hard projection $\Pi_{\|r\|\le\rho}$  & action target   & --- & 0.790 & \textbf{0.733} \\
+\quad hard projection $\Pi_{\|r\|\le\rho}$  & action target   & running & 0.790 & \textbf{0.733} \\
 \quad dead-zone anchor (\method{})          & action target   & 0.912--0.930$^{*}$ & 0.600 & 0.627 \\
 \bottomrule
 \end{tabular}}
@@ -783,9 +800,13 @@ sparsity cannot undo.
 \begin{table}[t]
 \centering
 \caption{\textbf{DMC: three actor updates fine-tuning the same frozen
-distilled base}, dense vs.\ sparse reward. Scores are episode return
-($0$--$1000$); swingup rows average two seeds, new tasks one.
-$^{\circ}$still training; $^{\mathrm{v}}$high eval variance; $^{\mathrm{t}}$tuned reward step (see text).}
+distilled base}, dense vs.\ sparse reward. Protocol follows standard DMC
+reporting \citep{tassa2018dmc}: return over fixed $1000$-step episodes
+(bounded at $1000$ by construction), mean of $10$ evaluation episodes,
+quoted at a matched $400$K environment steps. Swingup averages two training
+seeds; second seeds for the other rows are running.
+$^{\circ}$below the matched budget; $^{\mathrm{v}}$high eval variance;
+$^{\mathrm{t}}$tuned reward step (see text).}
 \label{tab:dmc-scope}
 \small
 \begin{tabular}{lcccc}
@@ -794,11 +815,13 @@ task & base & unconstrained & backprop $-Q$ & \method{} \\
 \midrule
 \multicolumn{5}{l}{\emph{dense reward}} \\
 cartpole swingup      & 429 & 575 & 318 & \textbf{715} \\
-cartpole balance      & 378 & 815$^{\circ}$ & 844$^{\circ}$ & \textbf{911}$^{\circ}$ \\
-quadruped run         & 238 & 97$^{\circ}$ & 283$^{\circ}$ & \textbf{312}$^{\circ\mathrm{t}}$ \\
+cartpole balance      & 378 & 815$^{\circ}$ & 844 & \textbf{911} \\
+quadruped run         & 238 & 97$^{\circ}$ & 283 & \textbf{312}$^{\circ\mathrm{t}}$ \\
+finger spin           & 3   & 0$^{\circ}$ & 187$^{\circ}$ & \textbf{187}$^{\circ}$ \\
 \midrule
 \multicolumn{5}{l}{\emph{sparse reward}} \\
-cartpole balance (sparse) & 90  & 880$^{\circ}$ & 843$^{\circ\mathrm{v}}$ & \textbf{1000} \\
+cartpole balance (sparse) & 90  & 880$^{\circ}$ & 843$^{\mathrm{v}}$ & \textbf{1000} \\
+ball-in-cup catch (sparse) & 86 & 940$^{\circ}$ & 66$^{\circ}$ & \textbf{925} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -806,6 +829,12 @@ cartpole balance (sparse) & 90  & 880$^{\circ}$ & 843$^{\circ\mathrm{v}}$ & \tex
 The sparse-swingup variant is excluded from the table: its base is too
 weak under sparse reward to support any conclusion, as reported previously,
 so the sparse test is carried by the balance pair.
+
+\paragraph{The tuned quadruped arm.} The shipped DMC recipe runs
+$\eta_Q{=}0.5$, the setting our own sweep rates worst; at $\eta_Q{=}1$
+\method{} reaches $312$ where the untuned arm reads $267$ (a dead-zone
+variant reads $301$), against backprop's $283$ at nearly $3\times$ the
+budget. The tuned value is reported with this disclosure.
 
 \paragraph{Excluded tasks.} Walker-run and humanoid-walk are excluded: their
 one-step distills retain almost none of the teacher ($17$ from a $691$
@@ -852,7 +881,9 @@ reported whichever way they land.
 \centering
 \caption{Recipe sensitivity on LIBERO: each row changes one component;
 $\Delta$ is against the full recipe. Removing any component costs up to
-$23$ points and the critical one is task-dependent (see text).}
+$23$ points, the critical one is task-dependent, and the dead-zone radius
+is flat across its interior with failures only at the endpoints (see
+text).}
 \label{tab:libero-ablation}
 \footnotesize
 \setlength{\tabcolsep}{4.0pt}
@@ -874,6 +905,14 @@ $23$ points and the critical one is task-dependent (see text).}
 \multicolumn{5}{l}{\emph{loosen one component beyond the shared recipe:}} \\
 \quad wider trust region ($\delta_{\mathrm{tot}}\!: 0.15 \to 0.25$) & 0.874 & $+0.093$ & 0.689 & $+0.005$ \\
 \quad stronger reward step ($\eta_Q\!: 1 \to 2$) & 0.802 & $+0.021$ & 0.729 & $+0.045$ \\
+\addlinespace
+\multicolumn{5}{l}{\emph{dead-zone radius sweep:}\label{tab:rho-sweep}} \\
+\quad $\rho = 0$ (always-on penalty) & 0.549 & $-0.232$ & 0.601 & $-0.083$ \\
+\quad $\rho = 0.02$ & \textbf{0.863} & $+0.082$ & \textbf{0.734} & $+0.050$ \\
+\quad $\rho = 0.05$ (recipe) & 0.781 & & 0.684 & \\
+\quad $\rho = 0.10$ & 0.812 & $+0.031$ & 0.694 & $+0.010$ \\
+\quad $\rho = 0.20$ & 0.771 & $-0.010$ & 0.671 & $-0.013$ \\
+\quad $\rho = \infty$ (dead zone inert) & 0.803 & $+0.022$ & 0.671 & $-0.013$ \\
 \bottomrule
 \end{tabular}}
 \end{table}
