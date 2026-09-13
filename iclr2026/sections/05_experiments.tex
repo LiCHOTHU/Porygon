@@ -121,7 +121,7 @@ this base (see text); $^{\circ}$still training;
 $^{\P\P}$shared retrained base ($0.600$);
 $^{\dagger\dagger}$matched $496$K, see text for the $1.6\times$
 speed result; $^{\mathrm{z}}$zeroth-order variant;
-$^{\P}$flow-matching base $0.570$.}
+$^{\P}$flow-matching base $0.570$; $^{\S\S}$converged $0.887$ on the original-architecture base, see text.}
 \label{tab:baselines}
 \footnotesize
 \setlength{\tabcolsep}{4.0pt}
@@ -135,7 +135,7 @@ QSM \citep{psenka2024qsm} & diffusion & 0.600$^{*}$ & 0.000 & $-0.600$ \\
 DQL                       & diffusion & 0.600$^{*}$ & 0.000 & $-0.600$ \\
 IDQL                      & diffusion & 0.600$^{*}$ & 0.327 & $-0.273$ \\
 AWR                       & generic   & 0.600$^{*}$ & 0.393 & $-0.207$ \\
-DPPO \citep{ren2024dppo} & diffusion & 0.600 & 0.678$^{\circ}$ & $+0.078$ \\
+DPPO \citep{ren2024dppo} & diffusion & 0.600 & 0.678$^{\circ\S\S}$ & $+0.078$ \\
 \midrule
 \multicolumn{5}{l}{\emph{adding \method{} to DICE-RL, paired within each base}} \\
 diffusion $+$ DICE-RL \citep{dicerl2026}$^{\P\P}$   & diffusion & 0.600 & 0.965$^{\dagger\dagger}$ & $+0.365$ \\
@@ -154,6 +154,12 @@ Against the published flow-matching pipeline, the drifting-base \method{}
 reaches parity ($0.912$--$0.930$ against $0.923$--$0.934$, from a base of
 $0.382$), and the diffusion-base pair passes it (both arms saturate near
 $0.96$).
+
+The DPPO cell ($0.678^{\circ}$) is quoted on the shared $0.600$ base and is
+still climbing on its ${\sim}12$M-step schedule; the same method run to
+convergence on DPPO's original-architecture diffusion base reaches $0.887$
+($11.7$M steps), which we note here rather than in the table because it is a
+different base and not directly comparable to the shared-base rows.
 
 Two caption markers deserve their numbers here. The starred baselines'
 harness scores success more strictly --- a full action chunk inside the
