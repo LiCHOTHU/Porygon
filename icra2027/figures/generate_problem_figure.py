@@ -29,7 +29,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
 from matplotlib.colors import to_rgba
-from matplotlib.offsetbox import AnnotationBbox, TextArea, VPacker
 import numpy as np
 
 os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
@@ -120,86 +119,102 @@ def plot(grid_x, grid_y, true_grid, critic_grid, demo, paths, values, config, di
         "text.color": INK, "axes.labelcolor": INK,
         "pdf.fonttype": 42, "ps.fonttype": 42,
     })
-    # Designed at its final single-column size, not shrunk from a wide figure.
-    fig = plt.figure(figsize=(3.45, 2.65))
-    ax = fig.add_axes([0.025, 0.10, 0.95, 0.82])
-    # This region is about critic error, not action probability. Keep it neutral
-    # and dashed so it cannot be mistaken for any of the three KDEs.
+    # QGF-style matched panels: repeat the reference, change only the update.
+    # A shared rigid rotation makes the departure run left-to-right, allowing
+    # two readable landscape panels inside one ICRA column. No axis stretching.
+    origin = distribution["particles_base"].mean(0)
+    direction = distribution["particles_vanilla"].mean(0) - origin
+    direction /= np.linalg.norm(direction)
+    rotation = np.stack([direction, [-direction[1], direction[0]]], axis=1)
+    assert np.allclose(rotation.T @ rotation, np.eye(2), atol=1e-6)
+    assert np.linalg.det(rotation) > 0
+
+    def transform(points):
+        return (points - origin) @ rotation
+
+    transformed_grid = transform(np.stack([grid_x, grid_y], -1))
+    tx, ty = transformed_grid[..., 0], transformed_grid[..., 1]
+    colors = {"base": BLUE, "vanilla": ORANGE, "anchored": TEAL}
+    clouds = {name: transform(distribution[f"particles_{name}"]) for name in colors}
+    all_paths = {name: transform(distribution[f"{name}_particle_paths"])
+                 for name in ("vanilla", "anchored")}
+    order = np.argsort(distribution["particles_base"][:, 0])
+    chosen = order[(np.linspace(0.15, 0.85, 7) * (len(order) - 1)).astype(int)]
+    visible = np.linspace(0, len(order) - 1, 32, dtype=int)
+    # Include every displayed contour, sample, and path in both panels' limits.
+    extents = [cloud[visible] for cloud in clouds.values()]
+    extents += [p[:, chosen].reshape(-1, 2) for p in all_paths.values()]
+    for name in colors:
+        density = distribution[f"density_{name}"]
+        extents.append(transformed_grid[density >= mass_levels(density)[0]])
+    extents = np.concatenate(extents)
+    lo, hi = extents.min(0) - 0.07, extents.max(0) + 0.07
+
+    fig = plt.figure(figsize=(3.45, 2.70))
+    axes = [fig.add_axes([0.035, y, 0.93, 0.34]) for y in (0.565, 0.095)]
     overestimated = ((critic_grid > 1.0) & (true_grid < 0.01)).astype(float)
-    ax.contourf(grid_x, grid_y, overestimated, levels=[0.5, 1.5], colors=["#F0F1F3"], zorder=0)
-    ax.contour(grid_x, grid_y, overestimated, levels=[0.5], colors=["#A7ADB5"],
-                linewidths=0.65, linestyles="--", zorder=1)
-    # Direction-only arrows from finite differences of the GPU-evaluated critic
-    # grid. They depict the critic field, not a claimed action-step magnitude.
     gy, gx = np.gradient(critic_grid, grid_y[:, 0], grid_x[0])
     rows, cols = np.meshgrid(np.arange(16, len(grid_y) - 16, 28),
                              np.arange(16, grid_x.shape[1] - 16, 28), indexing="ij")
     selected = overestimated[rows, cols] > 0.5
     rows, cols = rows[selected], cols[selected]
-    norm = np.hypot(gx[rows, cols], gy[rows, cols]).clip(1e-8)
-    ax.quiver(grid_x[rows, cols], grid_y[rows, cols],
-               0.14 * gx[rows, cols] / norm, 0.14 * gy[rows, cols] / norm,
-               angles="xy", scale_units="xy", scale=1, color="#B7BEC7",
-               width=0.003, headwidth=3.2, headlength=4, alpha=0.75, zorder=1)
-    colors = {"base": BLUE, "vanilla": ORANGE, "anchored": TEAL}
-    for name in ("base", "vanilla", "anchored"):
-        density = distribution[f"density_{name}"]
-        levels = mass_levels(density)
-        ax.contourf(grid_x, grid_y, density,
-                     levels=np.r_[levels, density.max() * 1.001],
-                     colors=[to_rgba(colors[name], a) for a in (0.055, 0.12, 0.22)], zorder=2)
-        ax.contour(grid_x, grid_y, density, levels=levels, colors=[colors[name]],
-                    linewidths=[0.65, 0.8, 1.0],
-                    linestyles="--" if name == "anchored" else "-", zorder=3)
-        particles = distribution[f"particles_{name}"]
-        visible = np.linspace(0, len(particles) - 1, 32, dtype=int)
-        ax.scatter(*particles[visible].T, s=5, color=colors[name], alpha=0.7,
-                    edgecolors="white", linewidths=0.2, zorder=5)
-
-    # Choose paths by initial x-quantile, independently of the update outcomes.
-    order = np.argsort(distribution["particles_base"][:, 0])
-    chosen = order[(np.linspace(0.15, 0.85, 7) * (len(order) - 1)).astype(int)]
-    for name in ("vanilla", "anchored"):
-        cloud_paths = distribution[f"{name}_particle_paths"]
+    gradients = np.stack([gx[rows, cols], gy[rows, cols]], -1) @ rotation
+    gradients *= 0.13 / np.linalg.norm(gradients, axis=-1, keepdims=True).clip(1e-8)
+    headers = ["(a) Vanilla critic update", "(b) Anchored update (ours)"]
+    for panel, (ax, name) in enumerate(zip(axes, ("vanilla", "anchored"))):
+        color = colors[name]
+        ax.set_facecolor("#FAFBFC" if panel == 0 else "#F5FAF9")
+        ax.contourf(tx, ty, overestimated, levels=[0.5, 1.5], colors=["#F0F2F4"], zorder=0)
+        ax.contour(tx, ty, overestimated, levels=[0.5], colors=["#C1C8D0"],
+                    linewidths=0.5, linestyles="--", zorder=1)
+        ax.quiver(tx[rows, cols], ty[rows, cols], *gradients.T,
+                   angles="xy", scale_units="xy", scale=1, color="#BFC6CE",
+                    width=0.0025, headwidth=3, headlength=3.8, alpha=0.55, zorder=1)
+        for snapshot in ("base", name):
+            density = distribution[f"density_{snapshot}"]
+            levels = mass_levels(density)
+            ax.contourf(tx, ty, density, levels=np.r_[levels, density.max() * 1.001],
+                         colors=[to_rgba(colors[snapshot], a) for a in (0.055, 0.12, 0.22)], zorder=2)
+            ax.contour(tx, ty, density, levels=levels, colors=[colors[snapshot]],
+                        linewidths=[0.6, 0.75, 0.9],
+                        linestyles="--" if snapshot == "base" else "-", zorder=3)
+            ax.scatter(*clouds[snapshot][visible].T, s=3.5, color=colors[snapshot],
+                        edgecolors="white", linewidths=0.15, alpha=0.65, zorder=5)
+        cloud_paths = all_paths[name]
         for idx in chosen:
             path = cloud_paths[:, idx]
-            ax.plot(*path.T, color=colors[name], lw=0.55, alpha=0.30, zorder=4)
+            ax.plot(*path.T, color=color, lw=0.55, alpha=0.38, zorder=4)
         path = cloud_paths[:, chosen[len(chosen) // 2]]
-        ax.plot(*path.T, color=colors[name], lw=1.5, zorder=6,
-                 path_effects=[pe.Stroke(linewidth=2.3, foreground="white"), pe.Normal()])
+        ax.plot(*path.T, color=color, lw=1.4, zorder=6,
+                 path_effects=[pe.Stroke(linewidth=2.1, foreground="white"), pe.Normal()])
         t = min(16, len(path) - 3) if name == "vanilla" else min(1, len(path) - 3)
         ax.annotate("", xy=path[t + 2], xytext=path[t],
-                     arrowprops={"arrowstyle": "->", "color": colors[name], "lw": 1.4}, zorder=7)
-
-    means = {name: distribution[f"particles_{name}"].mean(0) for name in colors}
-    callouts = [
-        (means["base"], (0.03, 0.91), BLUE, r"Base policy $p_0$",
-         f"reward {distribution['reward_base'].mean():.2f}"),
-        (means["anchored"], (0.61, 0.91), TEAL, r"Ours: anchored",
-         f"reward {distribution['reward_anchored'].mean():.2f}"),
-        (means["vanilla"], (0.04, 0.16), ORANGE, r"Vanilla update",
-         f"critic {distribution['q_vanilla'].mean():.2f}\nreward {distribution['reward_vanilla'].mean():.2f}"),
-    ]
-    for point, position, color, title, subtitle in callouts:
-        heading = TextArea(title, textprops={"color": color, "fontsize": 8,
-                                            "fontweight": "semibold"})
-        detail = TextArea(subtitle, textprops={"color": GRAY, "fontsize": 7,
-                                              "linespacing": 1.25})
-        label = VPacker(children=[heading, detail], align="left", pad=0, sep=3)
-        ax.add_artist(AnnotationBbox(label, point, xybox=position,
-                                     xycoords="data", boxcoords=fig.transFigure,
-                                     box_alignment=(0, 0.5),
-                                     bboxprops={"fc": "white", "ec": "none", "alpha": 0.9,
-                                                "boxstyle": "square,pad=0.2"},
-                                     arrowprops={"arrowstyle": "-", "color": color,
-                                                 "lw": 0.75, "shrinkB": 5}, zorder=8))
-    ax.set(xlim=(grid_x.min(), grid_x.max()), ylim=(grid_y.min(), grid_y.max()))
-    ax.set_aspect("equal", adjustable="box")
-    ax.set_axis_off()
-    ax.text(0.06, 0.43, "Critic overestimation\n" + r"$\hat Q>1$, reward $<0.01$",
-             transform=ax.transAxes, color=GRAY, fontsize=6.3, va="center",
-             bbox={"fc": "white", "ec": "none", "alpha": 0.9, "pad": 1.5})
-    fig.text(0.5, 0.025, "Contours: 50 / 80 / 95% probability mass", ha="center", fontsize=6.5, color=GRAY)
+                     arrowprops={"arrowstyle": "->", "color": color, "lw": 1.3}, zorder=7)
+        ax.set(xlim=(lo[0], hi[0]), ylim=(lo[1], hi[1]), xticks=[], yticks=[])
+        ax.set_aspect("equal", adjustable="box")
+        for spine in ax.spines.values():
+            spine.set_color("#D0D7DE" if panel == 0 else "#A8CDC5")
+            spine.set_linewidth(0.65)
+        ax.text(0.025, 0.93, r"Base $p_0$", transform=ax.transAxes,
+                 color=BLUE, fontsize=6.5, va="top")
+        ax.text(0.65, 0.93, "Overestimated Q", transform=ax.transAxes,
+                 color=GRAY, fontsize=6.0, va="top", ha="center")
+        if name == "vanilla":
+            ax.text(0.52, 0.15, "Drifts away", transform=ax.transAxes,
+                     fontsize=6.5, color=color, ha="center")
+        else:
+            ax.annotate("Stays near the base", xy=clouds[name].mean(0),
+                         xytext=(0.44, 0.25), textcoords="axes fraction",
+                         fontsize=6.5, color=color,
+                         arrowprops={"arrowstyle": "-", "color": color, "lw": 0.75})
+        left = ax.get_position().x0
+        fig.text(left, 0.95 - panel * 0.47, headers[panel], color=color,
+                  fontsize=7.5, fontweight="medium")
+        initial = distribution["reward_base"].mean()
+        final = distribution[f"reward_{name}"].mean()
+        fig.text(left, 0.525 - panel * 0.47,
+                  f"True reward: {initial:.2f} → {final:.2f}", color=color, fontsize=6.6)
+    fig.text(0.5, 0.008, "Same base, critic, particles, and step cap", ha="center", fontsize=6.2, color=GRAY)
     return fig
 
 

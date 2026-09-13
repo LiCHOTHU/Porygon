@@ -1,0 +1,54 @@
+% Experimental setup moved from the former Method subsection D.
+% Result source: iclr2026/sections/05_experiments.tex after 648ae8b.
+% The matched three-seed tab:exp1 supersedes the older provisional hinge
+% discussion in tab:locus; reconcile provenance before migrating result cells.
+
+We evaluate the actor update and the constraints that govern its departure
+from the pretrained policy. Controlled comparisons match the frozen base,
+critic-training procedure, replay settings, and interaction budget.
+
+\subsection{Training Setup}
+\label{sec:exp-setup}
+
+We alternate online collection with critic and actor updates, using the
+DICE-RL training framework~\cite{dicerl2026}. The critic retains ensemble
+temporal-difference learning, $n$-step returns, and demonstration replay.
+Online replay is initialized with base-policy rollouts, and minibatches mix
+online experience with demonstrations. Exploration uses the baseline's
+warm-up and value-guided candidate-selection procedure. Actor updates and
+target-critic updates follow their configured schedules. These settings
+are held fixed within each controlled actor comparison.
+
+\textbf{Actor-update settings.}
+The LIBERO recipe uses $K=16$, $\eta_0=0.05$,
+$\eta_{\mathrm{anc}}=1$, $\rho=0.05$ rms, $\delta_Q=1$, and
+$\delta_{\mathrm{tot}}=0.15$. We compare shared reward steps
+$\eta_Q\in\{1,2\}$ across tasks. The robomimic recipe uses
+$\eta_Q=0.5$ and $\rho=0$. Thus the dead-zone setting is benchmark-specific,
+while the target-construction rule is the same.
+
+\subsection{Constraint and Reward-Field Controls}
+\label{sec:exp-controls}
+
+\textbf{Constraint factorial.}
+The constraint factorial independently switches step clipping and
+restoration on or off. Disabling clipping removes both $C_{\delta_Q}$ and
+$C_{\delta_{\mathrm{tot}}}$; disabling restoration sets both $\eta_0$ and
+$\eta_{\mathrm{anc}}$ to zero. Setting $\rho=0$ instead makes the restoring
+terms always active, and increasing $\rho$ alone leaves the weak pull intact.
+
+\textbf{Alternative restoring mechanisms.}
+We compare full \method{} with a dead-zone hinge in the backpropagated
+actor's loss and a hard projection of the action target. The LIBERO hinge
+control uses radius $0.05$ rms and BC weight $100$. The LIBERO projection control
+caps the residual target at $0.05$ rms, with both soft restoring terms and
+step clips disabled. These comparisons test the implementation of the
+constraint as well as its shape; related geometry need not produce equally
+reliable finite training updates.
+
+\textbf{Reward-field ablations.}
+For reward-field ablations, we replace the action gradient with particle
+transport~\cite{deng2026drifting} toward either the critic's top-$k$
+candidates or candidates weighted by a softmax of standardized
+$Q$-values. Clipping, restoration, and regression remain the same,
+isolating the contribution of the critic's gradient direction.

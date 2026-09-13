@@ -23,10 +23,10 @@ Repeatedly following those predictions may move the policy away from actions
 that actually succeed~\cite{fujimoto2019bcq}. A step cap alone does not
 prevent this: $\|a_{t+1}-a_t\|\leq\delta$ permits distance from the initial
 action to grow with the number of updates. Here $t$ indexes optimization
-steps, not control steps. Fig.~\ref{fig:problem} follows an entire base
-action distribution through paired particle updates. Unanchored critic
-ascent moves its probability mass into an overestimated region; anchoring
-each particle to its own base action permits improvement nearby.
+steps, not control steps. Fig.~\ref{fig:problem} compares two updates from
+the same base distribution under the same critic. Vanilla ascent moves
+probability mass into an overestimated region; anchoring each particle to
+its own base action permits improvement nearby.
 
 The design question is how to permit useful corrections without allowing
 uncontrolled departure from the frozen base. We measure this departure by

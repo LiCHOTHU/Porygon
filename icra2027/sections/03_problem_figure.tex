@@ -2,14 +2,14 @@
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/problem_motivation.pdf}
-  \caption{\textbf{Distribution drift under a misleading critic.}
-  Blue shows an analytic base policy; orange and green show $384$ paired
-  particles after $60$ critic-ascent updates without and with anchoring.
-  Contours enclose $50/80/95\%$ of the estimated probability mass; dots and
-  paths show representative particles. Gray arrows follow increasing critic
-  value in an overestimated region. Scores are particle averages.
-  This single-seed toy uses $25$ critic-training samples and a $0.06$ step
-  cap. Projection within $0.15$ of each particle's base action illustrates
-  CAST's anchoring principle, rather than full policy training.}
+  \caption{\textbf{Same critic, different policy update.}
+  Both panels start from the same blue base distribution and $384$ paired
+  actions. (a) Vanilla critic ascent moves probability mass into the
+  overestimated region (gray). (b) Anchoring permits improvement near the
+  base. Colored contours enclose $50/80/95\%$ of the estimated mass;
+  paths show representative updates in shared, rotated action coordinates.
+  Scores are particle averages. This single-seed toy uses $25$ critic-training
+  samples, $60$ updates, and a $0.06$ step cap. Radius-$0.15$ per-particle
+  projection illustrates CAST's anchor, rather than full policy training.}
   \label{fig:problem}
 \end{figure}
