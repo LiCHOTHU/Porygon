@@ -643,9 +643,9 @@ variant & acts on & square (3 seeds) & \makecell{red mug\\onto plate ($0.573$)} 
 \midrule
 \multicolumn{5}{l}{\emph{(b) the restoring field --- reward held at \method{}'s gradient}} \\
 \quad $L_2$ penalty $+$ grad clip (DICE-RL) & loss $+$ params & 0.861--0.909$^{*}$ & 0.550 & 0.587 \\
-\quad always-on pull ($\rho{=}0$)           & action target   & running & 0.549 & 0.601 \\
+\quad always-on pull ($\rho{=}0$)           & action target   & 0.664--0.729 & 0.549 & 0.601 \\
 \quad hinge $(\|r\|-\rho)_{+}^{2}$          & loss            & \textbf{0.991}$^{\dagger}$ & \textbf{0.837} & 0.700 \\
-\quad hard projection $\Pi_{\|r\|\le\rho}$  & action target   & running & 0.790 & \textbf{0.733} \\
+\quad hard projection $\Pi_{\|r\|\le\rho}$  & action target   & 0.891--0.938 & 0.790 & \textbf{0.733} \\
 \quad dead-zone anchor (\method{})          & action target   & 0.912--0.930$^{*}$ & 0.600 & 0.627 \\
 \bottomrule
 \end{tabular}}
