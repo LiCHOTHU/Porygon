@@ -1,0 +1,31 @@
+% Source: tab:libero-single. Keep each shared eta setting; never select the
+% best eta independently per task when computing the mean.
+\begin{table*}[t]
+\centering
+\caption{LIBERO hard-8, per-task fine-tuning with task-ID routing. Success
+is evaluated with 100 rollouts $\times$ 3 evaluation seeds. CAST$_1$ and
+CAST$_2$ use shared reward steps $\eta_Q=1$ and $2$, respectively, across
+all eight tasks. Each block starts from its own pretrained multitask base.
+Column means are fixed-recipe averages, not per-task best-of selections.
+Bold marks the best value in each row within each base block.}
+\label{tab:libero-main}
+\small
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lcccccccc@{}}
+\toprule
+ & \multicolumn{4}{c}{Drifting base} & \multicolumn{4}{c}{Flow-matching base} \\
+\cmidrule(lr){2-5}\cmidrule(lr){6-9}
+Task & Base & DICE & CAST$_1$ & CAST$_2$ & Base & DICE & CAST$_1$ & CAST$_2$ \\
+\midrule
+Drawer / bowl (8) & .818 & .820 & .831 & \textbf{.857} & .897 & .873 & \textbf{.900} & .887 \\
+Stove / pan (21) & .690 & .703 & .737 & \textbf{.752} & .700 & \textbf{.730} & .690 & .727 \\
+Drawer / ketchup (32) & .610 & .587 & .694 & \textbf{.729} & .690 & .682 & .738 & \textbf{.773} \\
+Basket / juice (53) & .785 & .800 & .842 & \textbf{.853} & \textbf{.917} & .915 & .897 & .913 \\
+Plate / red mug (65) & .573 & .550 & \textbf{.826} & .812 & .787 & .809 & .878 & \textbf{.887} \\
+Front caddy / book (73) & .648 & .663 & .710 & \textbf{.752} & .683 & .690 & .667 & \textbf{.783} \\
+Right caddy / book (75) & .578 & .583 & \textbf{.657} & .648 & \textbf{.620} & .592 & .608 & .563 \\
+Study-3 caddy / book (81) & .588 & \textbf{.653} & .607 & .635 & \textbf{.733} & .708 & .670 & .680 \\
+\midrule
+Mean & .661 & .670 & .738 & \textbf{.755} & .753 & .750 & .756 & \textbf{.777} \\
+\bottomrule
+\end{tabular*}
+\end{table*}

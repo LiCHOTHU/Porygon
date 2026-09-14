@@ -1,0 +1,55 @@
+\subsection{Refinement on the Physical Robot}
+\label{sec:exp-real-robot}
+
+The simulation comparisons isolate the actor update; the physical study
+asks whether it adds value when refining an existing robot skill through
+practice. Success-only BC provides a critic-free alternative, separating
+the benefit of imitating successful attempts from that of learning from
+both outcomes. We use an OpenArm platform's left
+seven-joint arm and gripper, with chest and left-wrist RGB cameras, measured
+joint and gripper positions, and a fixed task-language prompt. The two
+tasks are \emph{Jigglypuff into the case} and \emph{red-on-purple stacking}.
+Both use a hand-made staircase: different support heights and nearby edges
+make approach, grasp alignment, and release important. Stacking additionally
+requires accurate placement before withdrawing the gripper.
+
+\textbf{Four-way comparison.}
+For each task, a flow-matching policy is pretrained on teleoperated
+demonstrations. It predicts 30-step chunks of absolute joint and gripper
+targets at 15 Hz using a ten-step Euler sampler; deployment executes a
+prefix before replanning. All refinement conditions start from the same
+checkpoint. Success-only BC continues supervised training on successful
+online trajectories. DICE-RL and DICE-RL + CAST use both successful and
+failed attempts, with the same frozen base, critic architecture, replay,
+exploration, and update schedule. This tests whether critic-guided
+refinement adds value beyond imitating successful practice, and whether
+the actor-update rule changes that benefit.
+
+\textbf{Collection and evaluation.}
+After each attempt, an operator assigns the success/failure label. Valid
+failures are retained for the RL arms, and invalid or discarded trials are
+accounted for explicitly. Replay records commands actually executed after
+chunk-prefix selection and command limiting. The refinement protocol uses
+matched robot interaction budgets and execution limits; evaluation attempts
+are held out from refinement data. Each method is evaluated over 20 rollouts
+per task. For Jigglypuff, the toy's pose is randomly changed on the stairs
+between attempts. Exact pose ranges and paired resets across methods are
+not established by the available evaluation record. Toy placement
+requires release fully inside the case with the toy remaining there.
+Stacking requires the red cube to remain supported by the purple cube
+after release and gripper withdrawal; the post-release observation interval
+is not specified in the reported stacking results.
+
+\textbf{Results across both tasks.}
+Fig.~\ref{fig:real-robot} reports 11/20 successes for the base FM policy,
+16/20 after success-only BC refinement, 18/20 for DICE-RL, and 19/20 for
+DICE-RL + CAST on Jigglypuff. On stacking, the same methods achieve
+7/20, 13/20, 12/20, and 14/20 successes. All refinements improve observed
+success over the base on both tasks. CAST reaches the highest observed
+rates, 95\% and 70\%, gaining eight and seven successes over the bases.
+The comparison with BC is task-dependent: DICE-RL exceeds BC on Jigglypuff
+but trails it on stacking. CAST exceeds DICE-RL by one and two trials,
+and BC by three and one. These small margins support further evaluation
+rather than a reliable ranking of refinement methods.
+Fig.~\ref{fig:real-robot} illustrates both tasks using separate
+demonstration sequences.

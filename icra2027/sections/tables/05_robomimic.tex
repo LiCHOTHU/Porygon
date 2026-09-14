@@ -1,0 +1,37 @@
+% Sources: tab:matched and the paired/external blocks of tab:baselines,
+% iclr2026/sections/05_experiments.tex at 800cfe6. See RESULTS_PROVENANCE.md.
+\begin{table}[t]
+\centering
+\caption{Robomimic success. Top: comparisons within each base. Drifting
+rows show three-seed ranges from 300-episode evaluations, averaged over the
+last three checkpoints; $\dagger$ two can baselines ended before the 20K
+update budget. The diffusion pair is at 496K environment steps;
+$z$ denotes a value-only CAST field. Bottom: external square references,
+with their own evaluation baselines. $*$ uses a stricter success rule;
+$\circ$ is an ongoing run. Budgets and protocols differ between blocks.
+Bold marks the best result per top row and the best fine-tuned score and
+gain within each external evaluation-baseline group.}
+\label{tab:robomimic}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Task / base class & Base & DICE-RL & + CAST \\
+\midrule
+Can / drifting & .877 & .940--.970$^{\dagger}$ & \textbf{.978--.993} \\
+Square / drifting & .382 & .861--.909 & \textbf{.912--.930} \\
+Square / diffusion & .600 & \textbf{.965} & .959 \\
+Square / flow matching & .570 & .831 & \textbf{.934}$^{z}$ \\
+\midrule
+\multicolumn{4}{@{}l}{\emph{External square references (own harness and budget)}} \\
+Method & Own base & Fine-tuned & $\Delta$ \\
+\midrule
+DIPO~\cite{dipo2024}$^{*}$ & .348 & .156 & $-.192$ \\
+QSM~\cite{psenka2024qsm}$^{*}$ & .348 & .000 & $-.348$ \\
+DQL$^{*}$ & .348 & .000 & $-.348$ \\
+IDQL~\cite{hansenestruch2023idql}$^{*}$ & .348 & .327 & $-.021$ \\
+AWR~\cite{peng2019awr}$^{*}$ & .348 & \textbf{.393} & $\mathbf{+.045}$ \\
+DPPO~\cite{ren2024dppo} & .600 & \textbf{.678}$^{\circ}$ & $\mathbf{+.078}$ \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,28 @@
+% Source: tab:dmc-scope, including every incomplete-run marker.
+\begin{table}[t]
+\centering
+\caption{DMC episode return (maximum 1000). All actors use the same frozen
+base per task. Scores average 10 evaluation episodes; the target budget is
+400K environment steps. $\circ$ denotes a below-budget run, $v$ high
+evaluation variance, and $t$ a tuned reward step. Swing-up averages two
+training seeds; the other rows currently have one, with second seeds pending.
+Bold marks the highest reported return per row, including ties and interim runs.}
+\label{tab:dmc}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Task & Base & No constraint & Backprop & CAST \\
+\midrule
+\multicolumn{5}{@{}l}{\emph{Dense reward}} \\
+Cartpole swing-up & 429 & 575 & 318 & \textbf{715} \\
+Cartpole balance & 378 & 815$^{\circ}$ & 844 & \textbf{911} \\
+Quadruped run & 238 & 97$^{\circ}$ & 283 & \textbf{312}$^{\circ t}$ \\
+Finger spin & 3 & 0$^{\circ}$ & \textbf{187}$^{\circ}$ & \textbf{187}$^{\circ}$ \\
+\midrule
+\multicolumn{5}{@{}l}{\emph{Sparse reward}} \\
+Cartpole balance & 90 & 880$^{\circ}$ & 843$^{v}$ & \textbf{1000} \\
+Ball-in-cup catch & 86 & \textbf{940}$^{\circ}$ & 66$^{\circ}$ & 925 \\
+\bottomrule
+\end{tabular}
+\end{table}

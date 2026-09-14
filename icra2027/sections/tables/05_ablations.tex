@@ -1,0 +1,46 @@
+% Separate study blocks retain their own reference values. They must not be
+% pooled into a single CAST row. Sources: tab:constraint, tab:exp1, and the
+% reward-field block of tab:locus in the ICLR draft. Older provisional hinge
+% and projection rows are not substituted for the new three-seed comparison.
+\begin{table}[t]
+\centering
+\caption{Constraint and reward-field ablations. (a) Reported three-seed
+five-task LIBERO factorial; mean base success is .673. (b) The constraint
+comparison uses three training seeds, 300-episode square evaluations, and powered
+LIBERO evaluations. (c) Reward-field substitutions, with square seed ranges.
+Each study block retains its own reported CAST reference; values are not
+pooled across blocks. Mug and ketchup denote tasks 65 and 32.
+Bold marks the best result per column within each study block.}
+\label{tab:ablations}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}llc@{}}
+\toprule
+\multicolumn{3}{@{}l}{\emph{(a) Step clipping versus base restoration}} \\
+Step clip & Restoration & Five-task mean \\
+\midrule
+Off & Off & .000 \\
+On & Off & .000 \\
+Off & On & .657 \\
+On & On (full CAST) & \textbf{.703} \\
+\bottomrule
+\end{tabular}
+\par\smallskip
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\multicolumn{4}{@{}l}{\emph{(b) Alternative constraint implementations}} \\
+Constraint & Square & Mug & Ketchup \\
+\midrule
+Loss-space hinge & .28 & .77 & .65 \\
+Hard target projection & \textbf{.96} & \textbf{.93} & .54 \\
+Full CAST & .94 & .78 & \textbf{.68} \\
+\midrule
+\multicolumn{4}{@{}l}{\emph{(c) Reward field, with the constraint fixed}} \\
+Field & Square & Mug & Ketchup \\
+\midrule
+Gradient & \textbf{.912--.930} & .600 & \textbf{.627} \\
+Top-$k$ & .525--.562 & .577 & .341 \\
+Value-tilted & .560--.584 & \textbf{.697} & .378 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,14 +1,18 @@
-Reinforcement learning can improve robot policies learned from demonstrations,
-but errors in a learned critic can also destroy their existing skills.
-We present \method{} (Constrained Action-Space Transport), a method for
-fine-tuning generative robot policies using task-success rewards. \method{}
-learns corrections to a frozen pretrained policy: it adjusts sampled actions
-using the critic and trains a small network to reproduce them. A restoring
-term permits small corrections while resisting larger departures from the
-pretrained behavior. On eight challenging LIBERO-90 tasks, per-task
-fine-tuning raises mean success from $66.1\%$ to $75.5\%$, compared with
-$67.0\%$ for the standard residual actor update. On robomimic square,
-success rises from $38.2\%$ to $91.2$--$93.0\%$. Removing the restoring term
-causes zero success on all five LIBERO ablation tasks, even with step clipping.
-The key is to limit accumulated departure from the pretrained policy,
-not merely the size of each update.
+Improving a pretrained robot policy requires balancing prior competence
+with new experience. The base policy provides useful but imperfect behavior;
+a learned critic suggests improvements but can be exploited by optimization.
+Relying too strongly on either can limit refinement or destroy existing
+skills. We present \method{} (Constrained Action-Space Transport), a
+likelihood-free method for adapting generative robot policies with
+task-success rewards. \method{} uses critic-guided action targets to train
+a residual over a frozen base. A soft restoring field permits local
+adaptation while increasingly resisting larger departures, and clipping
+limits each target correction. In a five-task LIBERO ablation, removing
+restoration causes complete collapse despite step clipping, showing that
+small updates alone do not preserve competence. Yet anchoring need not
+prevent improvement: per-task \method{} fine-tuning gains $9.4$ percentage
+points over the base on eight challenging LIBERO-90 tasks, outperforming the standard DICE-RL
+actor update, and over $50$ points on robomimic square. Initial OpenArm
+evaluations show gains of $35$--$40$ points across placement and stacking.
+These results support anchoring adaptation to prior competence as a
+practical principle for critic-guided policy refinement.

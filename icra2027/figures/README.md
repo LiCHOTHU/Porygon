@@ -169,3 +169,20 @@ targets are saved in `method_update.npz`. The numerical construction ran on
 the RTX 5090 and verifies finite values, the reward and total step bounds,
 and the inward direction of the restoring field. Density contours are
 analytic Gaussian 50% and 95% mass contours.
+
+## Physical task illustration (Figure 3)
+
+Run `python icra2027/figures/generate_real_robot_figure.py` from the repository
+root. It selects eight committed frames using the ICLR real-robot manifest:
+initial (chest), grasp (left wrist), align (chest), and release (left wrist) for
+each task. It needs no access to the original external videos. The output PDF is
+self-contained for LaTeX; its JSON manifest records the source frame paths,
+hashes, common crop, and nominal times. The task titles and stage labels use
+separate header bands. These are teleoperation demonstrations, not autonomous
+evaluation outcomes. A fifth panel in each row plots that task's autonomous
+success rates for Base FM, success-only BC, DICE-RL, and DICE-RL + CAST.
+These charts replace Table V and use the experimenter's counts recorded in
+`icra2027/real_robot_results.json`. Both charts share a percentage axis and
+method colors; labels report successes out of 20, with the largest count
+bolded. Chart values and source measurements are also saved in the figure
+manifest. The generator reads the results file directly.

@@ -1,0 +1,152 @@
+{
+  "kind": "teleoperated demonstration frames with separate autonomous evaluation charts",
+  "source_manifest": "iclr2026/figures/real_robot_tasks.json",
+  "results_source": "icra2027/real_robot_results.json",
+  "alignment": "same nominal video index at 15 fps; no per-frame capture timestamps available",
+  "crop_xyxy": [
+    0,
+    70,
+    640,
+    480
+  ],
+  "frames": [
+    {
+      "task": "jigglypuff",
+      "view": "chest",
+      "stage": "Initial",
+      "index": 0,
+      "nominal_time_s": 0.0,
+      "path": "iclr2026/figures/real_robot_frames/chest_rgb_20260910_202109_frame_0000.png",
+      "sha256": "af170e79051ee63e9ece28b59ecb35a45a343ef497ab062c844426bc6db4b4b0"
+    },
+    {
+      "task": "jigglypuff",
+      "view": "left_wrist",
+      "stage": "Grasp",
+      "index": 64,
+      "nominal_time_s": 4.267,
+      "path": "iclr2026/figures/real_robot_frames/left_wrist_rgb_20260910_202109_frame_0064.png",
+      "sha256": "997cbb5c34f8046f733a50e1647f0c82bb16275ef4ecb7dbc1707bb2678e8476"
+    },
+    {
+      "task": "jigglypuff",
+      "view": "chest",
+      "stage": "Align",
+      "index": 129,
+      "nominal_time_s": 8.6,
+      "path": "iclr2026/figures/real_robot_frames/chest_rgb_20260910_202109_frame_0129.png",
+      "sha256": "c3668f38621034453f8a590f8fcfca2b663cf791aeacd6e6cf2e36595a39ab15"
+    },
+    {
+      "task": "jigglypuff",
+      "view": "left_wrist",
+      "stage": "Release",
+      "index": 159,
+      "nominal_time_s": 10.6,
+      "path": "iclr2026/figures/real_robot_frames/left_wrist_rgb_20260910_202109_frame_0159.png",
+      "sha256": "16aac063ff76a58ce5bb72af0c64516e022ee31d404aaa5ad963487d1c75b1f0"
+    },
+    {
+      "task": "stack",
+      "view": "chest",
+      "stage": "Initial",
+      "index": 0,
+      "nominal_time_s": 0.0,
+      "path": "iclr2026/figures/real_robot_frames/chest_rgb_20260910_205952_frame_0000.png",
+      "sha256": "810a06eaa26b196d61fc217a7f80067b157768e2cbd67420fc87c5f91565975e"
+    },
+    {
+      "task": "stack",
+      "view": "left_wrist",
+      "stage": "Grasp",
+      "index": 78,
+      "nominal_time_s": 5.2,
+      "path": "iclr2026/figures/real_robot_frames/left_wrist_rgb_20260910_205952_frame_0078.png",
+      "sha256": "53880b78a655925df48dc4f0bdf701b65ca5b8cbc1180f9c6e5c30103ada5819"
+    },
+    {
+      "task": "stack",
+      "view": "chest",
+      "stage": "Align",
+      "index": 140,
+      "nominal_time_s": 9.333,
+      "path": "iclr2026/figures/real_robot_frames/chest_rgb_20260910_205952_frame_0140.png",
+      "sha256": "1b5c18f5f204e4c3c22b4c973707470fae6e4c3e23d6de14bb314fcfeb2aff9f"
+    },
+    {
+      "task": "stack",
+      "view": "left_wrist",
+      "stage": "Release",
+      "index": 160,
+      "nominal_time_s": 10.667,
+      "path": "iclr2026/figures/real_robot_frames/left_wrist_rgb_20260910_205952_frame_0160.png",
+      "sha256": "1964870197f393bb2e0761d453ae2549fab0277cc49228e4906ad0ef8e14ff87"
+    }
+  ],
+  "charts": [
+    {
+      "task": "jigglypuff",
+      "metric": "success_percent",
+      "results": [
+        {
+          "method": "Base FM",
+          "successes": 11,
+          "trials": 20
+        },
+        {
+          "method": "Success-only BC",
+          "successes": 16,
+          "trials": 20
+        },
+        {
+          "method": "DICE-RL",
+          "successes": 18,
+          "trials": 20
+        },
+        {
+          "method": "DICE-RL + CAST",
+          "successes": 19,
+          "trials": 20
+        }
+      ],
+      "values": [
+        55.0,
+        80.0,
+        90.0,
+        95.0
+      ]
+    },
+    {
+      "task": "stack",
+      "metric": "success_percent",
+      "results": [
+        {
+          "method": "Base FM",
+          "successes": 7,
+          "trials": 20
+        },
+        {
+          "method": "Success-only BC",
+          "successes": 13,
+          "trials": 20
+        },
+        {
+          "method": "DICE-RL",
+          "successes": 12,
+          "trials": 20
+        },
+        {
+          "method": "DICE-RL + CAST",
+          "successes": 14,
+          "trials": 20
+        }
+      ],
+      "values": [
+        35.0,
+        65.0,
+        60.0,
+        70.0
+      ]
+    }
+  ]
+}

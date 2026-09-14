@@ -51,9 +51,8 @@ errors can undermine critic-guided optimization~\cite{fujimoto2018td3,fujimoto20
 
 Our contribution is a controlled study of the restoring constraint: limiting
 each displacement, pulling toward a fixed base, and allowing a region of
-small corrections have different effects. The successful loss-space hinge
-control is important to this positioning. It shows that useful restoring
-geometry can be expressed within a conventional actor loss as well as through
-\method{}'s action targets. We therefore study when that geometry preserves
-and improves pretrained skills, rather than claiming that target regression
-alone resolves critic error.
+small corrections have different effects. A hinge can express the same radial
+geometry in a conventional actor loss, but clipping and finite optimization
+can yield different behavior. Our paired ablations therefore test both the
+geometry and its implementation across tasks. We do not assume that target
+regression alone resolves critic error.

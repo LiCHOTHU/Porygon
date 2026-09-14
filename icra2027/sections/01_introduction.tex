@@ -1,70 +1,92 @@
-Learning from demonstrations gives robots a useful starting point, but a
-policy that usually succeeds may still need practice to become reliable.
-Reinforcement learning can provide that practice without requiring additional
-demonstrations, and recent methods apply it to generative policies that
-produce sequences of robot actions~\cite{ren2024dppo,reinflow2025}. The
-challenge is to improve an existing skill while preserving the behavior that
-already works. We study this problem when feedback is limited to task
-success, so failed attempts provide little information about how to recover.
+For a robot that has already learned a skill, further learning should build
+on its competence rather than put that competence at risk. Generative
+policies trained on demonstrations offer a useful starting point, but they
+also inherit the limitations of their data. Reinforcement learning can help
+them improve through interaction without additional
+demonstrations~\cite{ren2024dppo,reinflow2025}. The difficulty is deciding
+how much to change: adhering too closely to pretrained behavior preserves
+its mistakes, while changing too freely can undo what already works.
+Policy refinement thus presents a stability--plasticity tension between
+retaining prior competence and adapting beyond it.
 
-A practical approach is residual fine-tuning: freeze the pretrained policy
-and learn a correction to its actions, guided by a learned
-critic~\cite{dicerl2026}. The critic predicts the return of an action, and
-the correction network is trained to increase that prediction. However,
-critic accuracy is limited by the data available during training.
-Optimizing its predictions can exploit errors outside well-covered regions
-of the action space~\cite{fujimoto2018td3,fujimoto2019bcq}. The policy may
-then move away from successful pretrained behavior even as its predicted
-return increases. With success-only rewards, losing that behavior also
-reduces the successful experience available to correct the critic.
+Critic-guided refinement makes this tension explicit through two imperfect
+sources of guidance. The pretrained policy encodes behavior supported by
+demonstrations, but cannot by itself say how to improve. A learned critic
+uses subsequent experience to predict which changes may help, but its
+predictions are only as reliable as the data supporting them. Optimizing
+those predictions can exploit errors outside well-covered regions, raising
+predicted return while reducing actual
+success~\cite{fujimoto2018td3,fujimoto2019bcq}. We study refinement with
+task-success rewards, where this failure is particularly costly: losing
+successful behavior also reduces the positive experience available to
+correct the critic. Neither the base nor the critic should therefore have
+unrestricted influence over the refined policy.
 
-This raises a concrete design question: \emph{should fine-tuning limit the
-size of each update, or the accumulated departure from the pretrained
-policy?} These are different constraints. Many small updates can move a
-policy far from its starting point. A restoring term tied to a frozen
-reference instead opposes that accumulated departure. Yet restoring too
-strongly everywhere can suppress the corrections needed to improve. The
-desired behavior is to permit local changes while resisting larger ones.
-Fig.~\ref{fig:problem} illustrates why this distinction matters.
+This leads to our central question: \emph{how can a robot learn beyond its
+prior competence without allowing an uncertain improvement signal to erase
+that competence?} Residual fine-tuning offers a natural setting: retain a
+frozen base and learn corrections guided by a critic~\cite{dicerl2026}.
+Yet preserving the base's parameters does not preserve the behavior of the
+combined policy; the residual can override the skill that remains stored
+in the base. Nor is a small update sufficient protection, since many small
+steps can accumulate into a large departure. Fig.~\ref{fig:problem}
+illustrates this distinction. We instead use the base as a continuing
+reference, with soft resistance that allows local adaptation and becomes
+stronger as departures grow.
 
 \input{sections/03_problem_figure}
 
-We present \method{} (Constrained Action-Space Transport), a residual
-fine-tuning method that implements this principle. At each update, it samples
-actions from the frozen base plus the current correction, moves them along
-the critic's action gradient, and trains the correction network to reproduce
-the adjusted actions. This action-improvement approach builds on prior
-critic-guided training of generative policies~\cite{dipo2024,psenka2024qsm}.
-\method{} combines displacement clipping with a restoring field toward the
-corresponding frozen-base action. A dead zone in this field leaves small
-corrections unpenalized by that term and pulls back larger departures.
-The adjusted actions become fixed regression targets, so the actor update
-requires neither policy likelihoods nor differentiation through the frozen
-generator.
+We implement this principle with \method{} (Constrained Action-Space
+Transport). Building on action-target training for generative
+policies~\cite{dipo2024,psenka2024qsm}, \method{} lets the critic propose
+changes to sampled actions and uses the frozen base to moderate those
+changes before the actor learns them. Each action is paired with its base
+counterpart under the same noise. A weak restoring pull acts throughout
+action space, with an additional term opposing departures beyond a chosen
+radius; clipping then caps the combined target displacement. The residual
+learns these detached targets by regression, without policy likelihoods or
+differentiation through the frozen generator. Restoration regulates
+accumulated departure, whereas clipping limits an individual requested
+correction. The radius controls this balance rather than certifying critic
+accuracy or guaranteeing the fitted policy's behavior.
 
-We evaluate the method on simulated manipulation tasks from LIBERO and
-robomimic, using matched base policies, critic-training procedures, and
-interaction budgets for the residual-actor comparison. On eight challenging
-LIBERO-90 tasks, per-task fine-tuning improves mean success by $9.4$
-percentage points, compared with $0.9$ points for the standard DICE-RL actor.
-On robomimic square, \method{} reaches $91.2$--$93.0\%$ success from a
-$38.2\%$ base, compared with $86.1$--$90.9\%$ for the standard actor at the
-reported budget. These gains are conditional: staying near the base can
-also limit improvement when a task requires substantially different actions.
+Our evaluation asks first whether anchoring leaves enough freedom to
+improve, then what makes that improvement possible. Controlled comparisons
+on robomimic and LIBERO hold the base, critic-training procedure, and
+interaction budget fixed, testing whether the actor update improves the
+use of the same learning resources. The gains are substantial: over $50$
+percentage points above the base on robomimic square and $9.4$ points
+across eight LIBERO-90 tasks under per-task fine-tuning. The latter compares
+with $0.9$ points for the standard DICE-RL actor. We extend this comparison
+to OpenArm placement and stacking, where success-only behavioral cloning
+(BC) tests whether simply imitating successful practice is sufficient.
+\method{} gains $35$--$40$ points over the base and has the highest
+observed success on both tasks, although its margins over the other
+refinements are small. Together, these studies test improvement beyond
+the base, efficiency relative to the standard actor, and the value of
+critic-guided refinement on physical skills.
 
-Our five-task LIBERO ablation isolates the two constraints. Removing all
-base-restoring terms causes zero success, even with step clipping.
-Restoration alone avoids complete collapse but is inconsistent across tasks;
-the full combination improves on every task's base. A dead-zone penalty in
-the standard actor's loss also enables improvement. These results identify
-restoring geometry as a useful principle shared by both actor updates.
+The ablations then distinguish improvement from its possible explanations.
+On five LIBERO tasks, clipping without restoration yields zero success
+throughout, whereas their combination improves on every task's base.
+Comparisons with alternative constraints and critic-value fields examine
+how much depends on the form of restoration and the direction of change.
+Finally, scope tests challenge the assumptions behind the balance: DMC
+shows that sparse reward alone does not explain the need for anchoring,
+while transport and shared-critic multitask results show that a fixed-base
+reference can become a liability. This progression establishes both the
+value and the limits of the principle: prior competence can support
+adaptation, but neither the base nor the critic is a universally reliable
+guide.
 
 Our contributions are:
 \begin{itemize}
-  \item A controlled study distinguishing per-update clipping from
-  fixed-base restoration in critic-guided robot policy fine-tuning.
-  \item \method{}, a likelihood-free residual update that combines
-  critic-guided action targets with clipping and base-restoring fields.
-  \item Manipulation experiments identifying the benefits and limits of
-  anchoring, including its transfer to a standard actor's loss.
+  \item A controlled study of competence-preserving policy refinement,
+  distinguishing limits on individual updates from resistance to
+  accumulated departure from a pretrained policy.
+  \item \method{}, a likelihood-free residual update combining a bounded
+  target correction with base restoration, supported by local-gradient
+  and distribution-coupling analyses.
+  \item Evaluations on robomimic, LIBERO, and DMC, together with a four-way
+  real-robot refinement comparison on OpenArm placement and stacking.
 \end{itemize}

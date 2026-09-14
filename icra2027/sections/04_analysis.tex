@@ -1,0 +1,56 @@
+\textbf{Local gradient interpretation.}
+The regression form changes how critic guidance is processed before it
+reaches the actor. The following identity makes that distinction precise.
+
+\begin{proposition}
+Fix the sampled states and latents, critic, and normalization scale at
+$\theta_{\mathrm{old}}$. Let $\Delta_i=\tilde r_i-\bar r_i$ and
+$J_i=\partial r_\theta(s,z_i)/\partial\theta$ at these parameters. Then
+\begin{equation}
+ \left.\nabla_\theta\mathcal L_{\mathrm{actor}}\right|_{\theta_{\mathrm{old}}}
+ =-\frac{2}{KD}\mathbb E_s\!\left[\sum_i J_i^\top\Delta_i\right].
+ \label{eq:local-gradient}
+\end{equation}
+\end{proposition}
+\textit{Proof.}
+The targets are detached. Differentiating \eqref{eq:actor-regression}
+therefore gives $2J_i^\top(r_\theta-\tilde r_i)$ per sample; at the
+construction point, $r_\theta-\tilde r_i=-\Delta_i$.\hfill$\square$
+
+For $\rho=0$ or $\rho\geq\epsilon$, the restoring field is the negative gradient of
+\begin{equation}
+ U(r)=\frac{\eta_0}{2}\|r\|_2^2+
+       \frac{\eta_{\mathrm{anc}}}{2}
+       (\|r\|_2-\sqrt D\rho)_+^2,
+ \label{eq:radial-potential}
+\end{equation}
+with the usual continuous extension at zero. With both clips inactive,
+the local actor gradient is $2/D$ times that of the sampled objective with
+per-action term $-\eta_Q\bar Q_\phi/q_{\mathrm{scale}}+U(r_\theta)$.
+Target regression alone does not supply a
+new first-order improvement direction. CAST's explicit field and total-step
+clips rescale proposed displacements sample by sample before they pass through
+$J_i$. This also explains why a loss-space hinge is a meaningful control,
+without implying equivalence of the finite, clipped training procedures.
+
+\textbf{Distribution interpretation and limits.}
+Let $P_\theta^s$ and $P_0^s$ be the action distributions induced by the
+residual policy and frozen base at state $s$, with finite second moments.
+Sharing the latent $z$ defines a valid coupling, so
+\begin{equation}
+ W_2^2(P_\theta^s,P_0^s)
+ \leq \mathbb E_z\|r_\theta(s,z)\|_2^2.
+ \label{eq:coupling-bound}
+\end{equation}
+Here $W_2$ is the 2-Wasserstein distance. The bound follows by evaluating
+the transport cost under that coupling rather
+than minimizing over all couplings. It connects residual control to
+distributional proximity without requiring a policy likelihood.
+
+Neither identity proves that the learned actor stays inside a fixed ball.
+The target cap controls $\Delta_i$, while the realized output change after
+a parameter step also depends on Jacobian coupling between samples.
+Likewise, \eqref{eq:coupling-bound} depends on the \emph{actual} residual,
+not merely the requested target step. A nearby policy can still exploit a
+wrong critic direction, and a useful policy can lie farther from the base.
+Our experiments therefore test stability and improvement empirically.

@@ -3,16 +3,20 @@
 \IEEEoverridecommandlockouts
 \overrideIEEEmargins
 
+\usepackage[T1]{fontenc}
+\usepackage{mathptmx}
 \usepackage{cite}
 \usepackage{url}
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
+\usepackage{booktabs}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 
 % Keep the supplied IEEE conference class and its page geometry.
-% Working draft: migrate the remaining sections incrementally.
+% Eight-page working draft; retain measured / ongoing / unmeasured distinctions.
 \newcommand{\method}{CAST}
+\newtheorem{proposition}{Proposition}
 
 \input{sections/00_title}
 \author{Anonymous Authors}
@@ -47,7 +51,9 @@
 \label{sec:experiments}
 \input{sections/05_experiments}
 
-% Next: experimental results and conclusion.
+\section{Discussion and Conclusion}
+\label{sec:conclusion}
+\input{sections/06_conclusion}
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}

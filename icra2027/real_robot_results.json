@@ -1,0 +1,30 @@
+{
+  "source": "User-reported real-robot evaluation counts",
+  "tasks": {
+    "jigglypuff_into_case": {
+      "status": "reported",
+      "evaluation": "20 rollouts per method; Jigglypuff pose randomly changed on the stairs",
+      "pose_ranges": null,
+      "paired_resets_confirmed": null,
+      "results": [
+        {"method": "Base FM", "successes": 11, "trials": 20},
+        {"method": "Success-only BC", "successes": 16, "trials": 20},
+        {"method": "DICE-RL", "successes": 18, "trials": 20},
+        {"method": "DICE-RL + CAST", "successes": 19, "trials": 20}
+      ]
+    },
+    "red_on_purple_stacking": {
+      "status": "reported",
+      "evaluation": "20 rollouts per method",
+      "pose_ranges": null,
+      "paired_resets_confirmed": null,
+      "post_release_observation_interval_s": null,
+      "results": [
+        {"method": "Base FM", "successes": 7, "trials": 20},
+        {"method": "Success-only BC", "successes": 13, "trials": 20},
+        {"method": "DICE-RL", "successes": 12, "trials": 20},
+        {"method": "DICE-RL + CAST", "successes": 14, "trials": 20}
+      ]
+    }
+  }
+}

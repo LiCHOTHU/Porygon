@@ -105,11 +105,6 @@ Freshly constructed targets leave executed replay transitions intact.
 The method needs no policy likelihood; deployment uses
 $\pi_0(s,z)+r_\theta(s,z)$.
 
-The constraint bounds the \emph{requested target displacement}, not the
-realized change after fitting a shared neural network. Similarly, the
-dead-zone field has a loss-space counterpart proportional to
-$(\|r\|_2-\sqrt{D}\rho)_+^2$, but this correspondence does not make the
-finite training updates equivalent. Section~\ref{sec:experiments} compares
-the restoring field with a hinge penalty and a hard target projection.
+\input{sections/04_analysis}
 
 \input{sections/04_algorithm}
