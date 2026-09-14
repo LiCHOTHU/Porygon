@@ -120,8 +120,14 @@ def main():
         return
 
     takes = []
-    excluded = []
+    excluded = list(cfg.get("preparation_exclusions", []))
     all_paths = sorted(p for root in data_roots for p in root.iterdir() if p.is_dir())
+    if "include_takes" in cfg:
+        included = set(cfg["include_takes"])
+        all_paths = [p for p in all_paths if p.name in included]
+        missing_included = included - {p.name for p in all_paths}
+        if missing_included:
+            raise ValueError(f"Requested takes not found: {sorted(missing_included)}")
     names = [p.name for p in all_paths]
     if len(names) != len(set(names)):
         raise ValueError("Duplicate episode names across roots; refusing to overwrite cached episodes")

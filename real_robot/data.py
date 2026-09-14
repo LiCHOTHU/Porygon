@@ -34,7 +34,7 @@ class RealRobotDataset(Dataset):
             if episode["split"] != split:
                 continue
             name = episode["name"]
-            root = self.cache_dir / name
+            root = Path(episode.get("cache_path", self.cache_dir / name))
             self.episodes[name] = {
                 "chest": np.load(root / "chest_rgb.npy", mmap_mode="r"),
                 "wrist": np.load(root / "wrist_rgb.npy", mmap_mode="r"),

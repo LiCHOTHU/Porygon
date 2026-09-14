@@ -5,6 +5,7 @@ import json
 import math
 from pathlib import Path
 import random
+import shutil
 import subprocess
 import sys
 import time
@@ -33,7 +34,9 @@ def update_plot(output, baseline):
     fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
     for key, label in (("train_loss", "Training"), ("val_loss", "Validation")):
         axes[0].plot([r["epoch"] for r in rows], [r[key] for r in rows], label=label)
-    axes[0].set_title("Flow loss (expanded training normalization)")
+    cfg = yaml.safe_load((output / "config.yaml").read_text())
+    axes[0].set_title("Flow loss (checkpoint normalization)" if cfg.get("freeze_normalizer", False)
+                      else "Flow loss (expanded training normalization)")
     axes[0].set_ylabel("Velocity MSE")
     measured = [r for r in rows if "action_mse" in r["validation"]]
     axes[1].plot([r["epoch"] for r in measured],
@@ -45,13 +48,13 @@ def update_plot(output, baseline):
         ax.set_xlabel("Additional training epoch")
         ax.grid(alpha=.25)
         ax.legend()
-    fig.suptitle("Jigglypuff — original + supplementary demonstrations")
+    fig.suptitle(cfg.get("plot_title", "Jigglypuff — original + supplementary demonstrations"))
     fig.tight_layout()
     fig.savefig(output / "loss_curve.png", dpi=160)
     plt.close(fig)
 
 
-def evaluate(model, loaders, stats, seed, actions=False):
+def evaluate(model, loaders, stats, seed, actions=False, selection_horizon=None):
     model.eval()
     result = {}
     total_loss = total_count = 0
@@ -87,12 +90,14 @@ def evaluate(model, loaders, stats, seed, actions=False):
                         error = prediction - batch["actions"]
                         hold_error = batch["proprio"][:, None] - batch["actions"]
                         n = len(prediction)
-                        mse += ((2 * error / scale)**2).mean().item() * n
-                        hold_mse += ((2 * hold_error / scale)**2).mean().item() * n
+                        horizon = selection_horizon or error.shape[1]
+                        mse += ((2 * error[:, :horizon] / scale)**2).mean().item() * n
+                        hold_mse += ((2 * hold_error[:, :horizon] / scale)**2).mean().item() * n
                         mae += error.abs().mean(1).sum(0)
                         first += error[:, 0].abs().sum(0)
                         count += n
                 result[name].update(action_mse=mse / count, hold_action_mse=hold_mse / count,
+                                    selection_horizon=horizon,
                                     chunk_mae=(mae / count).cpu().tolist(),
                                     first_step_mae=(first / count).cpu().tolist())
                 score_sum += mse
@@ -133,7 +138,8 @@ def main():
     torch.manual_seed(cfg["seed"])
     torch.backends.cudnn.benchmark = True
     cfg["selection_metric"] = "fixed_seed_validation_normalized_action_mse"
-    cfg["normalization"] = "combined_training_data; weights initialized from original best"
+    cfg["normalization"] = ("original_checkpoint" if cfg.get("freeze_normalizer", False)
+                             else "combined_training_data; weights initialized from original best")
     (output / "config.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
     manifest = json.loads((Path(cfg["cache_dir"]) / "manifest.json").read_text())
     write_json(output / "data_manifest.json", manifest)
@@ -182,21 +188,33 @@ def main():
                     "parent_checkpoint": cfg["initial_checkpoint"],
                     "parent_epoch": source["epoch"] + 1}, temp)
         temp.replace(output / name)
+        if name == "best.pt" and epoch > 0 and cfg.get("export_dir"):
+            export = Path(cfg["export_dir"])
+            export.mkdir(parents=True, exist_ok=True)
+            export_temp = export / "best.pt.tmp"
+            shutil.copyfile(output / name, export_temp)
+            export_temp.replace(export / "best.pt")
+            write_json(export / "best_info.json", {
+                "additional_epoch": epoch, "parent_epoch": source["epoch"] + 1,
+                "action_mse": best_score, "source": str(output / name)})
 
     status = {"state": "baseline_evaluation", "train_samples": len(train), "val_samples": len(val),
               "max_additional_epochs": cfg["epochs"], "parent_epoch": source["epoch"] + 1}
     write_json(output / "status.json", status)
     print(f"Original epoch {source['epoch'] + 1}; {len(train)} train / {len(val)} validation samples", flush=True)
-    baseline = evaluate(model, val_loaders, stats, cfg["validation_seed"], actions=True)
+    baseline = evaluate(model, val_loaders, stats, cfg["validation_seed"], actions=True,
+                        selection_horizon=cfg.get("selection_horizon"))
     write_json(output / "baseline.json", baseline)
     best_score = baseline["action_mse"]
     save("best.pt", 0, baseline)  # Original model remains incumbent until beaten.
     print("Original checkpoint baseline: " + json.dumps(baseline), flush=True)
     old_stats = {key: model.state_dict()[key].cpu().tolist() for key in stats}
-    for key, value in stats.items():
-        getattr(model, key).copy_(value.cuda())
+    if not cfg.get("freeze_normalizer", False):
+        for key, value in stats.items():
+            getattr(model, key).copy_(value.cuda())
     write_json(output / "normalization.json", {"original": old_stats,
-                                               "continued": {k: v.tolist() for k, v in stats.items()}})
+                                               "continued": {k: getattr(model, k).cpu().tolist() for k in stats},
+                                               "training_data": {k: v.tolist() for k, v in stats.items()}})
     try:
         for epoch in range(1, cfg["epochs"] + 1):
             started = time.monotonic()
@@ -221,7 +239,8 @@ def main():
                 total += loss.item() * len(batch["actions"])
                 count += len(batch["actions"])
             action_eval = epoch == 1 or epoch % cfg["action_eval_every"] == 0
-            validation = evaluate(model, val_loaders, stats, cfg["validation_seed"], actions=action_eval)
+            validation = evaluate(model, val_loaders, stats, cfg["validation_seed"], actions=action_eval,
+                                  selection_horizon=cfg.get("selection_horizon"))
             improved = action_eval and validation["action_mse"] < best_score
             if improved:
                 best_score, best_epoch = validation["action_mse"], epoch

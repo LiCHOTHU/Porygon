@@ -10,8 +10,15 @@ class JigglypuffPolicy:
     """Deployment wrapper. Inputs are RGB HWC arrays and an 8D left-arm state."""
 
     def __init__(self, checkpoint, device="cuda"):
-        checkpoint = torch.load(checkpoint, map_location=device, weights_only=False)
+        if not isinstance(checkpoint, dict):
+            checkpoint = torch.load(checkpoint, map_location=device, weights_only=False)
         cfg = checkpoint["config"]
+        if checkpoint.get("policy_type") == "offline_residual":
+            from real_robot.residual_policy import ResidualInferenceModel
+            self.model = ResidualInferenceModel(checkpoint, device)
+            self.device = torch.device(device)
+            self.image_size = int(cfg["image_size"])
+            return
         state = checkpoint["model"]
         stats = {name: state[name] for name in (
             "action_min", "action_max", "proprio_min", "proprio_max"

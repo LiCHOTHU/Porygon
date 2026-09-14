@@ -101,6 +101,59 @@ comparable to new-normalizer flow loss. These are offline imitation metrics,
 not measured real-robot success rates. Keep robot policy execution stopped while
 training occupies the shared GPU. An existing run directory is never overwritten.
 
+## Continued stacking training
+
+`config_stack_continued.yaml` starts from the original stacking best checkpoint
+(epoch 11) and combines `data_collection_stack` with the user-named
+`data_collection_stack_supplementsary` folder. The frozen split contains 35
+usable original and 70 supplementary takes: 84 train / 21 validation,
+11,935 / 2,744 samples. The original seven validation takes are preserved;
+fourteen supplementary takes are held out with seed 42.
+
+The run uses a 3e-5 peak learning rate, expanded training-only normalization,
+up to 200 additional epochs, and patience 40. Best-checkpoint selection uses
+fixed-seed normalized MSE on the first eight actions, matching the nominal
+execution prefix, with separate original/supplementary diagnostics. Full-chunk
+and first-step MAE are also recorded. No real-robot success rate is inferred
+from those offline errors.
+
+```bash
+.venv/bin/python -m real_robot.continue_train \
+  --config real_robot/config_stack_continued.yaml --background
+```
+
+The active run is in `real_robot/runs/stack_continued/`: `status.json`,
+`train.log`, `metrics.jsonl`, `loss_curve.png`, `best.pt`, and `latest.pt`.
+An existing run directory is protected against accidental overwriting.
+
+Each improved best checkpoint is also atomically exported to the host's
+`openarm_ws/policy_checkpoints/stack_continued/best.pt`, visible in Docker at
+`/openarm_ws/policy_checkpoints/stack_continued/best.pt`. The current container
+has `/porygon/real_robot/runs/stack_continued` linked to that shared folder, so
+the GUI's continued-stacking preset tracks the exported file. Loading remains
+explicit: an already running policy is never replaced in memory automatically.
+Keep policy execution stopped while training uses the shared GPU.
+
+## Stacking continuation v2
+
+`config_stack_continued_v2.yaml` initializes from `stack_continued/best.pt`
+(additional epoch 80, itself descended from original stacking epoch 11).
+It adds `/openarm_ws/data_collection_stack_supplement` to the previous original
+and `data_collection_stack_supplementsary` datasets. Thirty new takes are usable;
+`20260913_213222` and `20260913_213312` have empty joint CSVs and are excluded.
+The old 21 validation takes stay held out, together with six new validation
+takes. Total: 108 training / 27 validation takes; 14,879 / 3,467 samples.
+
+This run uses a lower 1e-5 peak learning rate, up to 200 additional epochs and
+patience 40, selecting by fixed-seed held-out eight-step action error. Results
+and logs are under `real_robot/runs/stack_continued_v2/`. Improved checkpoints
+are atomically exported to `/openarm_ws/policy_checkpoints/stack_continued_v2/best.pt`
+in Docker, also reachable through the current container's
+`/porygon/real_robot/runs/stack_continued_v2/best.pt` alias. The GUI has a separate
+v2 choice; the original and first continued stacking models remain selectable.
+Real stacking success must be assessed with new robot trials, not inferred from
+the offline action-error metric. Keep Play stopped while the GPU trains.
+
 ## Alignment limitation
 
 The recording process did not save camera timestamps. Each camera stream is
