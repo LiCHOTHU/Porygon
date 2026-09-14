@@ -4,15 +4,35 @@
 We extend the study to physical manipulation on an OpenArm platform, asking
 whether post-training can improve a demonstration-trained policy when the
 feedback available after each attempt is a human success/failure label.
-The real-robot study is in progress: the task setup and demonstrations are
-available, while the four-way quantitative comparison below remains to be
-completed. This study tests refinement of an existing skill rather than
-learning a new policy from scratch.
+The hardware pipeline and demonstrations are available, while the controlled
+four-way success-rate comparison remains in progress. The episode counts in
+\cref{tab:real-robot-budgets} specify the \emph{planned study budgets}, not a
+retrospective claim about the data used by exploratory checkpoints. We will
+verify checkpoint provenance and retained-episode counts against these budgets
+before reporting the comparison. This study tests refinement of an existing
+skill rather than learning a new policy from scratch.
 
-\paragraph{Platform and tasks.}
-The robot operates its left seven-joint arm and gripper using RGB images from
-a chest-mounted camera and a left-wrist camera, together with left-arm joint
-and gripper positions and a fixed task-language prompt. We consider two tasks:
+\paragraph{Robot hardware and sensing.}
+We use an OpenArm leader--follower platform, operating only the left follower
+arm for autonomous task execution. This arm has seven actuated joints and a
+parallel gripper; the right follower arm remains at its initialized pose.
+An operator uses the corresponding leader arm to collect teleoperated
+demonstrations. A chest-mounted RealSense D435 provides a fixed overview of
+the staircase and target, while a RealSense D405 mounted at the left wrist
+provides a close view of the gripper--object interaction. Both cameras deliver
+$640\!\times\!480$ RGB images at a nominal 15\,Hz, resized to
+$128\!\times\!128$ for the policy. Observations also include the seven left-arm
+joint positions, gripper position, and a fixed task-language embedding.
+Autonomous inference uses follower proprioception; the stationary leader is
+not used as its state estimate. Finger tactile measurements can be recorded
+for analysis, but are not inputs to the policies in this comparison.
+
+Inference runs on a local workstation with an NVIDIA RTX 3080 Ti (12\,GB),
+using PyTorch inside a Docker-based ROS~2 Humble environment. All four
+conditions share this robot, sensor interface, and low-level position control.
+
+\paragraph{Task setup.}
+We consider two tasks:
 \emph{Jigglypuff into the case}, in which the robot grasps the toy from a stair
 tread and releases it into an adjacent open case; and \emph{red-on-purple
 stacking}, in which it picks up the red cube and places it on the purple cube.
@@ -21,6 +41,45 @@ different approach heights and nearby edges, making grasping and placement
 sensitive to alignment; stacking additionally requires the upper cube to be
 positioned accurately before release. \Cref{fig:real-robot-tasks} illustrates
 the tasks through successful teleoperated demonstrations from both views.
+
+\paragraph{Episode budgets.}
+For Jigglypuff placement, the target base-training budget is 40 teleoperated
+demonstration episodes. For red-on-purple stacking, we allocate 80 because
+the smaller placement target calls for finer alignment. In each task,
+BC refinement uses 40 \emph{additional successful training trajectories},
+separate from the base demonstrations. The two RL methods instead share a
+pool of 40 physical robot rollout attempts, retaining both successes and
+failures and using the same outcome labels. These counts refer to complete
+episodes, not optimization epochs, minibatches, or evaluation trials.
+
+Forty retained successful BC trajectories need not correspond to forty robot
+attempts: if they are selected from autonomous rollouts, the attempts required
+to obtain them will also be reported. Consequently, we do not claim matched
+collection effort between the BC and RL refinement budgets. The controlled
+actor-update comparison is DICE-RL versus DICE-RL $+$ \method{}, which shares
+the same 40-attempt pool and demonstration-replay settings.
+
+\begin{table}[t]
+  \centering
+  \caption{\textbf{Target training-data budgets for the real-robot study.}
+  Counts are episodes. BC refinement starts from the corresponding base and
+  uses additional positive trajectories; the two RL methods use the same
+  mixed-outcome rollout pool. These are planned budgets to be verified before
+  reporting results, not counts of optimization epochs or held-out test trials.}
+  \label{tab:real-robot-budgets}
+  \small
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{lccc}
+    \toprule
+    Task & \makecell{Base BC\\demonstrations} &
+      \makecell{Additional positive\\BC trajectories} &
+      \makecell{Shared RL\\rollout attempts} \\
+    \midrule
+    Jigglypuff into case & 40 & 40 & 40 \\
+    Red-on-purple stacking & 80 & 40 & 40 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \begin{figure}[t]
   \centering
@@ -41,15 +100,18 @@ the tasks through successful teleoperated demonstrations from both views.
 For each task, we first train a flow-matching BC policy on teleoperated
 demonstrations. The current policy predicts 30-step chunks of absolute
 left-arm joint and gripper targets at 15\,Hz, using a 10-step Euler sampler.
-The deployed interface executes a prefix of each chunk before replanning.
+Each control is eight-dimensional: seven joint-position targets and one
+gripper-position target. The image encoder is a shared ResNet-18; visual,
+proprioceptive, and language features condition the DiT velocity model.
 The comparison uses one fixed base checkpoint per task and four conditions:
 \begin{itemize}
   \item \textbf{Base FM:} deploy the demonstration-trained checkpoint without
   online refinement.
   \item \textbf{Success-only BC refinement:} initialize from that same
   checkpoint and continue supervised flow-matching training using only
-  successful online rollout trajectories. Failed attempts are excluded from
-  these imitation targets.
+  the 40 additional successful trajectories in
+  \cref{tab:real-robot-budgets}. Failed attempts are excluded from these
+  imitation targets.
   \item \textbf{DICE-RL:} fine-tune a residual actor and critic over the same
   frozen base using both successful and failed online rollouts, with the
   standard DICE-RL actor objective~\citep{dicerl2026}.
@@ -75,7 +137,7 @@ benefit.
   \setlength{\tabcolsep}{5pt}
   \begin{tabular}{llcc}
     \toprule
-    Method & Online refinement data & \makecell{Jigglypuff\\into case} &
+    Method & Refinement data & \makecell{Jigglypuff\\into case} &
       \makecell{Red cube\\onto purple cube} \\
     \midrule
     Base FM & None & --- & --- \\
@@ -86,24 +148,65 @@ benefit.
   \end{tabular}
 \end{table}
 
-\paragraph{Rollout collection and evaluation protocol.}
-The evaluation interface records camera observations, measured robot states,
-and executed commands during each attempt. After stopping the robot, an
-operator assigns success or failure and chooses whether to retain the
-trajectory. The label is the sparse task-outcome feedback; it is not inferred
-from the BC loss or a critic score. For the RL comparison, valid failed trials
-must be retained alongside successful ones, with discarded or invalid trials
-accounted for explicitly to avoid success-selection bias.
+\paragraph{How a robot trial is run.}
+The operator places the objects on the specified stair treads, selects a
+task/method checkpoint in the evaluation GUI, and resets the robot to the
+saved initial configuration. Reset starts each robot from its own measured
+joint positions and uses smoothly time-scaled joint-space interpolation at
+100\,Hz. Leader-to-follower command forwarding is paused during autonomous
+execution, so it cannot compete with policy commands. Model loading and CUDA
+warmup finish before task motion begins.
 
-The planned comparison matches the starting checkpoint, robot-interaction
-budget, reset and object-placement distribution, and evaluation conditions.
-DICE-RL and DICE-RL $+$ \method{} additionally share the critic architecture,
-critic-training procedure, demonstration-replay settings, exploration, and
-update schedule, isolating the actor update. All methods use the same
-observation/action interface and execution limits. Replay transitions must
-correspond to the commands actually executed, including chunk-prefix execution
-and command limiting, rather than unexecuted predictions. Evaluation trials
-are held out from all refinement data.
+Pressing \emph{Play} starts recording and primes a timestamped action buffer
+from live observations. A persistent inference worker generates 30-step
+predictions, while a separate control loop sends targets at 15\,Hz. By
+default, a fresh inference request is scheduled every eight control periods
+($\simeq0.53$\,s); the unused prediction tail provides reserve while inference
+runs. Expired targets are discarded, and replacement plans are anchored at
+the last command. The current implementation limits arm target changes to
+0.6\,rad/s and halts on stale observations, excessive tracking error, or buffer
+exhaustion. The GUI shows chest, wrist, and tactile views throughout execution.
+These execution settings are shared across the compared policies.
+
+An attempt ends when the operator presses \emph{Stop}, a runtime guard stops
+execution, or the common rollout time limit is reached (20\,s in the current
+GUI configuration). The operator then labels the attempt \emph{Success} or
+\emph{Fail} and chooses \emph{Save} or \emph{Discard}. Before the next attempt,
+the operator restores the object arrangement and resets the robot. Valid
+failed attempts in the RL collection budget must be saved, with discarded
+or invalid attempts accounted for separately to avoid success-selection bias.
+
+\paragraph{Recorded data and refinement.}
+Each saved take contains chest/wrist RGB and depth-visualization videos,
+separate leader and follower joint-position, Cartesian-pose, and reported
+joint-torque logs, executed policy
+commands, available tactile measurements, and metadata identifying the
+checkpoint, task, termination reason, and binary outcome. Robot trajectory
+CSVs are logged at nominally 100\,Hz. Autonomous BC targets and RL replay use
+the commands actually issued and follower state, including command limiting
+and timing, rather than stationary leader readings or unexecuted predictions.
+The success label supplies sparse task-outcome feedback; it is not inferred
+from imitation loss or a critic score.
+
+Here \emph{online rollouts} denotes data collected on the physical robot.
+The current refinement workflow trains from the saved pool between collection
+and evaluation; it does not autonomously acquire new trials during every
+gradient-update phase. Thus the real-robot comparison is offline refinement
+from online-collected experience. Camera timestamps and bounded histories are
+used for live observation alignment. Historical AVI-only recordings lack
+per-frame timestamp sidecars and require approximate end-anchored alignment
+offline; this limitation will be disclosed for any such data retained in the
+controlled study.
+
+\paragraph{Held-out evaluation.}
+The planned comparison fixes the starting checkpoint per task, reset and
+object-placement distribution, and evaluation conditions. DICE-RL and
+DICE-RL $+$ \method{} share the labeled rollout pool, critic architecture,
+critic-training procedure, demonstration-replay settings, and optimization
+budget and schedule, isolating the actor update. All methods use the same
+observation/action interface and execution limits. Fresh evaluation trials
+are separate from the base demonstrations, the 40 BC-refinement trajectories,
+and the 40 RL collection attempts, and are held out from all training.
 
 We will count Jigglypuff placement as successful when the toy is released
 fully inside the case and remains there, and stacking as successful when the

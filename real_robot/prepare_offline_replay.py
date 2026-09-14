@@ -29,6 +29,7 @@ def episode(path, expert, success, horizon):
         ft[key] = meta["ended_at_epoch_s"] - (len(frames[key]) - 1 - np.arange(len(frames[key]))) / 15
     low = max(jt[0], *(t[0] for t in ft.values()))
     high = min(jt[-1], *(t[-1] for t in ft.values()))
+    episode_end = high
     if expert:
         command_times = np.arange(low + 1/15, high, 1/15)
         actions = interpolate(jt, q, command_times)
@@ -38,19 +39,26 @@ def episode(path, expert, success, horizon):
         actions = np.stack([table[k] for k in LEFT_COLUMNS], -1)
         if not np.isfinite(actions).all() or not np.all(np.diff(command_times) > 0):
             raise ValueError(f"Invalid commands: {path}")
-        high = min(high, meta["evaluation"]["policy_ended_at_epoch_s"])
+        episode_end = float(meta["evaluation"]["policy_ended_at_epoch_s"])
+        high = min(high, episode_end)
     records = []
     for i in blocks(len(actions), horizon):
         terminal = i + horizon == len(actions)
         t = command_times[i] - 1/15
-        nt = high if terminal else command_times[i + horizon] - 1/15
-        if t < low or nt > high or nt <= t or command_times[i + horizon - 1] > high:
+        nt = episode_end if terminal else command_times[i + horizon] - 1/15
+        limit = episode_end if terminal else high
+        if t < low or t > high or nt > limit or nt <= t or command_times[i + horizon - 1] > limit:
             continue
         images = []
-        for stamp in (t, nt):
+        # Terminal next-state is an absorbing placeholder: TD never bootstraps
+        # from it. This preserves the final reward when the last sensor sample
+        # precedes the last command by a few milliseconds, without fabricating a
+        # measured post-command observation or dropping successful terminals.
+        next_observation_time = t if terminal else nt
+        for stamp in (t, next_observation_time):
             images.append({k: frames[k][max(0, int(np.searchsorted(ft[k], stamp, side="right")) - 1)]
                            for k in frames})
-        records.append({"images": images, "proprio": interpolate(jt, q, [t, nt]).astype(np.float32),
+        records.append({"images": images, "proprio": interpolate(jt, q, [t, next_observation_time]).astype(np.float32),
                         "action": actions[i:i+horizon].astype(np.float32),
                         "reward": float(success and terminal), "done": terminal,
                         "n_steps": float((nt - t) * 15), "data_source": int(expert),
@@ -104,6 +112,7 @@ def main():
               "image_alignment": "Approximate end-anchored video times; no per-frame timestamps in saved AVIs",
               "transition_definition": "8 executed commands per macro transition; final full window may overlap",
               "terminal_definition": "Operator-adjudicated attempt end, including timeout failures",
+              "terminal_next_state": "Current-state placeholder, never bootstrapped because done=1",
               "noise": "Behavior latent noise unavailable; critic does not condition on it",
               "behavior_checkpoints": sorted({r["behavior_checkpoint"] for r in manifest["policy_rollouts"]})}
     (directory / "replay_report.json").write_text(json.dumps(report, indent=2))
