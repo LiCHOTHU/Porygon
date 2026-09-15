@@ -1,20 +1,20 @@
-Robot policy refinement should correct failures while retaining behavior
-that already works. Sparse task rewards make this difficult: a failed
-attempt does not identify which actions should change, and imperfect critic
-guidance can disrupt an otherwise useful skill. We present \method{}
-(Constrained Action-Space Transport), a likelihood-free method for learning
-residual corrections to a frozen generative policy. \method{} constructs
-action targets using critic guidance, soft restoration toward the base,
-and displacement clipping, then fits the residual by regression.
-Restoration opposes accumulated departure from pretrained behavior;
-clipping limits each requested correction. Across eight LIBERO-90 tasks,
-per-task refinement improves mean success by 9.4 percentage points over
-the drifting-model base, compared with 0.9 for DICE-RL. On a shared
-diffusion base for robomimic square, CAST reaches 90\% success with
-approximately 38\% fewer environment steps than DICE-RL. A five-task
-LIBERO ablation shows why the reference matters: removing all restoration yields zero
-success even with clipping. Initial OpenArm evaluations show gains of
-40 and 35 percentage points over the placement and stacking bases.
-Alternative constraints and transfer studies reveal task-dependent limits.
-Together, the results support a persistent reference to pretrained
-behavior as a practical way to preserve competence while allowing adaptation.
+A failed robot task can contain useful behavior that refinement should
+retain. With sparse rewards, however, the outcome does not identify which
+actions need to change, and imperfect critic guidance can disrupt an
+existing skill. We present \method{} (Constrained Action-Space Transport),
+a likelihood-free method for refining a frozen generative policy through
+learned residual corrections. CAST constructs explicit action targets by
+combining critic guidance with soft restoration toward the base and
+clipping the resulting displacement. The residual then learns these targets
+by regression. Restoration opposes accumulated departure from the base,
+while clipping limits each requested correction. Per-task refinement on
+eight LIBERO-90 tasks improves mean success by 9.4 percentage points over
+the drifting-model base, compared with 0.9 for DICE-RL. On a shared diffusion
+base for robomimic square, CAST reaches 90\% success with approximately
+38\% fewer environment steps than DICE-RL. In a five-task LIBERO ablation,
+removing all restoration yields zero success even with clipping. Initial
+OpenArm evaluations improve placement and stacking success by 40 and
+35 percentage points over their bases. Task-dependent reversals under
+alternative constraints and broader evaluations show the limits of
+anchoring. The results support a persistent behavioral reference that
+leaves room for the corrections needed to improve the skill.

@@ -29,11 +29,10 @@ actions under the same critic. In this toy, vanilla ascent moves probability
 mass into an overestimated region, while a fixed-base projection retains
 useful behavior nearby.
 
-This distinction motivates two controls: a persistent restoring force
-that opposes departure from the base, and a cap on each requested target
-correction. We quantify departure using the residual's root-mean-square (rms) magnitude,
-$D_{\mathrm{base}}=\mathbb{E}_{s,z}[\|r_\theta(s,z)\|_2/\sqrt{Hd}]$,
-with states sampled from replay. The design question is how to resist
-unnecessary changes while permitting useful ones. Because a neural actor
-shares parameters across samples, constraints on its targets do not by
-themselves guarantee equivalent constraints on its fitted outputs.
+This distinction motivates two controls. Restoration responds to departure
+from the frozen base; clipping limits the correction requested from the
+current action. We express departure as the residual's root-mean-square
+(rms) magnitude in normalized action coordinates. The design question is
+how to resist unnecessary changes while permitting useful ones. Because
+a neural actor shares parameters across samples, constraining its targets
+does not by itself impose the same constraint on its fitted outputs.

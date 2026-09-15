@@ -7,20 +7,21 @@ the robot close to success.
 
 Generative policies learned from demonstrations provide a starting point
 for this process. Reinforcement learning (RL) can improve them through
-experience and task feedback~\cite{ren2024dppo,reinflow2025}, but sparse
-outcomes leave the required correction implicit. A critic predicts future
-reward, and its action gradients suggest changes to the policy. A low
-predicted return before a failed release can correctly reflect poor eventual
-completion without showing that the approach itself was wrong. With
-limited experience, these gradients may offer unreliable guidance, and
-optimizing learned values can exploit prediction errors and reduce actual
+experience and task feedback~\cite{ren2024dppo,reinflow2025}. Refinement
+through critic gradients asks the critic to do more than predict future reward:
+its action gradients must also suggest useful changes to behavior. A low
+predicted return before a failed release can correctly indicate poor
+completion without identifying which action needs repair. With sparse
+feedback and limited experience, optimizing learned values can therefore
+exploit prediction errors and reduce actual
 success~\cite{fujimoto2018td3,fujimoto2019bcq}.
 
-The pretrained policy and critic serve complementary roles: the base
-provides a reference for useful behavior, while the critic proposes how
-to improve it. We ask \emph{how can refinement retain this reference while
-allowing changes beyond the base's competence?} Residual learning offers
-a natural architecture by adding learned corrections to a frozen
+The pretrained policy offers a reference for behavior that may already
+be useful, even when the complete task fails. In stacking, that reference
+can include the approach, grasp, and alignment. The critic supplies the
+improvement signal. We ask \emph{how can refinement use this signal while
+retaining useful behavior from the base?} Residual learning offers a
+natural architecture by adding learned corrections to a frozen
 policy~\cite{dicerl2026}. Freezing the base preserves its parameters, but
 the residual can still override its behavior. Limiting individual
 corrections is also insufficient to limit their accumulated effect:
@@ -39,8 +40,10 @@ action, and clipping caps the combined correction. The residual then
 learns these explicit targets by regression. Sharing the same noise
 between current and base actions gives each candidate a consistent
 reference. The frozen generator needs only to supply samples, so the
-update requires no policy likelihood. Restoration moderates adaptation
-while allowing targets to move beyond its soft reference radius.
+update requires no policy likelihood. The base provides a stable reference
+rather than a guarantee that each action is correct. Restoration moderates
+how critic guidance reaches the actor while allowing departures beyond
+its soft reference radius.
 
 Our experiments examine whether this design leaves enough freedom to
 improve. In matched comparisons, CAST gains over 50 percentage points
@@ -54,11 +57,10 @@ eventually reach similar success rates.
 Ablations then test the role of the persistent reference. In a five-task
 LIBERO component study, removing all restoration leads to zero success
 even when target corrections remain clipped. Restoration variants retain
-nonzero success, and full CAST improves over every task's base. These
-outcomes support a distinction between restricting one requested correction
-and opposing accumulated departure. The mathematical analysis explains
-these controls without guaranteeing that the fitted policy remains near
-the base or improves task success.
+nonzero success, and full CAST improves over every task's base. The benefit of restoration therefore extends beyond limiting
+individual target corrections. Our analysis connects target fitting to
+regularized actor learning and relates residual magnitude to proximity
+of candidate action distributions; improvement remains an empirical question.
 
 Initial OpenArm evaluations connect the study to the motivating failure
 mode. CAST improves placement and stacking success by 40 and 35 percentage
@@ -78,8 +80,9 @@ policy needs to change.
 
 Our contributions are:
 \begin{itemize}
-  \item \method{}, a likelihood-free residual update that combines a
-  persistent reference to pretrained behavior with clipped action targets.
+  \item \method{}, a likelihood-free residual update that pairs candidates
+  with their same-noise base actions, combines critic guidance with radial
+  restoration, and caps each requested target correction.
   \item Analyses connecting the update to regularized actor learning and
   proximity of candidate action distributions, with explicit limits on
   what target constraints guarantee.

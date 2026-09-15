@@ -39,10 +39,12 @@ with a continuous extension at zero. The two terms penalize total departure
 weakly and excess departure more strongly. When both clips are inactive,
 the local actor gradient is $2/D$ times that of the sampled objective
 with per-action term $-\eta_Q\bar Q_\phi/q_{\mathrm{scale}}+U(r_\theta)$.
-Thus regression alone does not introduce a new first-order improvement
-direction. This connection motivates the loss-space hinge comparison;
-it does not imply equivalence of finite updates with clipping or
-DICE-RL's BC filtering.
+Regression alone therefore does not introduce a new first-order improvement
+direction. CAST's two caps process each candidate's critic field and
+combined correction before they pass through the actor Jacobian.
+The connection motivates the loss-space hinge comparison, while the
+clipping operations and DICE-RL's BC filtering distinguish the implemented
+updates.
 
 \textbf{Why the paired reference has a distributional meaning.}
 At a fixed state $s$, let $P_\theta^s$ and $P_0^s$ be the candidate action

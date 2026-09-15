@@ -1,23 +1,21 @@
-A pretrained policy provides a reference for useful behavior, while the
-critic supplies an improvement signal. CAST makes these roles explicit:
-the critic proposes action corrections, restoration opposes departure from
-the frozen base, and clipping limits each target correction used to train
-the residual.
-Matched simulation studies show substantial success gains and earlier
-improvement. The component study shows that clipping alone can fail to
-preserve competence, while physical placement and stacking provide initial
-evidence for refinement from recorded practice.
+CAST uses a pretrained policy as a persistent reference during critic-guided
+refinement. It constructs action targets by combining critic proposals
+with radial restoration and displacement caps, then fits a residual actor
+to those targets. Matched manipulation studies show substantial success
+gains and earlier improvement; physical placement and stacking provide
+initial evidence for refinement from recorded practice.
 
-The results also clarify the limits of this approach. Alternative
-constraints lead on individual tasks, and transport and shared-critic
-multitask comparisons favor DICE-RL. Sparse reward alone does not determine
-whether restoration is useful. The target cap bounds a requested correction,
-whereas the distributional bound depends on the actor's actual residual;
-neither guarantees successful behavior after fitting. Restoration moderates
-the influence of critic guidance without establishing its accuracy.
+The component study gives the clearest evidence for restoration: both
+updates without it lose all success, including the clipped variant.
+Preservation must nevertheless leave room for adaptation. Hard projection
+and value-only guidance lead on individual tasks, while transport and
+shared-critic multitask comparisons favor DICE-RL. DMC further shows that
+sparse rewards alone do not explain the manipulation failures. These
+results make the strength and form of the reference a design choice
+whose value depends on the task.
 
-A next step is to adapt restoration to measured local reliability and
-the amount of change a task requires, alongside larger physical evaluations.
-The central lesson is that a persistent behavioral reference can support
-useful refinement, provided it leaves room for the corrections needed
-to complete the skill.
+The analysis characterizes target corrections and candidate distributions;
+it does not guarantee successful behavior after fitting. Adapting
+restoration to measured local critic reliability, together with larger
+physical evaluations, is a next step. The goal remains to retain useful
+parts of a skill while learning the corrections needed to complete it.

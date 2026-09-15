@@ -1,17 +1,19 @@
 % Measurements: ICLR experiment tables; protocol reconciliation:
 % RESULTS_PROVENANCE.md and the corresponding launch scripts.
 
-The experiments evaluate three aspects of refinement.
+The experiments test whether CAST improves pretrained skills and which
+update choices support that improvement.
 \textbf{H1~(useful adaptation):} CAST can improve task success or
 interaction efficiency over standard residual refinement.
-\textbf{H2~(persistent reference):} limiting target corrections alone
-is insufficient to retain success in the tested visual manipulation tasks.
-\textbf{H3~(preservation and adaptation):} neither stronger preservation
-nor value-only guidance consistently improves refinement.
-We first measure gains, then examine the update choices that support them,
-and finally test where the manipulation findings do not transfer.
+\textbf{H2~(persistent reference):} limiting individual target corrections
+is insufficient to preserve success in the tested visual manipulation tasks.
+\textbf{H3~(preservation and adaptation):} effective refinement depends on
+the constraint and guidance choices; harder constraints and value-only
+transport are not uniformly preferable.
+We first evaluate practical gains, then examine the update components,
+and finally identify settings that limit these conclusions.
 
-\subsection{Setup and Comparison Logic}
+\subsection{Evaluation Protocol}
 \label{sec:exp-setup}
 
 \textbf{Benchmarks and controls.}
@@ -58,21 +60,23 @@ distinguish earlier improvement from a higher final success rate.
 \textbf{Refining weak and strong starting policies.}
 On drifting-base square, CAST reaches 91.2--93.0\% from a 38.2\% base,
 exceeding DICE-RL on each of three training seeds at 20K updates.
-Restoration therefore permits substantial changes beyond the base's
-competence. Can starts at 87.7\%, leaving less room to improve, yet CAST
-reaches 97.8--99.3\%. Two can baseline runs end before the common budget,
-so this row provides a partially matched comparison. Together, these
-results show improvement from both weak and strong starting policies.
+These gains show that restoring toward an imperfect base can coexist
+with substantial improvement. Can starts at 87.7\%, leaving less room
+to improve, yet CAST reaches 97.8--99.3\%. Two can baseline runs end
+before the common budget, so this row provides a partially matched
+comparison. The results cover both acquiring more reliable task completion
+and refining a skill that already succeeds frequently.
 
-\textbf{The benefit can be earlier improvement.}
+\textbf{Earlier improvement despite similar endpoints.}
 With longer training on drifting square, both actors approach 97--99\%
 near 40K updates. The diffusion pair likewise reaches 95.9\% for CAST
 and 96.5\% for DICE-RL at 496K environment steps. Their learning
 trajectories differ: CAST first reaches 90\% at 128/160/160K steps,
 versus 224/240/256K for DICE-RL, requiring about 38\% fewer steps on
-average. H1 is thus supported by the success attainable within a practical
-interaction budget, even when final performance converges. This distinction
-also matters for physical deployment, where additional experience costs time.
+average. The advantage lies in reaching a useful policy sooner, even
+when the eventual success rates converge. This supports H1 through
+interaction efficiency, a practical consideration when data collection
+requires robot time.
 
 A value-only CAST variant reaches 93.4\% on flow-matching square, compared
 with 83.1\% for DICE-RL. The interaction budget for this comparison is
@@ -138,14 +142,15 @@ success on every task, and full CAST exceeds each task's base. This
 supports H2 in the tested setting: limiting individual target corrections
 cannot substitute for a persistent reference.
 
-Retaining some success is a weaker goal than improving the skill.
-Restoration alone raises red mug from 57.3\% to 81.0\%, but lowers
-ketchup from 61.0\% to 38.7\%; its five-task mean is 65.7\%, below
-the 67.3\% base mean. Full CAST reaches 70.3\% and improves all five
-tasks over their bases, while restoration alone still leads on red mug
-and juice. These outcomes establish the practical effect of the tested
-updates. They do not directly measure critic accuracy or containment of
-the learned policy's outputs.
+Preserving some task success and improving it are separate goals.
+Restoration alone raises red mug from 57.3\% to 81.0\%, yet lowers
+ketchup from 61.0\% to 38.7\%, leaving its five-task mean below the base:
+65.7\% versus 67.3\%. Full CAST reaches 70.3\% and improves every task
+over its base, although restoration alone still leads on red mug and juice.
+Thus restoration avoids a complete loss of success in this study, while
+the remaining update choices affect whether refinement improves the skill.
+These outcomes measure task performance; they do not establish critic
+accuracy or a bound on the learned policy's departure from the base.
 
 \subsection{H3: Balancing Preservation and Adaptation}
 \label{sec:exp-design}
@@ -168,15 +173,14 @@ Projection leads on square and red mug at 96.0\% and 93.0\%, but drops
 to 54.0\% on ketchup, below its 61.0\% base. CAST reaches 68.0\% on
 ketchup and exceeds the corresponding bases on all three tasks.
 
-This ordering is consistent with a preservation--adaptation tradeoff:
-a hard boundary can protect a useful neighborhood while excluding changes
-needed for improvement. Soft restoration resists departure while permitting
-such changes. The experiment does not isolate that geometric explanation,
-but establishes that a stricter target boundary is not uniformly preferable.
-The hinge reaches 77.0\% and 65.0\% on the two LIBERO tasks, yet only
-28.0\% on square, with training-seed outcomes spanning 3--77\%.
-Multiple constraint designs can support useful refinement; their relative
-performance depends on the task.
+The reversal between tasks illustrates the preservation--adaptation
+tradeoff. A hard target boundary may protect useful behavior, but it also
+limits the corrections available for improvement. Soft restoration allows
+departure when critic guidance outweighs the restoring pull. This is a
+possible explanation for the observed ordering, not a mechanism isolated
+by the comparison. The hinge provides another effective alternative on
+LIBERO, reaching 77.0\% and 65.0\%, but reaches only 28.0\% on square,
+where training-seed outcomes span 3--77\%. The best-performing constraint therefore varies by task.
 
 \textbf{Value rankings and action gradients provide different guidance.}
 Table~\ref{tab:update-design}(b) compares gradient guidance with transport
@@ -188,11 +192,11 @@ preferred actions; an action gradient proposes a local change to each
 candidate. These operations need not yield equally useful corrections.
 
 Red mug reverses the ordering: value-tilted transport reaches 69.7\%,
-versus 60.0\% for gradient guidance. Thus analytic gradients are not
-uniformly preferable either. The field recipes also differ in restoration
-settings, so this comparison does not isolate the source of critic guidance.
-It shows that both the proposed correction and the controls applied to it
-matter when evaluating a refinement rule.
+versus 60.0\% for gradient guidance. The gradient-based recipe therefore
+offers no uniform advantage across these tasks. Because the field recipes also
+differ in restoration settings, the comparison does not isolate the source
+of critic guidance. The appropriate comparison is between the complete
+correction rules, including how they constrain the proposed change.
 
 \textbf{The radius determines when stronger restoration begins.}
 Single-training-seed sweeps examine this balance more directly. With
@@ -205,7 +209,7 @@ $\rho\to\infty$, the weak pull remains, so this setting still differs
 from removing all restoration. Together, the comparisons support H3:
 stronger preservation alone does not explain better refinement.
 
-\subsection{Scope: When the Manipulation Findings Do Not Transfer}
+\subsection{Scope and Failure Cases}
 \label{sec:exp-dmc}
 \input{sections/tables/05_dmc}
 
@@ -217,14 +221,14 @@ would occur on these sparse tasks.
 
 \textbf{Sparse rewards do not by themselves imply collapse.}
 Unconstrained refinement improves sparse balance and ball-in-cup in the
-reported runs, despite its failures on sparse manipulation. CAST raises
-sparse balance from 90 to 1000 return and dense swing-up from 429 to 715;
-on ball-in-cup, the unconstrained interim return of 940 exceeds CAST's 925.
-The difficulty illustrated by stacking is more specific than sparsity:
-a delayed outcome may give little guidance about which part of an
-otherwise useful skill should change. This inference also depends on
-the task and available experience. The DMC comparisons do not separately
-measure these factors or critic reliability.
+reported runs, providing counterexamples to sparsity alone as an
+explanation for collapse. CAST raises sparse balance from 90 to 1000
+return and dense swing-up from 429 to 715; on ball-in-cup, the unconstrained
+interim return of 940 exceeds CAST's 925. These outcomes leave open the
+more specific difficulty suggested by stacking: identifying a local repair
+from a delayed outcome when much of the behavior already works. The
+comparisons do not determine whether task structure, available experience,
+or critic quality accounts for the difference between DMC and manipulation.
 
 CAST improves several DMC tasks with $\rho=0$, showing that a free interior
 for the strong restoring term is not necessary everywhere. Dense rewards

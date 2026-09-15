@@ -21,11 +21,12 @@ sampling procedure.
 
 \subsection{Critic-Guided Action and Particle Updates}
 
-Action-target training separates improvement from policy fitting. DIPO
-improves stored actions by critic-gradient ascent~\cite{dipo2024}; Q-Score
-Matching (QSM) relates the policy score to the critic's action
-gradient~\cite{psenka2024qsm}; and PA-RL combines candidate ranking and
-local action optimization with supervised fitting~\cite{mark2024parl}.
+Critic guidance can shape action targets or the objective used to train
+a generative policy. DIPO improves stored actions by critic-gradient
+ascent~\cite{dipo2024}, and PA-RL combines candidate ranking and local
+action optimization with supervised fitting~\cite{mark2024parl}.
+Q-Score Matching (QSM) instead relates the policy score to the critic's
+action gradient~\cite{psenka2024qsm}.
 AWR, MPO, and IDQL also use weighted fitting or action
 selection~\cite{peng2019awr,abdolmaleki2018mpo,hansenestruch2023idql}.
 
@@ -33,10 +34,11 @@ Particle updates connect CAST to Soft Q-Learning's amortized Stein
 sampler~\cite{haarnoja2017sql} and drifting models' displaced-sample
 regression~\cite{deng2026drifting}. Drifting Field Policy combines top-$k$
 critic-selected targets with drift losses that anchor behavior~\cite{dfp2026}.
-CAST constructs fresh targets for residual regression. Its main variant
-uses action gradients, restores each candidate toward its same-noise base
-output, and clips the proposed displacement. We also study value-only
-fields to examine alternatives to local gradient guidance.
+CAST uses fresh residual targets to study how improvement and preservation
+should be combined. Its main variant pairs each candidate with its
+same-noise base output, adds radial restoration to critic guidance, and
+clips the requested correction. Value-only variants examine alternatives
+to the local action gradient.
 
 \subsection{Residual Refinement and Behavioral Constraints}
 
@@ -54,8 +56,9 @@ RL. BEAR restricts actions toward dataset support~\cite{kumar2019bear},
 while TD3+BC adds a cloning penalty to the actor
 objective~\cite{fujimoto2021td3bc}. Fisher Decorator constrains residual
 transport using Fisher geometry estimated from flow-policy
-scores~\cite{cheng2026fisherdecorator}. CAST instead applies radial
-restoration and displacement clipping to explicit action targets, requiring
-only samples from the base. Within DICE-RL, we test whether clipping alone
-can replace restoration and compare the resulting update with loss-space
-penalties and hard target projection.
+scores~\cite{cheng2026fisherdecorator}. CAST applies radial restoration and
+per-candidate displacement caps to explicit action targets, using only
+samples from the base. Its restoring terms depend on departure from the base, independently of the critic's
+preference for the current action. Within DICE-RL, we test whether clipping
+alone can replace this reference and compare the resulting update with
+loss-space penalties and hard target projection.

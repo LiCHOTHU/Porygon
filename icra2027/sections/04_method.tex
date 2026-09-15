@@ -4,9 +4,8 @@
 % displacement. Both bc_step_size and restore_step_size restore to the base.
 
 \method{} turns critic guidance into an explicit action target before
-updating the policy. The critic proposes an improvement, the frozen base
-provides a persistent reference, and restoration and clipping determine
-how much of the proposal reaches the target. We retain DICE-RL's
+updating the policy. The critic proposes an improvement; restoration responds to departure
+from the frozen base; and clipping limits the resulting correction. We retain DICE-RL's
 frozen-base residual architecture and off-policy critic-training
 procedure~\cite{dicerl2026}, replacing its actor objective with regression
 onto these targets. Fig.~\ref{fig:method-update} illustrates the four steps:
@@ -16,9 +15,8 @@ The equations below describe the main variant, which uses action gradients
 and a separate base reference for each candidate. All operations use
 normalized action coordinates with dimension $D=Hd$. We construct each
 target from the current actor and critic, then hold it fixed while updating
-the residual. The frozen generator only
-needs to supply action samples; its likelihood and parameter gradients
-are not required.
+the residual. The frozen generator supplies action samples without
+requiring likelihood evaluation or gradients through its parameters.
 
 \input{sections/04_method_figure}
 
@@ -77,9 +75,10 @@ residual. Let~\mbox{$m_i=\|\bar r_i\|_2/\sqrt{D}$} be its rms magnitude. Restora
 \end{equation}
 with $(x)_+=\max(x,0)$. The first term supplies a weak pull toward the
 base at every nonzero residual. The second adds stronger resistance once
-departure exceeds the rms radius $\rho$: it points toward the base with
-magnitude proportional to the excess distance. Expressing $\rho$ in rms
-units makes it comparable across action-chunk dimensions.
+departure exceeds the rms radius $\rho$, with magnitude proportional to
+the excess distance. Both terms depend on the residual, independently of
+whether the critic prefers the current action to the base. Expressing
+$\rho$ in rms units makes it comparable across action-chunk dimensions.
 
 The radius creates room for adaptation before the stronger pull activates.
 Inside this dead zone, the weak term remains active. At $\rho=0$, both
@@ -145,7 +144,7 @@ sampling procedures.
 \label{sec:method-analysis}
 \input{sections/04_analysis}
 
-\subsection{Alternatives Examined in the Experiments}
+\subsection{Alternative Guidance and Constraints}
 \label{sec:method-variants}
 
 The comparisons in Sec.~\ref{sec:exp-design} examine both how the critic

@@ -13,17 +13,19 @@ resized to $128\times128$ and encoded by a shared ResNet-18; the policy
 also receives follower joint/gripper positions and a task-language embedding.
 A flow-matching policy with a diffusion transformer (DiT) backbone uses
 ten Euler steps to predict 30-step chunks of absolute joint/gripper targets.
-Deployment issues commands at 15\,Hz, requests a chunk every eight periods,
-limits arm-command changes to 0.6\,rad/s, and ends attempts after 20\,s.
+Deployment issues commands at 15\,Hz, requests a new chunk every eight
+control steps, limits arm-command changes to 0.6\,rad/s, and ends attempts
+after 20\,s.
 
-Both tasks use a hand-made staircase: placing Jigglypuff into the adjacent
+Both tasks use a handmade staircase: placing Jigglypuff into the adjacent
 case and stacking the red cube on the purple cube. Stacking additionally
 requires releasing the upper cube without disturbing its support.
 Fig.~\ref{fig:real-robot} shows teleoperated demonstrations alongside
 separate autonomous evaluation results.
 
 \textbf{Refinement data and training.}
-Each task uses one shared starting checkpoint. For placement, BC trains on
+Within each task, all three refinements start from the same pretrained
+checkpoint. For placement, BC trains on
 30 supplementary expert demonstrations; RL uses those demonstrations plus
 18 reviewed attempts (11 successes, seven failures). For stacking, BC uses
 12 successful attempts; RL uses all 24 reviewed attempts plus 30 original
@@ -65,23 +67,24 @@ useful. Refinement should correct the release while preserving this approach.
 
 A binary terminal reward does not identify which stage caused the failure.
 The critic estimates expected completion from limited experience and
-bootstrapped future values; the actor relies on its action gradients to
-suggest useful changes. A low value before a failed release can correctly
-predict unsuccessful completion under the current policy without showing
-that the preceding action was wrong. Learning an actionable correction
-from that outcome is a credit-assignment problem: the learner must infer
-which part of the sequence needs to change.
+bootstrapped future values; the actor uses its action gradients to propose
+changes. A low value before a failed release can correctly predict poor
+completion without showing that the preceding action was wrong. Accurate
+predictions at observed actions alone do not establish that local gradients
+identify the needed repair. Learning which part of the sequence to change
+is the credit-assignment problem in this setting.
 
-Success-only BC supplies direct action targets for both the approach and
-the successful release. This offers a plausible explanation for its
-65\% success versus DICE-RL's 60\%. DICE-RL can use failed attempts,
-but its actor follows critic gradients and can relax base regularization
-when the critic favors a correction. Imperfect local guidance may therefore
-alter behavior that already works. CAST uses the same critic-training
-procedure while restoring actions toward the base and limiting target
-corrections. These controls may reduce disruption of the approach while
-permitting a release correction; they do not identify release as a special
-stage or improve the critic's accuracy directly.
+For stacking, success-only BC supplies explicit targets for both the
+approach and the release, offering a plausible explanation for its
+65\% success versus DICE-RL's 60\%. DICE-RL learns from successful and
+failed attempts, but useful changes must be inferred through the critic.
+Its actor can also relax base regularization when the critic favors a
+correction, allowing imperfect guidance to disturb an effective approach.
+CAST uses the same critic-training procedure and moderates the requested
+changes through restoration and capped target corrections. These controls
+could preserve the approach while allowing the release to change; they
+neither identify release as a special stage nor directly improve critic
+accuracy.
 
 CAST's 70\% stacking success is consistent with this explanation, but
 exceeds BC by one trial and DICE-RL by two. The release observation
