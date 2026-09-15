@@ -1,15 +1,22 @@
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/method_update.pdf}
-  \caption{\textbf{One coherent CAST update, read clockwise.}
-  The blue base and gray current-actor distributions are identical in all
-  four panels. The orange proposal from step 2 carries into step 3; the
-  corrected green targets carry into step 4 for regression. Here
-  $a_{0,i}=\pi_0(s,z_i)$ and $g_i=\nabla_a\bar Q_\phi/q_{\mathrm{scale}}$.
-  This constructed schematic follows
-  \eqref{eq:candidates}--\eqref{eq:actor-regression} with illustrative
-  parameters and a shared coordinate scale. The dashed raw request in step 2
-  continues off-panel. The green cloud denotes fixed targets, not a
-  guaranteed post-update policy.}
+  \caption{\textbf{CAST constructs a target before updating the actor.}
+  Read clockwise: (1) sample paired base and current actions; (2) propose
+  a clipped critic correction; (3) add restoration and clip the combined
+  displacement; (4) fit the residual to fixed targets. All panels share
+  the same state $s$, coordinate scale, and base/current distributions.
+  Here $\bar r_i=\operatorname{sg}[r_\theta(s,z_i)]$ and the action target
+  is $\tilde a_i=a_{0,i}+\tilde r_i$; $\operatorname{sg}$ stops gradients.
+  In step 2, the dashed arrow continues the uncapped request
+  $\eta_Qg_i$ beyond the view. In step 3, restoration is evaluated at the
+  current residual and drawn head-to-tail to show addition. The dashed
+  gray arrow shows total-step clipping; the short green arrow is the
+  accepted correction $\Delta_i$. The dotted circle has radius
+  $\delta_{\mathrm{tot}}$ around the current action.
+  Step 4 shows the per-state regression objective from
+  \eqref{eq:actor-regression}. This is a constructed schematic with
+  illustrative parameters; green denotes targets rather than a guaranteed
+  post-update policy.}
   \label{fig:method-update}
 \end{figure}

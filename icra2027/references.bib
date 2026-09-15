@@ -1,10 +1,10 @@
 % References migrated from iclr2026/iclr2026_conference.bib as sections move.
-% Citation keys are preserved across the two manuscripts.
+% Legacy citation keys are retained; metadata is verified independently.
 
 @inproceedings{ren2024dppo,
   title={Diffusion Policy Policy Optimization},
   author={Ren, Allen Z. and Lidard, Justin and Ankile, Lars L. and Simeonov, Anthony and Agrawal, Pulkit and Majumdar, Anirudha and Burchfiel, Benjamin and Dai, Hongkai and Simchowitz, Max},
-  booktitle={International Conference on Learning Representations (ICLR)},
+  booktitle={Proc. ICLR},
   note={arXiv:2409.00588},
   year={2025}
 }
@@ -32,35 +32,75 @@
 @inproceedings{fujimoto2018td3,
   title={Addressing Function Approximation Error in Actor-Critic Methods},
   author={Fujimoto, Scott and van Hoof, Herke and Meger, David},
-  booktitle={International Conference on Machine Learning (ICML)},
+  booktitle={Proc. ICML},
   year={2018}
 }
 
 @inproceedings{fujimoto2019bcq,
   title={Off-Policy Deep Reinforcement Learning without Exploration},
   author={Fujimoto, Scott and Meger, David and Precup, Doina},
-  booktitle={International Conference on Machine Learning (ICML)},
+  booktitle={Proc. ICML},
   year={2019}
 }
 
 @misc{dipo2024,
-  title={Learning Multimodal Behaviors from Scratch with Diffusion Policy Gradient},
-  author={Zechu Li and Rickmer Krohn and Tao Chen and Anurag Ajay and Pulkit Agrawal and Georgia Chalvatzaki},
-  year={2024},
-  eprint={2406.00681},
+  title={Policy Representation via Diffusion Probability Model for Reinforcement Learning},
+  author={Long Yang and Zhixiong Huang and Fenghao Lei and Yucun Zhong and Yiming Yang and Cong Fang and Shiting Wen and Binbin Zhou and Zhouchen Lin},
+  year={2023},
+  eprint={2305.13122},
   archivePrefix={arXiv},
   primaryClass={cs.LG},
-  url={https://arxiv.org/abs/2406.00681}
+  url={https://arxiv.org/abs/2305.13122}
 }
 
-@misc{psenka2024qsm,
+@inproceedings{psenka2024qsm,
   title={Learning a Diffusion Model Policy from Rewards via {Q}-Score Matching},
   author={Michael Psenka and Alejandro Escontrela and Pieter Abbeel and Yi Ma},
+  booktitle={Proc. ICML},
+  year={2024},
+  pages={41163--41182}
+}
+
+@inproceedings{wang2023diffusionql,
+  title={Diffusion Policies as an Expressive Policy Class for Offline Reinforcement Learning},
+  author={Wang, Zhendong and Hunt, Jonathan J. and Zhou, Mingyuan},
+  booktitle={Proc. ICLR},
+  year={2023}
+}
+
+@inproceedings{park2025fql,
+  title={Flow {Q}-Learning},
+  author={Park, Seohong and Li, Qiyang and Levine, Sergey},
+  booktitle={Proc. ICML},
   year={2025},
-  eprint={2312.11752},
+  pages={48104--48127}
+}
+
+@misc{mark2024parl,
+  title={Policy Agnostic {RL}: Offline {RL} and Online {RL} Fine-Tuning of Any Class and Backbone},
+  author={Mark, Max Sobol and Gao, Tian and Sampaio, Georgia Gabriela and Srirama, Mohan Kumar and Sharma, Archit and Finn, Chelsea and Kumar, Aviral},
+  year={2024},
+  eprint={2412.06685},
   archivePrefix={arXiv},
   primaryClass={cs.LG},
-  url={https://arxiv.org/abs/2312.11752}
+  url={https://arxiv.org/abs/2412.06685}
+}
+
+@misc{ankile2025resfit,
+  title={Residual Off-Policy {RL} for Finetuning Behavior Cloning Policies},
+  author={Ankile, Lars and Jiang, Zhenyu and Duan, Rocky and Shi, Guanya and Abbeel, Pieter and Nagabandi, Anusha},
+  year={2025},
+  eprint={2509.19301},
+  archivePrefix={arXiv},
+  primaryClass={cs.RO},
+  url={https://arxiv.org/abs/2509.19301}
+}
+
+@inproceedings{yuan2025policydecorator,
+  title={Policy Decorator: Model-Agnostic Online Refinement for Large Policy Model},
+  author={Yuan, Xiu and Mu, Tongzhou and Tao, Stone and Fang, Yunhao and Zhang, Mengke and Su, Hao},
+  booktitle={Proc. ICLR},
+  year={2025}
 }
 
 @misc{mcallister2025flowmatchingpolicygradients,
@@ -76,7 +116,7 @@
 @inproceedings{haarnoja2017sql,
   title={Reinforcement Learning with Deep Energy-Based Policies},
   author={Haarnoja, Tuomas and Tang, Haoran and Abbeel, Pieter and Levine, Sergey},
-  booktitle={International Conference on Machine Learning (ICML)},
+  booktitle={Proc. ICML},
   year={2017}
 }
 
@@ -110,7 +150,7 @@
 @inproceedings{abdolmaleki2018mpo,
   title={Maximum a Posteriori Policy Optimisation},
   author={Abdolmaleki, Abbas and Springenberg, Jost Tobias and Tassa, Yuval and Munos, Remi and Heess, Nicolas and Riedmiller, Martin},
-  booktitle={International Conference on Learning Representations (ICLR)},
+  booktitle={Proc. ICLR},
   year={2018}
 }
 
@@ -134,7 +174,7 @@
 @inproceedings{mandlekar2021robomimic,
   title={What Matters in Learning from Offline Human Demonstrations for Robot Manipulation},
   author={Mandlekar, Ajay and Xu, Danfei and Wong, Josiah and Nasiriany, Soroush and Wang, Chen and Kulkarni, Rohun and Fei-Fei, Li and Savarese, Silvio and Zhu, Yuke and Mart{\'i}n-Mart{\'i}n, Roberto},
-  booktitle={Conference on Robot Learning (CoRL)},
+  booktitle={Proc. CoRL},
   year={2021}
 }
 
@@ -152,4 +192,64 @@
   author={Tassa, Yuval and Doron, Yotam and Muldal, Alistair and Erez, Tom and Li, Yazhe and Casas, Diego de Las and Budden, David and Abdolmaleki, Abbas and Merel, Josh and Lefrancq, Andrew and Lillicrap, Timothy and Riedmiller, Martin},
   journal={arXiv preprint arXiv:1801.00690},
   year={2018}
+}
+
+% Additional related work: primary-source metadata verified 2026-09-14.
+@inproceedings{wagenmaker2025dsrl,
+  title={Steering Your Diffusion Policy with Latent Space Reinforcement Learning},
+  author={Wagenmaker, Andrew and Zhang, Yunchu and Nakamoto, Mitsuhiko and Park, Seohong and Yagoub, Waleed and Nagabandi, Anusha and Gupta, Abhishek and Levine, Sergey},
+  booktitle={Proc. CoRL},
+  year={2025},
+  pages={258--282}
+}
+
+@inproceedings{nakamoto2025vgps,
+  title={Steering Your Generalists: Improving Robotic Foundation Models via Value Guidance},
+  author={Nakamoto, Mitsuhiko and Mees, Oier and Kumar, Aviral and Levine, Sergey},
+  booktitle={Proc. CoRL},
+  year={2025},
+  pages={4996--5013}
+}
+
+@inproceedings{hu2024ibrl,
+  title={Imitation Bootstrapped Reinforcement Learning},
+  author={Hu, Hengyuan and Mirchandani, Suvir and Sadigh, Dorsa},
+  booktitle={Proc. RSS},
+  year={2024},
+  doi={10.15607/RSS.2024.XX.056}
+}
+
+@inproceedings{johannink2019residual,
+  title={Residual Reinforcement Learning for Robot Control},
+  author={Johannink, Tobias and Bahl, Shikhar and Nair, Ashvin and Luo, Jianlan and Kumar, Avinash and Loskyll, Matthias and Aparicio Ojea, Juan and Solowjow, Eugen and Levine, Sergey},
+  booktitle={Proc. IEEE ICRA},
+  year={2019},
+  pages={6023--6029},
+  doi={10.1109/ICRA.2019.8794127}
+}
+
+@inproceedings{kumar2019bear,
+  title={Stabilizing Off-Policy {Q}-Learning via Bootstrapping Error Reduction},
+  author={Kumar, Aviral and Fu, Justin and Soh, Matthew and Tucker, George and Levine, Sergey},
+  booktitle={Adv. Neural Inf. Process. Syst.},
+  volume={32},
+  year={2019}
+}
+
+@inproceedings{fujimoto2021td3bc,
+  title={A Minimalist Approach to Offline Reinforcement Learning},
+  author={Fujimoto, Scott and Gu, Shixiang Shane},
+  booktitle={Adv. Neural Inf. Process. Syst.},
+  volume={34},
+  year={2021}
+}
+
+@misc{cheng2026fisherdecorator,
+  title={Fisher Decorator: Refining Flow Policy via a Local Transport Map},
+  author={Cheng, Xiaoyuan and Wang, Haoyu and Yuan, Wenxuan and Wang, Ziyan and Chen, Zonghao and Zeng, Li and Sun, Zhuo},
+  year={2026},
+  eprint={2604.17919},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  url={https://arxiv.org/abs/2604.17919}
 }

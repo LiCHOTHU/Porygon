@@ -57,7 +57,7 @@ def make_data(device):
     combined = dq + restoring
     delta = clip(combined, config["total_cap"])
     target_residual = (residual + delta).detach()
-    arrays = dict(base=base, current=current, raw_q=current + g,
+    arrays = dict(base=base, current=current, raw_q=current + config["eta_q"] * g,
                   q_proposal=current + dq, combined=current + combined,
                   target=base + target_residual, dq=dq, dr=restoring, delta=delta)
     assert torch.isfinite(torch.stack(list(arrays.values()))).all()
@@ -103,45 +103,56 @@ def point(ax, xy, color, *, marker="o", size=11, hollow=False):
 
 def render(data, config):
     plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 7,
-                         "text.color": INK, "mathtext.fontset": "dejavusans",
+                         "text.color": INK, "mathtext.fontset": "stix",
                          "pdf.fonttype": 42, "ps.fonttype": 42})
-    fig = plt.figure(figsize=(3.45, 2.90))
-    # Serpentine reading order mirrors the reference roadmap: 1 -> 2 -> 3 -> 4.
+    fig = plt.figure(figsize=(3.45, 3.25))
+    # Preserve the clockwise four-panel roadmap and one shared coordinate scale.
     positions = [(0.02, 0.54), (0.54, 0.54), (0.54, 0.03), (0.02, 0.03)]
-    titles = ["1  Sample", "2  Critic step", "3  Restore + clip", "4  Fit the actor"]
-    # Every panel uses exactly the same action coordinates and reference clouds.
-    # The long raw critic request is shown as an off-panel continuation in step 2.
-    common_view = ((-0.90, 0.59), (-0.16, 0.68))
-    formulas = [r"$a_i=a_{0,i}+\bar r_i$",
-                r"$d_i^Q=\eta_Q C_{\delta_Q}(g_i)$",
-                r"$\Delta_i=C_{\delta_{\rm tot}}(d_i^Q+d_i^R)$" + "\n" + r"$\tilde r_i=\mathrm{sg}[\bar r_i+\Delta_i]$",
-                r"$\min_\theta\ \sum_i\|r_\theta-\tilde r_i\|^2$"]
-    axes = []
+    titles = ["1  Sample actions", "2  Critic correction",
+              "3  Restore + clip", "4  Fit the residual"]
+    common_view = ((-0.92, 0.63), (-0.19, 0.71))
+    # Math cards retain full arguments and the exact per-state MSE.
+    # The caption defines the detached current residual and the action target.
+    formulas = [
+        r"$a_{0,i}=\pi_0(s,z_i)$" + "\n" + r"$a_i=a_{0,i}+\bar r_i$",
+        r"$g_i=\frac{\nabla_a\bar Q_\phi(s,z_i,a_i)}{q_{\mathrm{scale}}}$" + "\n"
+        + r"$d_i^Q=\eta_Q\,C_{\delta_Q}(g_i)$",
+        r"$\Delta_i=C_{\delta_{\mathrm{tot}}}(d_i^Q+d_i^R)$" + "\n"
+        + r"$\tilde r_i=\operatorname{sg}[\bar r_i+\Delta_i]$",
+        r"$\min_{\theta}\;\frac{1}{KD}\sum_{i=1}^{K}\left\|r_\theta(s,z_i)-\tilde r_i\right\|_2^2$",
+    ]
+    axes, math_cards = [], []
     for n, (left, bottom) in enumerate(positions):
-        fig.add_artist(FancyBboxPatch((left, bottom), 0.44, 0.43,
-                                       boxstyle="round,pad=0.007,rounding_size=0.013",
-                                       transform=fig.transFigure, lw=0.6,
-                                       edgecolor="#CED6DE", facecolor="#FBFCFD", zorder=0))
-        fig.text(left + 0.014, bottom + 0.389, titles[n], fontsize=7.1, fontweight="medium")
-        ax = fig.add_axes([left + 0.012, bottom + 0.095, 0.414, 0.275])
+        fig.add_artist(FancyBboxPatch((left, bottom), 0.44, 0.445,
+                                      boxstyle="round,pad=0.007,rounding_size=0.013",
+                                      transform=fig.transFigure, lw=0.6,
+                                      edgecolor="#CED6DE", facecolor="#FBFCFD", zorder=0))
+        fig.text(left + 0.014, bottom + 0.413, titles[n], fontsize=7.3,
+                 fontweight="medium")
+        ax = fig.add_axes([left + 0.012, bottom + 0.142, 0.414, 0.253])
         ax.set(xlim=common_view[0], ylim=common_view[1])
         ax.set_aspect("equal", adjustable="box")
         ax.set_axis_off()
         axes.append(ax)
-        fig.add_artist(FancyBboxPatch((left + 0.011, bottom + 0.011), 0.418, 0.073,
-                                       boxstyle="round,pad=0.003,rounding_size=0.007",
-                                       transform=fig.transFigure, facecolor="#F2F5F7",
-                                       edgecolor="none", zorder=0))
-        fig.text(left + 0.22, bottom + 0.047, formulas[n], ha="center", va="center",
-                  fontsize=5.9 if n == 2 else 6.4, linespacing=1.35)
+        card = FancyBboxPatch((left + 0.011, bottom + 0.010), 0.418, 0.127,
+                              boxstyle="round,pad=0.003,rounding_size=0.007",
+                              transform=fig.transFigure, facecolor="#F0F3F6",
+                              edgecolor="none", zorder=0)
+        fig.add_artist(card)
+        label = fig.text(left + 0.22, bottom + 0.0735, formulas[n], ha="center",
+                         va="center", fontsize=7.8 if n == 3 else 7.5, linespacing=1.12)
+        math_cards.append((label, card))
     for start, end in (((0.474, 0.77), (0.526, 0.77)),
-                       ((0.76, 0.522), (0.76, 0.478)),
+                       ((0.76, 0.528), (0.76, 0.487)),
                        ((0.526, 0.26), (0.474, 0.26))):
         fig.add_artist(FancyArrowPatch(start, end, transform=fig.transFigure,
-                                        arrowstyle="-|>", mutation_scale=8,
-                                         color="#7D8B97", lw=0.9))
-    fig.text(0.025, 0.499, "Blue: frozen base   ·   Gray: current actor",
-              fontsize=5.8, color=GRAY)
+                                      arrowstyle="-|>", mutation_scale=8,
+                                      color="#7D8B97", lw=0.9))
+    # The shared color key keeps distributions identifiable in every panel.
+    for x, label, color in ((0.022, "Base", BLUE), (0.154, "Current", GRAY),
+                            (0.337, "Proposal", ORANGE), (0.535, "Target", TEAL)):
+        fig.text(x, 0.502, "●", fontsize=5.5, color=color, va="center")
+        fig.text(x + 0.027, 0.502, label, fontsize=5.8, color=INK, va="center")
 
     std = np.asarray(config["base_std"])
     base, current, proposed = (data[key][0] for key in ("base", "current", "q_proposal"))
@@ -153,8 +164,8 @@ def render(data, config):
         ax.scatter(*data["current"][1:7].T, color=GRAY, s=3, alpha=0.5)
         point(ax, base, BLUE, size=11)
         point(ax, current, INK)
-        ax.text(base[0] - 0.02, -0.06, r"$a_0$", color=BLUE, fontsize=6.5, ha="center")
-        ax.text(current[0] + 0.10, current[1] - 0.15, r"$a_i$", fontsize=6.5, color=GRAY)
+        ax.text(base[0], -0.075, r"$a_{0,i}$", color=BLUE, fontsize=7.5, ha="center")
+        ax.text(current[0] + 0.11, current[1] - 0.17, r"$a_i$", fontsize=7.5, color=GRAY)
 
     # Intermediate distributions persist: proposal 2 -> 3, fixed target 3 -> 4.
     for ax in (axes[1], axes[2]):
@@ -162,53 +173,69 @@ def render(data, config):
         point(ax, proposed, ORANGE, size=7)
     for ax in (axes[2], axes[3]):
         draw_cloud(ax, target, std, TEAL, alpha=0.9)
-        point(ax, target, TEAL, marker="D", size=13)
+        point(ax, target, TEAL, marker="D", size=15)
 
-    # 1: paired samples from a frozen base and its current residual policy.
+    # 1: explicitly show the residual linking actions sampled with the same z_i.
     ax = axes[0]
     arrow(ax, base, current, GRAY)
-    ax.text(-0.52, 0.35, "frozen base", fontsize=6.2, color=BLUE, ha="center")
-    ax.text(0.08, 0.54, "current actor", fontsize=6.2, color=GRAY, ha="center")
+    ax.text(-0.27, 0.25, r"$\bar r_i$", fontsize=7.5, color=GRAY, ha="center")
+    ax.text(-0.52, 0.38, "frozen base", fontsize=6.1, color=BLUE, ha="center")
+    ax.text(0.04, 0.57, "current policy", fontsize=6.1, color=GRAY, ha="center")
 
-    # 2: the raw critic request and the clipped reward displacement.
+    # 2: the raw request is eta_Q*g_i; it extends past the shared view.
     ax = axes[1]
-    # Solid accepted displacement followed by the discarded dashed extension.
-    # Display the raw ray only up to the shared view boundary; do not move or
-    # rescale any distribution just to accommodate its far-away endpoint.
     direction = raw - proposed
-    fraction = min(1.0, (common_view[1][1] - 0.03 - proposed[1]) / direction[1])
+    fraction = min(1.0, (common_view[1][1] - 0.02 - proposed[1]) / direction[1])
     raw_visible = proposed + fraction * direction
     arrow(ax, proposed, raw_visible, ORANGE, dashed=True, lw=0.8)
     arrow(ax, current, proposed, ORANGE, lw=1.6)
-    ax.text(0.13, 0.61, "raw…", color=ORANGE, fontsize=6.0, ha="center")
-    ax.text(0.30, 0.27, r"$d_i^Q$", color=ORANGE, fontsize=6.5)
+    ax.text(-0.13, 0.63, r"raw $\eta_Q g_i$", color=ORANGE, fontsize=6.6, ha="center")
+    ax.text(0.31, 0.26, r"$d_i^Q$", color=ORANGE, fontsize=7.5)
 
-    # 3: translate the restoring vector head-to-tail, then cap the total step.
-    # dR is evaluated at the CURRENT residual, not at the orange proposal.
+    # 3: restoration is evaluated at the OLD residual and translated solely
+    # to visualize vector addition. The dashed contraction is total clipping.
     ax = axes[2]
-    ax.add_patch(Circle(current, config["total_cap"], fill=False, color=GRAY,
-                        linestyle=":", lw=0.65, zorder=3))
+    radius = config["total_cap"]
+    ax.add_patch(Circle(current, radius, fill=False, color=GRAY,
+                        linestyle=":", lw=0.85, zorder=3))
     arrow(ax, current, proposed, ORANGE, lw=1.3)
-    arrow(ax, proposed, combined, TEAL, lw=1.5)
-    arrow(ax, combined, target, GRAY, dashed=True, lw=0.8)
-    point(ax, combined, GRAY, hollow=True, size=7)
-    ax.text(-0.14, 0.57, r"$d_i^R$: restore", color=TEAL, fontsize=6.3, ha="center")
-    ax.annotate("corrected target", xy=target, xytext=(0.16, -0.10), fontsize=6.0,
-                 color=TEAL, ha="center", arrowprops={"arrowstyle": "-", "color": TEAL, "lw": 0.5})
+    arrow(ax, proposed, combined, TEAL, lw=1.4)
+    arrow(ax, combined, target, GRAY, dashed=True, lw=0.95)
+    point(ax, combined, GRAY, hollow=True, size=9)
+    arrow(ax, current, target, TEAL, lw=1.3)
+    ax.text(-0.14, 0.60, r"restore $d_i^R$", color=TEAL, fontsize=6.7, ha="center")
+    ax.annotate("clip", xy=(combined + target) / 2, xytext=(-0.53, 0.43),
+                fontsize=6.0, color=GRAY, ha="center",
+                arrowprops={"arrowstyle": "-", "color": GRAY, "lw": 0.5})
+    ax.annotate(r"$\delta_{\mathrm{tot}}$", xy=current + np.array([radius, 0]),
+                xytext=(0.57, 0.10), fontsize=7.2, color=GRAY, ha="right",
+                arrowprops={"arrowstyle": "-", "color": GRAY, "lw": 0.5})
+    ax.annotate(r"target $\tilde a_i$", xy=target, xytext=(-0.10, -0.16),
+                fontsize=6.7, color=TEAL, ha="center",
+                arrowprops={"arrowstyle": "-", "color": TEAL, "lw": 0.5})
 
-    # 4: a cloud of detached targets supervises the actor. Arrows depict the
-    # regression objective, not a measured or guaranteed realized policy move.
+    # 4: fixed target samples supervise the residual. These arrows depict the
+    # objective, not measured or guaranteed changes in the fitted policy.
     ax = axes[3]
     for idx in (2, 6, 8):
         arrow(ax, data["current"][idx], data["target"][idx], TEAL, lw=1.0)
         point(ax, data["target"][idx], TEAL, size=5)
-    ax.text(-0.08, 0.55, "fit to fixed targets", fontsize=6.2, color=TEAL, ha="center")
-    # Guard against another accidental per-panel zoom or aspect change.
-    for ax in axes:
-        ax.apply_aspect()
+    ax.text(-0.12, 0.57, "fit to fixed targets", fontsize=6.1, color=TEAL, ha="center")
+    ax.annotate(r"$\tilde a_i$", xy=target, xytext=(-0.37, 0.42),
+                fontsize=7.5, color=TEAL, ha="center",
+                arrowprops={"arrowstyle": "-", "color": TEAL, "lw": 0.5})
+
+    # Guard against per-panel zoom changes and formula overflow at print size.
+    fig.canvas.draw()
     linear = axes[0].transData.get_affine().get_matrix()[:2, :2]
     assert all(np.allclose(ax.transData.get_affine().get_matrix()[:2, :2], linear)
                for ax in axes), "Panel coordinate scales must remain identical"
+    renderer = fig.canvas.get_renderer()
+    for label, card in math_cards:
+        text_box, card_box = label.get_window_extent(renderer), card.get_window_extent(renderer)
+        assert (text_box.x0 >= card_box.x0 and text_box.x1 <= card_box.x1
+                and text_box.y0 >= card_box.y0 and text_box.y1 <= card_box.y1), \
+            f"Formula exceeds its card: {label.get_text()}"
     return fig
 
 

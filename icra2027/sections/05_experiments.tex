@@ -1,191 +1,246 @@
-% Source snapshot: 800cfe6. See RESULTS_PROVENANCE.md for table consolidation,
-% protocol distinctions, arithmetic corrections, and unresolved run provenance.
+% Measurements: ICLR experiment tables; protocol reconciliation:
+% RESULTS_PROVENANCE.md and the corresponding launch scripts.
 
-We organize the evaluation around three questions. First, can anchoring
-preserve room for improvement beyond the pretrained policy, in simulation
-and on a physical robot? Second, which aspects of the update account for
-that behavior: restoration, clipping, or the critic's improvement signal?
-Third, when does the balance cease to help? We establish refinement gains
-on robomimic, LIBERO, and OpenArm before using ablations to examine the
-mechanism and broader control experiments to identify its limits.
+The experiments evaluate three aspects of refinement.
+\textbf{H1~(useful adaptation):} CAST can improve task success or
+interaction efficiency over standard residual refinement.
+\textbf{H2~(persistent reference):} limiting target corrections alone
+is insufficient to retain success in the tested visual manipulation tasks.
+\textbf{H3~(preservation and adaptation):} neither stronger preservation
+nor value-only guidance consistently improves refinement.
+We first measure gains, then examine the update choices that support them,
+and finally test where the manipulation findings do not transfer.
 
-\subsection{Setup and Reporting}
+\subsection{Setup and Comparison Logic}
 \label{sec:exp-setup}
 
-We use state-based robomimic manipulation~\cite{mandlekar2021robomimic},
-image-based tasks from LIBERO-90~\cite{liu2023libero}, and the DeepMind
-Control Suite (DMC)~\cite{tassa2018dmc}. Our controlled actor comparisons
-share the pretrained checkpoint, critic-training procedure, replay recipe,
-and interaction budget. The DICE-RL actor maximizes normalized critic value
-with behavior-cloning regularization; CAST replaces that actor update.
-Both retain the frozen observation encoder where applicable, ensemble TD
-learning, multi-step returns, and demonstration replay.
+\textbf{Benchmarks and controls.}
+We evaluate state-based robomimic manipulation~\cite{mandlekar2021robomimic},
+image-based LIBERO-90 tasks~\cite{liu2023libero}, and
+DMC~\cite{tassa2018dmc}. In matched simulation studies, DICE-RL and CAST
+start from the same pretrained checkpoint and share the residual
+architecture, critic-training procedure, replay recipe, and interaction
+budget. DICE-RL maximizes critic value with selectively applied BC
+regularization; CAST denotes the same residual system with our action-target
+update. The comparison therefore concerns complete actor objectives,
+including their weighting of replay states. Collected experience and
+learned critics can diverge as the policies change. External methods
+and physical refinement use the separate protocols described below.
 
-Robomimic uses 300-episode evaluations. The drifting-base comparison reports
-last-three-checkpoint averages over three training seeds. LIBERO uses
-100 rollouts $\times$ three evaluation seeds, which should not be confused
-with independent training runs. DMC reports return over 1000-step episodes,
-averaged over ten evaluation episodes. Training-seed counts and unfinished
-runs are marked with their tables. All improvements are relative to each
-method's own base and evaluation rule.
+\textbf{Outcomes and replication.}
+Task success is reported as a percentage and differences as percentage
+points (pp). We measure improvement beyond the base, success relative to
+DICE-RL at a fixed budget, and interactions needed to reach a common
+success threshold. Robomimic uses 300-episode evaluations; drifting-base
+results average the last three checkpoints separately for each of three
+training seeds. LIBERO uses 100 rollouts for each of three evaluation
+seeds, which measure evaluation variation rather than independent
+training runs. DMC reports episode return on its original 0--1000 scale,
+averaged over ten 1000-step episodes. Captions identify incomplete runs
+and distinguish comparisons with different configurations.
 
+\textbf{Update settings.}
 The LIBERO recipe uses $K=16$, $\eta_0=0.05$, $\eta_{\mathrm{anc}}=1$,
 $\rho=0.05$ rms, $\delta_Q=1$, and $\delta_{\mathrm{tot}}=0.15$.
-Reward steps $\eta_Q\in\{1,2\}$ are shared across tasks. Robomimic and
-the default DMC transfer use $\eta_Q=0.5$ and $\rho=0$; the tuned DMC
-quadruped setting is disclosed below. The target-construction rule is
-unchanged across these settings.
+CAST$_1$ and CAST$_2$ use critic step scales $\eta_Q=1$ and $2$,
+respectively, shared across all eight tasks. Each column therefore
+evaluates one fixed setting across tasks. Robomimic and default DMC use
+$\eta_Q=0.5$ and $\rho=0$; exceptions are identified below.
 
-\subsection{Refinement in Simulation}
+\subsection{H1: Improving Success and Interaction Efficiency}
 \label{sec:exp-robomimic}
 \input{sections/tables/05_robomimic}
 
-Anchoring is useful only if it allows the robot to improve beyond its
-starting behavior. We test both the size of that improvement and the
-interaction required to obtain it, then examine whether it persists across
-visual tasks and stronger bases.
+A useful reference must leave room to improve. Table~\ref{tab:robomimic}
+compares refinement within each base policy, while learning trajectories
+distinguish earlier improvement from a higher final success rate.
 
-\textbf{Robomimic: gains at a fixed budget.}
-The drifting-base rows of Table~\ref{tab:robomimic} isolate the actor
-update. On square, CAST reaches .912--.930 from a .382 base, compared with
-.861--.909 for backpropagation through the critic. It leads on each training
-seed at the reported 20K update budget. Can provides a near-saturation
-check: CAST reaches .978--.993 from .877, although two baseline seeds end
-before the full budget and are marked accordingly.
+\textbf{Refining weak and strong starting policies.}
+On drifting-base square, CAST reaches 91.2--93.0\% from a 38.2\% base,
+exceeding DICE-RL on each of three training seeds at 20K updates.
+Restoration therefore permits substantial changes beyond the base's
+competence. Can starts at 87.7\%, leaving less room to improve, yet CAST
+reaches 97.8--99.3\%. Two can baseline runs end before the common budget,
+so this row provides a partially matched comparison. Together, these
+results show improvement from both weak and strong starting policies.
 
-\textbf{Sample efficiency and generator choice.}
-The gain is partly one of efficiency. With longer training on drifting
-square, both actors approach .97--.99 near 40K updates. On the retrained
-diffusion base, they also reach similar endpoints (.965 for DICE-RL and
-.959 for CAST at 496K environment steps). CAST first reaches .90 at
-128/160/160K steps, compared with 224/240/256K for DICE-RL: about
-one-third fewer environment steps on average. On the flow-matching base, the
-value-only CAST variant reaches .934 against .831. This supports portability
-of the update framework, without implying that one reward-field choice is
-optimal for every generator.
+\textbf{The benefit can be earlier improvement.}
+With longer training on drifting square, both actors approach 97--99\%
+near 40K updates. The diffusion pair likewise reaches 95.9\% for CAST
+and 96.5\% for DICE-RL at 496K environment steps. Their learning
+trajectories differ: CAST first reaches 90\% at 128/160/160K steps,
+versus 224/240/256K for DICE-RL, requiring about 38\% fewer steps on
+average. H1 is thus supported by the success attainable within a practical
+interaction budget, even when final performance converges. This distinction
+also matters for physical deployment, where additional experience costs time.
 
-\textbf{Context from other fine-tuners.}
-The lower block provides external context. DIPO, QSM, DQL, IDQL, and AWR
-use the DPPO authors' adapted implementations and approximately 24M
-environment steps. Their stricter chunk-level success rule reads the
-shared checkpoint at .348 rather than .600; we therefore use .348 for
-their own-base deltas. QSM and DQL collapse in these runs, whereas AWR gains
-.045. These heterogeneous systems are not a matched actor-update test.
-DPPO is still training on the .600 base; a separate converged run on its
-original-architecture base reaches .887 at 11.7M steps.
+A value-only CAST variant reaches 93.4\% on flow-matching square, compared
+with 83.1\% for DICE-RL. The interaction budget for this comparison is
+unspecified, so it supports compatibility with another generator class
+without establishing a speed advantage. Across base classes, absolute
+scores also reflect differences in pretraining.
 
-\textbf{LIBERO: transfer across visual manipulation tasks.}
+\textbf{External comparisons provide context.}
+The lower block of Table~\ref{tab:robomimic} reports DIPO, QSM,
+Diffusion-QL (DQL), IDQL, and AWR implementations adapted by the DPPO authors,
+using about 24M environment steps. Their stricter chunk-level success
+rule scores the base at 34.8\%, against which gains are computed. QSM
+and DQL reach 0\%, while AWR improves by 4.5 pp. DPPO reaches 67.8\%
+in an ongoing run from a 60.0\% base; a separate run with its original
+architecture reaches 88.7\% at 11.7M steps. These outcomes show that more
+interaction does not ensure useful refinement in the tested configurations.
+Differences in systems, budgets, and evaluation preclude attributing their
+ordering to a single CAST component.
+
+\textbf{Visual tasks reveal both gains and exceptions.}
 \label{sec:exp-libero}
 \input{sections/tables/05_libero}
-% Queue the wide physical figure before its subsection for nearby placement.
+% Queue the wide physical figure early to keep it beside the robot study.
 \input{sections/05_real_robot_figure}
 
-The next comparison asks whether the update helps beyond a single skill.
-We fine-tune a separate residual and critic for each of eight challenging
-LIBERO-90 tasks, starting from one multitask base and routing by task ID
-at deployment. Table~\ref{tab:libero-main} reports both shared reward-step
-settings rather than choosing the best setting independently per task.
-On the drifting base, CAST$_2$ improves mean success from .661 to .755
-($+9.4$ points), compared with .670 ($+0.9$) for the backpropagated actor.
-CAST improves on the base on all eight tasks, although DICE-RL is better
-on the Study-3 caddy task (.653 versus .635).
+LIBERO tests whether gains extend across visual tasks under shared settings.
+Each task receives its own residual and critic over a shared multitask base,
+with task-ID routing at deployment. On the drifting base, CAST$_2$ raises
+mean success from 66.1\% to 75.5\%, a 9.4 pp gain, compared with 0.9 pp
+for DICE-RL. Both CAST settings improve over the base on all eight tasks.
+On red mug and ketchup, DICE-RL falls below the bases, whereas CAST$_2$
+improves them by 23.9 and 11.9 pp. The gain thus includes avoiding
+degradation as well as learning better behavior. DICE-RL still leads on
+Study-3 caddy.
 
-\textbf{A stronger base changes the room for improvement.}
-The stronger flow-matching base leaves a smaller aggregate gain. CAST$_1$
-is nearly unchanged from the base (.756 versus .753), but CAST$_2$ reaches
-.777, while DICE-RL averages .750. The result therefore depends on the
-reward step as well as the base. Gains are not universal: on some tasks the
-unmodified flow-matching policy remains best. A critic-free GRPO comparison
-is available on four tasks under the matched evaluation protocol; it is
-competitive on red mug (.883 versus CAST$_1$'s .878), while CAST leads on
-ketchup (.738 versus .700). We do not pool the four additional short-run
-GRPO estimates into a matched eight-task mean.
+The flow-matching results show that the benefit depends on the starting
+policy and update setting. CAST$_1$ changes mean success from 75.3\% to
+75.6\%; CAST$_2$ reaches 77.7\%, compared with 75.0\% for DICE-RL.
+Strong base skills such as juice placement have little headroom, and none
+of the refinements improves that task. Limited headroom is not the only
+issue: on right caddy, the 62.0\% base falls to 56.3\% under CAST$_2$.
+The average gains support H1, while these exceptions show that a reference
+to the base cannot ensure every proposed correction is useful.
 
 \input{sections/05_real_robot}
 
-\subsection{What Makes the Balance Work?}
+\subsection{H2: Small Corrections Still Need a Persistent Reference}
 \label{sec:exp-controls}
 \input{sections/tables/05_ablations}
 
-The refinement comparisons establish that constrained updates can improve
-pretrained skills. We now separate three possible explanations: limiting
-each step, resisting accumulated departure, and choosing an informative
-direction of change. These are controlled interventions on the update,
-rather than direct measurements of critic reliability.
+The component study tests the distinction between a target-step cap and
+restoration toward a fixed base. Table~\ref{tab:ablations} compares no
+controls, clipping only, dead-zone restoration only, and full CAST.
+Both no-restoration arms set $\eta_0=\eta_{\mathrm{anc}}=0$.
+The restoration-only arm also omits CAST's weak pull, so its comparison
+with CAST does not isolate clipping's marginal contribution.
 
-\textbf{Clipping and restoration have different roles.}
-Table~\ref{tab:ablations}(a) switches the two independently. Disabling
-clipping removes both field and total-step caps; disabling restoration
-sets both $\eta_0$ and $\eta_{\mathrm{anc}}$ to zero. Without restoration,
-success is zero on every factorial task, even with clipping. Restoration
-alone avoids complete collapse but is inconsistent: red mug improves from
-.573 to .810, whereas ketchup falls from .610 to .387. The full pair is
-the only arm above its base on all five tasks, with mean success .703
-against .673 before fine-tuning. This is direct evidence that a per-step
-cap and a fixed-base restoring term are not interchangeable.
+Both no-restoration arms reach 0\% success on all five tasks, even when
+each target correction is capped. Keeping the frozen base in the
+architecture is therefore insufficient to preserve its useful behavior.
+Restoration changes the outcome: the restoration-only arm retains nonzero
+success on every task, and full CAST exceeds each task's base. This
+supports H2 in the tested setting: limiting individual target corrections
+cannot substitute for a persistent reference.
 
-\textbf{Does the form of restoration matter?}
-Block (b) compares the field update with a dead-zone hinge in the DICE-RL
-loss and a hard projection of the action target. The hinge performs well
-on the two LIBERO tasks but reaches only .28 on square, with reported
-training-seed outcomes spanning .03--.77. Hard projection is strongest on
-red mug and competitive on square, but falls below the ketchup base.
-CAST is consistently effective across these three tasks, rather than
-uniformly best. We retain each study block's reported full-method reference
-instead of pooling aggregates across ablation campaigns.
+Retaining some success is a weaker goal than improving the skill.
+Restoration alone raises red mug from 57.3\% to 81.0\%, but lowers
+ketchup from 61.0\% to 38.7\%; its five-task mean is 65.7\%, below
+the 67.3\% base mean. Full CAST reaches 70.3\% and improves all five
+tasks over their bases, while restoration alone still leads on red mug
+and juice. These outcomes establish the practical effect of the tested
+updates. They do not directly measure critic accuracy or containment of
+the learned policy's outputs.
 
-\textbf{Does improvement require the critic's gradient?}
-Block (c) replaces it with kernel transport toward top-$k$ candidates or
-softmax-weighted standardized $Q$-values, holding the constraint fixed.
-Value-only fields lose substantially on square and ketchup. On red mug,
-however, the tilted field exceeds the gradient reference in this study
-(.697 versus .600). Thus the gradient is valuable but not universally
-superior; its usefulness depends on the critic and task.
+\subsection{H3: Balancing Preservation and Adaptation}
+\label{sec:exp-design}
+\input{sections/tables/05_update_design}
 
-\textbf{How much freedom should the correction have?}
-Sensitivity studies further show that an always-on pull can suppress useful
-corrections on LIBERO: $\rho=0$ yields .549/.601 on mug/ketchup. Interior
-radii from .02 to .20 give a broad operating range, while making the dead
-zone inert still retains the weak pull. Single-seed radius and step-size
-differences should be interpreted cautiously, particularly on red mug,
-where substantial training-seed variation has been observed.
+Having established the value of a persistent reference, we examine how
+the constraint and guidance choices affect refinement.
+Equation~\ref{eq:local-gradient} motivates a loss-space hinge: without
+clipping, target regression can express the same first-order direction as
+a penalized actor objective. The comparison therefore tests the implemented
+updates, rather than attributing improvement to regression alone.
 
-\subsection{Scope and Failure Cases}
+\textbf{A harder constraint is not consistently better.}
+Table~\ref{tab:update-design}(a) compares CAST with a dead-zone hinge in
+the DICE-RL objective and projection onto a base-centered target ball.
+The hinge retains DICE-RL's BC filtering; the LIBERO projection arm
+replaces restoration and both displacement caps. These configurations
+compare complete alternatives, rather than constraint location alone.
+Projection leads on square and red mug at 96.0\% and 93.0\%, but drops
+to 54.0\% on ketchup, below its 61.0\% base. CAST reaches 68.0\% on
+ketchup and exceeds the corresponding bases on all three tasks.
+
+This ordering is consistent with a preservation--adaptation tradeoff:
+a hard boundary can protect a useful neighborhood while excluding changes
+needed for improvement. Soft restoration resists departure while permitting
+such changes. The experiment does not isolate that geometric explanation,
+but establishes that a stricter target boundary is not uniformly preferable.
+The hinge reaches 77.0\% and 65.0\% on the two LIBERO tasks, yet only
+28.0\% on square, with training-seed outcomes spanning 3--77\%.
+Multiple constraint designs can support useful refinement; their relative
+performance depends on the task.
+
+\textbf{Value rankings and action gradients provide different guidance.}
+Table~\ref{tab:update-design}(b) compares gradient guidance with transport
+toward top-$k$ candidates and transport weighted by standardized critic
+values. On square, the gradient variant reaches 91.2--93.0\%, while both
+value-only variants remain below 60\%. On ketchup, both value-only
+variants fall below the 61.0\% base. Ranking sampled candidates identifies
+preferred actions; an action gradient proposes a local change to each
+candidate. These operations need not yield equally useful corrections.
+
+Red mug reverses the ordering: value-tilted transport reaches 69.7\%,
+versus 60.0\% for gradient guidance. Thus analytic gradients are not
+uniformly preferable either. The field recipes also differ in restoration
+settings, so this comparison does not isolate the source of critic guidance.
+It shows that both the proposed correction and the controls applied to it
+matter when evaluating a refinement rule.
+
+\textbf{The radius determines when stronger restoration begins.}
+Single-training-seed sweeps examine this balance more directly. With
+$\rho=0$, the strong restoring term acts on every nonzero residual,
+yielding 54.9\% on mug and 60.1\% on ketchup. Positive radii from
+0.02 to 0.20 give higher reported success on both tasks, consistent with
+allowing local corrections before the stronger pull activates. These
+exploratory sweeps do not establish an optimal radius. As
+$\rho\to\infty$, the weak pull remains, so this setting still differs
+from removing all restoration. Together, the comparisons support H3:
+stronger preservation alone does not explain better refinement.
+
+\subsection{Scope: When the Manipulation Findings Do Not Transfer}
 \label{sec:exp-dmc}
 \input{sections/tables/05_dmc}
 
-The preceding results support anchoring in the tested manipulation
-settings. They leave open whether sparse rewards alone explain its value,
-and whether the base always provides a useful reference.
+DMC tests whether sparse rewards alone explain the manipulation failures.
+Its one-step bases are distilled from Soft Actor-Critic (SAC) experience,
+providing a different task family and source of pretraining data. If sparse
+reward were sufficient to make unanchored refinement fail, the same failure
+would occur on these sparse tasks.
 
-\textbf{DMC: reward sparsity is not sufficient to explain the gains.}
-DMC tests the same residual update outside the main manipulation setting.
-Bases are one-step policies distilled from SAC
-experience. Table~\ref{tab:dmc} retains all six reported tasks and marks
-incomplete runs rather than treating them as converged comparisons.
-CAST raises dense swing-up return from 429 to 715, versus 318 for the
-backpropagated actor, and dense balance from 378 to 911. Quadruped run
-reports 312 before the matched budget using $\eta_Q=1$, compared with 267
-for the untuned CAST arm and 283 for backpropagation. This is a tuned,
-interim comparison, not a converged matched-budget advantage or evidence
-of one optimal recipe.
+\textbf{Sparse rewards do not by themselves imply collapse.}
+Unconstrained refinement improves sparse balance and ball-in-cup in the
+reported runs, despite its failures on sparse manipulation. CAST raises
+sparse balance from 90 to 1000 return and dense swing-up from 429 to 715;
+on ball-in-cup, the unconstrained interim return of 940 exceeds CAST's 925.
+The difficulty illustrated by stacking is more specific than sparsity:
+a delayed outcome may give little guidance about which part of an
+otherwise useful skill should change. This inference also depends on
+the task and available experience. The DMC comparisons do not separately
+measure these factors or critic reliability.
 
-On sparse balance, CAST reaches the maximum return of 1000 from a base of
-90; on ball-in-cup catch it reaches 925 from 86. Unconstrained updates can
-also improve in this setting, including under sparse reward, so sparsity
-alone does not explain the manipulation failures. Conversely, dense reward
-does not ensure useful unconstrained fine-tuning: the incomplete quadruped
-run remains below its base. These observations are consistent with a role
-for critic error, data coverage, and departure from the base, but do not
-isolate their individual effects. The DMC recipe's $\rho=0$ also shows that a free dead-zone interior
-is not necessary in every regime.
+CAST improves several DMC tasks with $\rho=0$, showing that a free interior
+for the strong restoring term is not necessary everywhere. Dense rewards
+also do not ensure improvement: the unconstrained quadruped run remains
+below its base at the reported checkpoint. CAST's quadruped return of 312
+uses a tuned $\eta_Q=1$ and is below budget, so its comparison with
+DICE-RL's 283 is interim rather than a converged, matched-budget result.
 
-\textbf{When the reference or critic changes, the ordering can reverse.}
-On robomimic transport, CAST reaches .594 against .912 for DICE-RL at a
-matched 2.24M environment steps. This failure is consistent with anchoring
-restricting a needed large correction from a weak base. With a shared
-multitask LIBERO critic, best-of-16 evaluation gives .722 for DICE-RL and
-.692 for CAST, reversing the per-task ordering. Together, these cases show
-why neither proximity to the base nor one actor-update rule is sufficient
-for reliable improvement. The useful balance depends on the starting
-behavior and the critic used to guide adaptation.
+\textbf{When preserving the reference can be costly.}
+On robomimic transport, CAST reaches 59.4\% versus 91.2\% for DICE-RL
+at matched 2.24M environment steps. This is consistent with restoration
+restricting a useful correction, although the experiment does not measure
+how far the best policy lies from the base. Shared-critic multitask LIBERO
+also favors DICE-RL: best-of-16 success is 72.2\%, versus 69.2\% for
+CAST. That DICE-RL result uses its published recipe, making this a system
+comparison rather than an isolated actor intervention. These cases delimit
+the benefit of anchoring: a pretrained skill provides a useful reference,
+but refinement still needs informative critic guidance and sufficient
+freedom to change the behavior.

@@ -2,30 +2,31 @@
 % best eta independently per task when computing the mean.
 \begin{table*}[t]
 \centering
-\caption{LIBERO hard-8, per-task fine-tuning with task-ID routing. Success
-is evaluated with 100 rollouts $\times$ 3 evaluation seeds. CAST$_1$ and
-CAST$_2$ use shared reward steps $\eta_Q=1$ and $2$, respectively, across
-all eight tasks. Each block starts from its own pretrained multitask base.
-Column means are fixed-recipe averages, not per-task best-of selections.
-Bold marks the best value in each row within each base block.}
+\caption{Success (\%) on eight LIBERO-90 tasks with one residual policy and
+critic per task, routed by task ID. Each policy is evaluated with 100
+rollouts for each of three evaluation seeds. Each block uses one pretrained
+multitask base. CAST$_1$ and CAST$_2$ use critic step scales $\eta_Q=1$ and $2$,
+respectively, shared across all eight tasks. Means average each fixed setting across all eight tasks.
+Parentheses give task IDs. Bold marks the highest success per row within
+each base block.}
 \label{tab:libero-main}
 \small
 \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lcccccccc@{}}
 \toprule
  & \multicolumn{4}{c}{Drifting base} & \multicolumn{4}{c}{Flow-matching base} \\
 \cmidrule(lr){2-5}\cmidrule(lr){6-9}
-Task & Base & DICE & CAST$_1$ & CAST$_2$ & Base & DICE & CAST$_1$ & CAST$_2$ \\
+Task & Base & DICE-RL & CAST$_1$ & CAST$_2$ & Base & DICE-RL & CAST$_1$ & CAST$_2$ \\
 \midrule
-Drawer / bowl (8) & .818 & .820 & .831 & \textbf{.857} & .897 & .873 & \textbf{.900} & .887 \\
-Stove / pan (21) & .690 & .703 & .737 & \textbf{.752} & .700 & \textbf{.730} & .690 & .727 \\
-Drawer / ketchup (32) & .610 & .587 & .694 & \textbf{.729} & .690 & .682 & .738 & \textbf{.773} \\
-Basket / juice (53) & .785 & .800 & .842 & \textbf{.853} & \textbf{.917} & .915 & .897 & .913 \\
-Plate / red mug (65) & .573 & .550 & \textbf{.826} & .812 & .787 & .809 & .878 & \textbf{.887} \\
-Front caddy / book (73) & .648 & .663 & .710 & \textbf{.752} & .683 & .690 & .667 & \textbf{.783} \\
-Right caddy / book (75) & .578 & .583 & \textbf{.657} & .648 & \textbf{.620} & .592 & .608 & .563 \\
-Study-3 caddy / book (81) & .588 & \textbf{.653} & .607 & .635 & \textbf{.733} & .708 & .670 & .680 \\
+Drawer / bowl (8) & 81.8 & 82.0 & 83.1 & \textbf{85.7} & 89.7 & 87.3 & \textbf{90.0} & 88.7 \\
+Stove / pan (21) & 69.0 & 70.3 & 73.7 & \textbf{75.2} & 70.0 & \textbf{73.0} & 69.0 & 72.7 \\
+Drawer / ketchup (32) & 61.0 & 58.7 & 69.4 & \textbf{72.9} & 69.0 & 68.2 & 73.8 & \textbf{77.3} \\
+Basket / juice (53) & 78.5 & 80.0 & 84.2 & \textbf{85.3} & \textbf{91.7} & 91.5 & 89.7 & 91.3 \\
+Plate / red mug (65) & 57.3 & 55.0 & \textbf{82.6} & 81.2 & 78.7 & 80.9 & 87.8 & \textbf{88.7} \\
+Front caddy / book (73) & 64.8 & 66.3 & 71.0 & \textbf{75.2} & 68.3 & 69.0 & 66.7 & \textbf{78.3} \\
+Right caddy / book (75) & 57.8 & 58.3 & \textbf{65.7} & 64.8 & \textbf{62.0} & 59.2 & 60.8 & 56.3 \\
+Study-3 caddy / book (81) & 58.8 & \textbf{65.3} & 60.7 & 63.5 & \textbf{73.3} & 70.8 & 67.0 & 68.0 \\
 \midrule
-Mean & .661 & .670 & .738 & \textbf{.755} & .753 & .750 & .756 & \textbf{.777} \\
+Mean & 66.1 & 67.0 & 73.8 & \textbf{75.5} & 75.3 & 75.0 & 75.6 & \textbf{77.7} \\
 \bottomrule
 \end{tabular*}
 \end{table*}

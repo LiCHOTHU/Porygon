@@ -1,24 +1,23 @@
-CAST combines critic-guided action improvement with a restoring reference
-to the pretrained policy and a cap on the target displacement. Its local
-gradient interpretation connects it to regularized actor learning, while
-its explicit targets make the action-space correction available before
-fitting the actor. The robomimic and LIBERO comparisons show useful gains
-at controlled budgets, and the constraint factorial demonstrates that
-small steps alone can still destroy pretrained behavior. Alternative
-constraints can be stronger on individual tasks; the evidence favors
-consistent refinement rather than universal superiority of one update.
-On OpenArm, all three refinements improve observed success over the base
-on both Jigglypuff placement and stacking. CAST achieves 19/20 and 14/20
-successes, respectively, versus base counts of 11/20 and 7/20. Its margins
-over DICE-RL are one and two trials, while BC outperforms DICE-RL on
-stacking. These results add physical evidence for refinement, with larger
-evaluations needed to resolve differences between update rules.
+A pretrained policy provides a reference for useful behavior, while the
+critic supplies an improvement signal. CAST makes these roles explicit:
+the critic proposes action corrections, restoration opposes departure from
+the frozen base, and clipping limits each target correction used to train
+the residual.
+Matched simulation studies show substantial success gains and earlier
+improvement. The component study shows that clipping alone can fail to
+preserve competence, while physical placement and stacking provide initial
+evidence for refinement from recorded practice.
 
-The failure cases in Sec.~\ref{sec:exp-dmc} show that anchoring can be
-counterproductive with a weak reference or a shared multitask critic.
-DMC further shows that neither sparse reward nor a dead-zone interior
-alone determines which update works. A target bound is not a theorem about the
-learned policy's outputs, and the radius is not derived from critic
-reliability. Adapting that radius to justified local trust is a natural
-next step. Broader physical evaluation is needed to assess how these
-findings generalize across tasks and initial conditions.
+The results also clarify the limits of this approach. Alternative
+constraints lead on individual tasks, and transport and shared-critic
+multitask comparisons favor DICE-RL. Sparse reward alone does not determine
+whether restoration is useful. The target cap bounds a requested correction,
+whereas the distributional bound depends on the actor's actual residual;
+neither guarantees successful behavior after fitting. Restoration moderates
+the influence of critic guidance without establishing its accuracy.
+
+A next step is to adapt restoration to measured local reliability and
+the amount of change a task requires, alongside larger physical evaluations.
+The central lesson is that a persistent behavioral reference can support
+useful refinement, provided it leaves room for the corrections needed
+to complete the skill.

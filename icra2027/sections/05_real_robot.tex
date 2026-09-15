@@ -1,55 +1,91 @@
-\subsection{Refinement on the Physical Robot}
+\subsection{Physical Refinement: Improvement and Failure Modes}
 \label{sec:exp-real-robot}
 
-The simulation comparisons isolate the actor update; the physical study
-asks whether it adds value when refining an existing robot skill through
-practice. Success-only BC provides a critic-free alternative, separating
-the benefit of imitating successful attempts from that of learning from
-both outcomes. We use an OpenArm platform's left
-seven-joint arm and gripper, with chest and left-wrist RGB cameras, measured
-joint and gripper positions, and a fixed task-language prompt. The two
-tasks are \emph{Jigglypuff into the case} and \emph{red-on-purple stacking}.
-Both use a hand-made staircase: different support heights and nearby edges
-make approach, grasp alignment, and release important. Stacking additionally
-requires accurate placement before withdrawing the gripper.
+The physical study evaluates improvement beyond pretraining, with supervised
+BC as an alternative to reward-based refinement. It also connects the
+measured success rates to a concrete failure mode: useful intermediate
+behavior followed by an unsuccessful final release.
 
-\textbf{Four-way comparison.}
-For each task, a flow-matching policy is pretrained on teleoperated
-demonstrations. It predicts 30-step chunks of absolute joint and gripper
-targets at 15 Hz using a ten-step Euler sampler; deployment executes a
-prefix before replanning. All refinement conditions start from the same
-checkpoint. Success-only BC continues supervised training on successful
-online trajectories. DICE-RL and DICE-RL + CAST use both successful and
-failed attempts, with the same frozen base, critic architecture, replay,
-exploration, and update schedule. This tests whether critic-guided
-refinement adds value beyond imitating successful practice, and whether
-the actor-update rule changes that benefit.
+\textbf{Robot and tasks.}
+We use the seven-joint left follower arm and parallel gripper of an
+OpenArm platform. Chest RealSense D435 and wrist D405 RGB images are
+resized to $128\times128$ and encoded by a shared ResNet-18; the policy
+also receives follower joint/gripper positions and a task-language embedding.
+A flow-matching policy with a diffusion transformer (DiT) backbone uses
+ten Euler steps to predict 30-step chunks of absolute joint/gripper targets.
+Deployment issues commands at 15\,Hz, requests a chunk every eight periods,
+limits arm-command changes to 0.6\,rad/s, and ends attempts after 20\,s.
 
-\textbf{Collection and evaluation.}
-After each attempt, an operator assigns the success/failure label. Valid
-failures are retained for the RL arms, and invalid or discarded trials are
-accounted for explicitly. Replay records commands actually executed after
-chunk-prefix selection and command limiting. The refinement protocol uses
-matched robot interaction budgets and execution limits; evaluation attempts
-are held out from refinement data. Each method is evaluated over 20 rollouts
-per task. For Jigglypuff, the toy's pose is randomly changed on the stairs
-between attempts. Exact pose ranges and paired resets across methods are
-not established by the available evaluation record. Toy placement
-requires release fully inside the case with the toy remaining there.
-Stacking requires the red cube to remain supported by the purple cube
-after release and gripper withdrawal; the post-release observation interval
-is not specified in the reported stacking results.
+Both tasks use a hand-made staircase: placing Jigglypuff into the adjacent
+case and stacking the red cube on the purple cube. Stacking additionally
+requires releasing the upper cube without disturbing its support.
+Fig.~\ref{fig:real-robot} shows teleoperated demonstrations alongside
+separate autonomous evaluation results.
 
-\textbf{Results across both tasks.}
-Fig.~\ref{fig:real-robot} reports 11/20 successes for the base FM policy,
-16/20 after success-only BC refinement, 18/20 for DICE-RL, and 19/20 for
-DICE-RL + CAST on Jigglypuff. On stacking, the same methods achieve
-7/20, 13/20, 12/20, and 14/20 successes. All refinements improve observed
-success over the base on both tasks. CAST reaches the highest observed
-rates, 95\% and 70\%, gaining eight and seven successes over the bases.
-The comparison with BC is task-dependent: DICE-RL exceeds BC on Jigglypuff
-but trails it on stacking. CAST exceeds DICE-RL by one and two trials,
-and BC by three and one. These small margins support further evaluation
-rather than a reliable ranking of refinement methods.
-Fig.~\ref{fig:real-robot} illustrates both tasks using separate
-demonstration sequences.
+\textbf{Refinement data and training.}
+Each task uses one shared starting checkpoint. For placement, BC trains on
+30 supplementary expert demonstrations; RL uses those demonstrations plus
+18 reviewed attempts (11 successes, seven failures). For stacking, BC uses
+12 successful attempts; RL uses all 24 reviewed attempts plus 30 original
+training demonstrations. BC fine-tunes the base policy and encoder, while
+both RL arms freeze them and train a residual. The BC--RL comparison
+therefore changes the data, learning objective, and trainable parameters.
+
+The training protocols specify 40 additional BC epochs and 6,000 updates
+for each RL arm, with matching DICE-RL/CAST replay indices and critic
+settings. Both RL arms correct the nominal eight-step executed prefix
+and use a noise-independent critic because behavior latents were not logged.
+Training is offline on saved experience. Only successful terminal
+transitions receive reward 1; other transitions receive 0, and earlier
+critic targets bootstrap estimates of future return. Image alignment is
+approximate because frame timestamps were not recorded. The reported
+autonomous trial counts have not yet been linked to these final training
+checkpoints.
+
+\textbf{Observed improvement.}
+Each policy receives 20 autonomous attempts per task. Placement poses are
+randomized on the stairs. Success requires the toy to remain fully inside
+the case, or the red cube to remain on the purple cube after release and
+gripper withdrawal. Paired resets and a fixed post-release observation
+interval are not documented.
+
+On placement, success rises from 55\% for the base to 80\% for BC, 90\%
+for DICE-RL, and 95\% for CAST. On stacking, the corresponding rates are
+35\%, 65\%, 60\%, and 70\%. All refinements show higher success than
+the bases; CAST gains 40 and 35 pp, respectively. BC remains competitive
+on stacking, motivating a closer look at the supervision needed to
+complete the release.
+
+\textbf{Why stacking can favor BC and CAST.}
+Qualitative observations identify failure to release the gripper as the
+main stacking failure mode. The robot reaches, grasps, and aligns the
+cube, but does not open the gripper to complete the stack. The attempt
+correctly receives a failure outcome, although the preceding motion is
+useful. Refinement should correct the release while preserving this approach.
+
+A binary terminal reward does not identify which stage caused the failure.
+The critic estimates expected completion from limited experience and
+bootstrapped future values; the actor relies on its action gradients to
+suggest useful changes. A low value before a failed release can correctly
+predict unsuccessful completion under the current policy without showing
+that the preceding action was wrong. Learning an actionable correction
+from that outcome is a credit-assignment problem: the learner must infer
+which part of the sequence needs to change.
+
+Success-only BC supplies direct action targets for both the approach and
+the successful release. This offers a plausible explanation for its
+65\% success versus DICE-RL's 60\%. DICE-RL can use failed attempts,
+but its actor follows critic gradients and can relax base regularization
+when the critic favors a correction. Imperfect local guidance may therefore
+alter behavior that already works. CAST uses the same critic-training
+procedure while restoring actions toward the base and limiting target
+corrections. These controls may reduce disruption of the approach while
+permitting a release correction; they do not identify release as a special
+stage or improve the critic's accuracy directly.
+
+CAST's 70\% stacking success is consistent with this explanation, but
+exceeds BC by one trial and DICE-RL by two. The release observation
+therefore motivates a mechanism hypothesis, rather than establishing
+critic error or a release-specific repair. The observed gains over the
+bases support further study; larger evaluations with verified checkpoint
+linkage are needed to compare the refinements reliably.

@@ -1,38 +1,39 @@
 \subsection{Setting}
 
-We consider online fine-tuning of a generative robot policy pretrained from
-demonstrations. An observation $s$ includes the inputs used by the policy,
-and an action $a \in \mathbb{R}^{H d}$ is a chunk of $H$ controls with $d$
-dimensions each. A frozen generator $\pi_0$ maps $s$ and noise $z$ to an
-action. Following residual RL~\cite{dicerl2026}, we learn a correction:
+We study reward-based refinement of a pretrained generative policy.
+An observation $s$ contains the inputs used by the policy, and an action
+$a\in\mathbb{R}^{Hd}$ is a chunk of $H$ controls with $d$ dimensions each.
+The frozen generator $\pi_0$ maps $s$ and noise $z$ to an action. Following
+residual RL~\cite{dicerl2026}, we learn an additive correction:
 \begin{equation}
   a_\theta(s,z)=\pi_0(s,z)+r_\theta(s,z),
   \qquad z\sim\mathcal{N}(0,I).
   \label{eq:residual}
 \end{equation}
-An ensemble critic estimates return from replayed experience. Reward is
-provided on task success. The goal is to increase success through online
-interaction while retaining useful pretrained behavior. Our controlled
-comparison varies the actor update while matching the base, critic-training
-procedure, and interaction budget.
+An ensemble critic estimates return from replayed experience. Our
+manipulation tasks use sparse success rewards; DMC also includes dense
+rewards. The goal is to improve task performance while retaining useful
+pretrained behavior. Matched online comparisons share the base,
+critic-training procedure, and interaction budget. Physical refinement
+uses fixed experience collected before training.
 
-\subsection{The Problem: Accumulated Departure}
+\subsection{Accumulated Departure from the Base}
 
 A critic can assign high values to actions outside its training coverage.
 Repeatedly following those predictions may move the policy away from actions
-that actually succeed~\cite{fujimoto2019bcq}. A step cap alone does not
-prevent this: $\|a_{t+1}-a_t\|\leq\delta$ permits distance from the initial
-action to grow with the number of updates. Here $t$ indexes optimization
-steps, not control steps. Fig.~\ref{fig:problem} compares two updates from
-the same base distribution under the same critic. Vanilla ascent moves
-probability mass into an overestimated region; anchoring each particle to
-its own base action permits improvement nearby.
+that succeed~\cite{fujimoto2019bcq}. A step cap alone cannot prevent this:
+$\|a_{t+1}-a_t\|_2\leq\delta$ permits distance from the initial action to
+grow with the number of updates. Here $t$ indexes optimization steps.
+Fig.~\ref{fig:problem} illustrates the issue by directly updating paired
+actions under the same critic. In this toy, vanilla ascent moves probability
+mass into an overestimated region, while a fixed-base projection retains
+useful behavior nearby.
 
-The design question is how to permit useful corrections without allowing
-uncontrolled departure from the frozen base. We measure this departure by
-the residual's root-mean-square action magnitude,
-$D_{\mathrm{base}}=\mathbb{E}_{s,z}[\|r_\theta(s,z)\|_2/\sqrt{H d}]$,
-with states sampled from replay. A fixed-base restoring term acts on this
-departure, whereas step clipping limits only each proposed displacement.
-We study both empirically: bounded regression targets do not themselves
-guarantee bounded outputs after fitting a shared neural network.
+This distinction motivates two controls: a persistent restoring force
+that opposes departure from the base, and a cap on each requested target
+correction. We quantify departure using the residual's root-mean-square (rms) magnitude,
+$D_{\mathrm{base}}=\mathbb{E}_{s,z}[\|r_\theta(s,z)\|_2/\sqrt{Hd}]$,
+with states sampled from replay. The design question is how to resist
+unnecessary changes while permitting useful ones. Because a neural actor
+shares parameters across samples, constraints on its targets do not by
+themselves guarantee equivalent constraints on its fitted outputs.

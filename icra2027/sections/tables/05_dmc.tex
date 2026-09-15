@@ -1,18 +1,19 @@
 % Source: tab:dmc-scope, including every incomplete-run marker.
 \begin{table}[t]
 \centering
-\caption{DMC episode return (maximum 1000). All actors use the same frozen
-base per task. Scores average 10 evaluation episodes; the target budget is
-400K environment steps. $\circ$ denotes a below-budget run, $v$ high
-evaluation variance, and $t$ a tuned reward step. Swing-up averages two
-training seeds; the other rows currently have one, with second seeds pending.
-Bold marks the highest reported return per row, including ties and interim runs.}
+\caption{DMC episode return after refinement of the same frozen base
+within each task. Returns average ten 1000-step evaluation episodes
+(maximum return: 1000). The target interaction budget is 400K environment
+steps; $\circ$ marks an earlier, incomplete run, $v$ high evaluation
+variance, and $t$ a tuned critic step scale. Swing-up averages two training
+seeds; each other row reports one training seed. Bold marks the highest
+reported return per row, including ties and incomplete runs.}
 \label{tab:dmc}
 \footnotesize
 \setlength{\tabcolsep}{3.5pt}
 \begin{tabular}{@{}lrrrr@{}}
 \toprule
-Task & Base & No constraint & Backprop & CAST \\
+Task & Base & Unconstrained & DICE-RL & CAST \\
 \midrule
 \multicolumn{5}{@{}l}{\emph{Dense reward}} \\
 Cartpole swing-up & 429 & 575 & 318 & \textbf{715} \\

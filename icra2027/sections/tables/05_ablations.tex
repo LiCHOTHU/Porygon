@@ -1,46 +1,27 @@
-% Separate study blocks retain their own reference values. They must not be
-% pooled into a single CAST row. Sources: tab:constraint, tab:exp1, and the
-% reward-field block of tab:locus in the ICLR draft. Older provisional hinge
-% and projection rows are not substituted for the new three-seed comparison.
+% Source: ICLR tab:constraint; retain this campaign's CAST reference.
+% Launcher B_ANC omits the weak pull; this is not an exact 2x2 factorial.
 \begin{table}[t]
 \centering
-\caption{Constraint and reward-field ablations. (a) Reported three-seed
-five-task LIBERO factorial; mean base success is .673. (b) The constraint
-comparison uses three training seeds, 300-episode square evaluations, and powered
-LIBERO evaluations. (c) Reward-field substitutions, with square seed ranges.
-Each study block retains its own reported CAST reference; values are not
-pooled across blocks. Mug and ketchup denote tasks 65 and 32.
-Bold marks the best result per column within each study block.}
+\caption{LIBERO success (\%) under restoration and clipping
+configurations, with three training seeds per configuration. \emph{Neither} disables both restoring terms and both action-space caps;
+\emph{Clip} enables only the caps. \emph{Restore} enables only dead-zone restoration
+($\eta_0=0$), whereas CAST uses both restoring terms and both caps.
+The Restore--CAST comparison therefore also changes the weak pull. Mean averages the
+five tasks. Bold marks the highest success in each row, including the base.}
 \label{tab:ablations}
 \footnotesize
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{@{}llc@{}}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lccccc@{}}
 \toprule
-\multicolumn{3}{@{}l}{\emph{(a) Step clipping versus base restoration}} \\
-Step clip & Restoration & Five-task mean \\
+Task & Base & Neither & Clip & Restore & CAST \\
 \midrule
-Off & Off & .000 \\
-On & Off & .000 \\
-Off & On & .657 \\
-On & On (full CAST) & \textbf{.703} \\
-\bottomrule
-\end{tabular}
-\par\smallskip
-\begin{tabular}{@{}lccc@{}}
-\toprule
-\multicolumn{4}{@{}l}{\emph{(b) Alternative constraint implementations}} \\
-Constraint & Square & Mug & Ketchup \\
+Red mug & 57.3 & 0.0 & 0.0 & \textbf{81.0} & 60.0 \\
+Ketchup & 61.0 & 0.0 & 0.0 & 38.7 & \textbf{62.7} \\
+Bowl & 81.8 & 0.0 & 0.0 & 80.7 & \textbf{84.0} \\
+Juice & 78.5 & 0.0 & 0.0 & \textbf{86.0} & 82.0 \\
+Right caddy & 57.8 & 0.0 & 0.0 & 42.3 & \textbf{63.0} \\
 \midrule
-Loss-space hinge & .28 & .77 & .65 \\
-Hard target projection & \textbf{.96} & \textbf{.93} & .54 \\
-Full CAST & .94 & .78 & \textbf{.68} \\
-\midrule
-\multicolumn{4}{@{}l}{\emph{(c) Reward field, with the constraint fixed}} \\
-Field & Square & Mug & Ketchup \\
-\midrule
-Gradient & \textbf{.912--.930} & .600 & \textbf{.627} \\
-Top-$k$ & .525--.562 & .577 & .341 \\
-Value-tilted & .560--.584 & \textbf{.697} & .378 \\
+Mean & 67.3 & 0.0 & 0.0 & 65.7 & \textbf{70.3} \\
 \bottomrule
 \end{tabular}
 \end{table}

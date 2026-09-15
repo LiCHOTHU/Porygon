@@ -2,36 +2,37 @@
 % iclr2026/sections/05_experiments.tex at 800cfe6. See RESULTS_PROVENANCE.md.
 \begin{table}[t]
 \centering
-\caption{Robomimic success. Top: comparisons within each base. Drifting
-rows show three-seed ranges from 300-episode evaluations, averaged over the
-last three checkpoints; $\dagger$ two can baselines ended before the 20K
-update budget. The diffusion pair is at 496K environment steps;
-$z$ denotes a value-only CAST field. Bottom: external square references,
-with their own evaluation baselines. $*$ uses a stricter success rule;
-$\circ$ is an ongoing run. Budgets and protocols differ between blocks.
-Bold marks the best result per top row and the best fine-tuned score and
-gain within each external evaluation-baseline group.}
+\caption{Robomimic success (\%). Top: DICE-RL and CAST refine the
+same base within each row. Drifting-base entries give ranges across three
+training seeds, averaging each seed's last three 300-episode evaluations;
+$\dagger$ marks two can baselines that ended before 20K updates.
+The diffusion pair is evaluated at 496K environment steps; $z$ denotes
+value-only CAST. Bottom: external square results under separate budgets
+and evaluation protocols. Gains $\Delta$ are percentage points (pp) over
+each method's own base; $*$ denotes a stricter success rule and $\circ$
+an ongoing run. Bold marks the highest top-block score per row and the
+highest fine-tuned score and gain within each external baseline group.}
 \label{tab:robomimic}
 \footnotesize
 \setlength{\tabcolsep}{3pt}
 \begin{tabular}{@{}lccc@{}}
 \toprule
-Task / base class & Base & DICE-RL & + CAST \\
+Task / base class & Base & DICE-RL & CAST \\
 \midrule
-Can / drifting & .877 & .940--.970$^{\dagger}$ & \textbf{.978--.993} \\
-Square / drifting & .382 & .861--.909 & \textbf{.912--.930} \\
-Square / diffusion & .600 & \textbf{.965} & .959 \\
-Square / flow matching & .570 & .831 & \textbf{.934}$^{z}$ \\
+Can / drifting & 87.7 & 94.0--97.0$^{\dagger}$ & \textbf{97.8--99.3} \\
+Square / drifting & 38.2 & 86.1--90.9 & \textbf{91.2--93.0} \\
+Square / diffusion & 60.0 & \textbf{96.5} & 95.9 \\
+Square / flow matching & 57.0 & 83.1 & \textbf{93.4}$^{z}$ \\
 \midrule
-\multicolumn{4}{@{}l}{\emph{External square references (own harness and budget)}} \\
-Method & Own base & Fine-tuned & $\Delta$ \\
+\multicolumn{4}{@{}l}{\emph{External square references (separate protocols)}} \\
+Method & Own base & Fine-tuned & $\Delta$ (pp) \\
 \midrule
-DIPO~\cite{dipo2024}$^{*}$ & .348 & .156 & $-.192$ \\
-QSM~\cite{psenka2024qsm}$^{*}$ & .348 & .000 & $-.348$ \\
-DQL$^{*}$ & .348 & .000 & $-.348$ \\
-IDQL~\cite{hansenestruch2023idql}$^{*}$ & .348 & .327 & $-.021$ \\
-AWR~\cite{peng2019awr}$^{*}$ & .348 & \textbf{.393} & $\mathbf{+.045}$ \\
-DPPO~\cite{ren2024dppo} & .600 & \textbf{.678}$^{\circ}$ & $\mathbf{+.078}$ \\
+DIPO~\cite{dipo2024}$^{*}$ & 34.8 & 15.6 & $-19.2$ \\
+QSM~\cite{psenka2024qsm}$^{*}$ & 34.8 & 0.0 & $-34.8$ \\
+DQL$^{*}$ & 34.8 & 0.0 & $-34.8$ \\
+IDQL~\cite{hansenestruch2023idql}$^{*}$ & 34.8 & 32.7 & $-2.1$ \\
+AWR~\cite{peng2019awr}$^{*}$ & 34.8 & \textbf{39.3} & $\mathbf{+4.5}$ \\
+DPPO~\cite{ren2024dppo} & 60.0 & \textbf{67.8}$^{\circ}$ & $\mathbf{+7.8}$ \\
 \bottomrule
 \end{tabular}
 \end{table}

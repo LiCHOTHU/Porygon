@@ -163,6 +163,17 @@ base dead zone in this example, which is checked numerically. In panel 4,
 the green distribution is the regression target; the diagram does not assert
 exact interpolation by the neural actor.
 
+The mathematical labels use serif STIX typesetting, consistent sample
+indices `a_{0,i}`, an upright stop-gradient operator, and full residual
+arguments `r_theta(s,z_i)`. Panel 4 displays the complete per-state MSE,
+including `1/(KD)` and the squared Euclidean norm; averaging over replay
+states gives the paper's actor loss. The green action target is labeled
+separately from the residual target. The base-to-current residual, clipping
+contraction, and total-step radius are explicitly identified. The raw
+critic request is `eta_Q * g_i`. Formula bounds and shared panel scales
+are checked when rendering. Layout-only regeneration reuses the saved
+arrays without rerunning the numerical construction.
+
 The numbers, device, and illustrative settings are saved in
 `method_update.json`; all sampled actions, proposals, restoring vectors, and
 targets are saved in `method_update.npz`. The numerical construction ran on

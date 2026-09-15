@@ -1,0 +1,33 @@
+% Sources: latest ICLR tab:exp1 and reward-field block of tab:locus.
+% These campaigns have distinct references; do not pool their CAST rows.
+\begin{table}[t]
+\centering
+\caption{Success (\%) for alternative constraint and critic-guidance
+designs. (a) Constraint implementations use three training seeds, with
+300-episode square evaluations and 100 rollouts for each of three LIBERO
+evaluation seeds. (b) Critic-guidance recipes report square ranges across
+three training seeds. Mug and ketchup are LIBERO tasks 65 and 32.
+The blocks retain their own CAST references; the implemented alternatives
+also differ in restoration or other actor settings (see text).
+Bold marks the highest success per task within each block.}
+\label{tab:update-design}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\multicolumn{4}{@{}l}{\emph{(a) Alternative constraint implementations}} \\
+Constraint & Square & Mug & Ketchup \\
+\midrule
+Loss-space hinge & 28.0 & 77.0 & 65.0 \\
+Hard target projection & \textbf{96.0} & \textbf{93.0} & 54.0 \\
+Full CAST & 94.0 & 78.0 & \textbf{68.0} \\
+\midrule
+\multicolumn{4}{@{}l}{\emph{(b) Critic-guidance variants}} \\
+Field & Square & Mug & Ketchup \\
+\midrule
+Gradient & \textbf{91.2--93.0} & 60.0 & \textbf{62.7} \\
+Top-$k$ & 52.5--56.2 & 57.7 & 34.1 \\
+Value-tilted & 56.0--58.4 & \textbf{69.7} & 37.8 \\
+\bottomrule
+\end{tabular}
+\end{table}

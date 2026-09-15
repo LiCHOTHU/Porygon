@@ -2,30 +2,31 @@
 % distill_rl.py::field_actor_loss. Actor loss uses the current critic snapshot;
 % the critic is optimized separately and only the critic has a target network.
 \begin{algorithm}[t]
-  \caption{CAST residual fine-tuning}
+  \caption{CAST: online residual fine-tuning}
   \label{alg:cast}
   \small
   \begin{algorithmic}[1]
-    \Require Frozen base $\pi_0$, demonstrations $\mathcal D$, particles $K$,
-      field and optimization settings
-    \State Initialize $r_\theta,Q_\phi$; set $\phi^-\gets\phi$
-    \State Seed online replay $\mathcal R$ with base-policy rollouts
+    \Require Frozen base $\pi_0$, demonstrations $\mathcal D$, candidates per
+      state $K$, restoration, clipping, and training settings
+    \State Initialize residual $r_\theta$ and critic $Q_\phi$
+    \State Initialize target critic: $\phi^-\gets\phi$
+    \State Seed replay $\mathcal R$ with base-policy rollouts
     \For{each online iteration}
-      \State Collect rollouts using the baseline's warm-up and value-guided exploration; append transitions to $\mathcal R$
+      \State Collect rollouts using the baseline's warm-up and exploration rules; append transitions to $\mathcal R$
       \For{each gradient step}
         \State Sample a minibatch from $\mathcal R$ and $\mathcal D$
         \State Form the multi-sample $n$-step TD loss using $Q_{\phi^-}$
         \If{an actor update is due}
-          \State Draw $K$ noises per state; form $a_i,\bar r_i$ via \eqref{eq:candidates}
-          \State Form normalized critic steps $d_i^Q$ via \eqref{eq:reward-step}
-          \State Evaluate $d_i^R$ at $\bar r_i$ via \eqref{eq:restoring-step}
-          \State $\tilde r_i\gets\operatorname{sg}[\bar r_i+C_{\delta_{\mathrm{tot}}}(d_i^Q+d_i^R)]$
-          \State Update $\theta$ by regression via \eqref{eq:actor-regression}
+          \State Sample $K$ noises per state; form paired candidates via \eqref{eq:candidates}
+          \State Propose clipped critic displacements $d_i^Q$ via \eqref{eq:reward-step}
+          \State Evaluate restoration $d_i^R$ at $\bar r_i$ via \eqref{eq:restoring-step}
+          \State Cap $d_i^Q+d_i^R$ and detach targets via \eqref{eq:field-target}
+          \State Update $\theta$ by target regression via \eqref{eq:actor-regression}
         \EndIf
         \State Update $\phi$ with the critic TD loss
-        \State Polyak-update $\phi^-$ when scheduled
+        \State Update $\phi^-$ by Polyak averaging when scheduled
       \EndFor
     \EndFor
-    \State \Return $\pi_\theta(s,z)=\pi_0(s,z)+r_\theta(s,z)$
+    \State \Return Candidate generator $\pi_\theta=\pi_0+r_\theta$
   \end{algorithmic}
 \end{algorithm}
