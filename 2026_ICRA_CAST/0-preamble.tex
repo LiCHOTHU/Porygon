@@ -68,7 +68,10 @@
 \usepackage{tikz}  %make graphs
 \usepackage{makecell}
 \usepackage{overpic}
-\pdfminorversion=4
+% pdfTeX-only setting; Tectonic/XeTeX selects the PDF version via its driver.
+\ifdefined\pdfminorversion
+  \pdfminorversion=4
+\fi
 
 % ---------------------------------
 % Algorithms
@@ -91,7 +94,7 @@
 % LISTS compact itemize/enumeration (e.g. contributions)
 % ---------------------------------
 \usepackage{paralist}
-% \let\labelindent\relax %already included in IEEE
+\let\labelindent\relax % Avoid collision with the IEEE class definition.
 \usepackage{enumitem}
 \setlist[itemize]{noitemsep,leftmargin=*,topsep=0in}
 \setlist[enumerate]{noitemsep,leftmargin=*,topsep=0in}

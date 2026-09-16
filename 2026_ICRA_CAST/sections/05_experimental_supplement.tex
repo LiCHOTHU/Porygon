@@ -1,0 +1,277 @@
+This supplement accompanies the Experiments section. It preserves the
+complete supporting tables and separates reported measurements from
+protocol details and unresolved run associations. Results from the main
+comparisons, component study, alternative updates, and parameter sweeps
+retain their own reference runs; their different CAST values are not
+pooled.
+
+\section{Simulation Protocols}
+\label{supp:protocols}
+Matched DICE-RL and CAST comparisons start from the same pretrained
+checkpoint and retain the residual architecture, critic-training procedure,
+replay recipe, and stated interaction budget. DICE-RL's actor maximizes
+critic value with selectively applied BC regularization. CAST replaces
+that actor objective with action-target regression. The comparison is
+between complete actor updates, including their weighting of replay
+states. In online refinement, resulting trajectories and learned critic
+weights need not remain identical.
+
+\textbf{Replication and evaluation.}
+Robomimic evaluations use 300 episodes. Drifting can and square results
+average the last three checkpoints separately for training seeds 42--44;
+the main table reports the range of these seed-level averages. Two
+DICE-RL can runs end before the common 20K-update budget. LIBERO main
+results use 100 rollouts for each of evaluation seeds 10000--10002.
+These quantify evaluation variation and are not three independently
+trained policies. Both the drifting and flow-matching multitask bases
+are first trained on all 90 LIBERO tasks. Refinement then targets the same
+eight challenging tasks for both bases. Each selected task has its own
+residual and critic, deployed through task-ID routing over the shared
+frozen multitask base. Reported means cover this selected subset.
+The matched LIBERO recipe uses value-guided selection among ten candidates.
+DMC returns average ten episodes of 1000 steps each. Swing-up averages
+two training seeds; the remaining reported DMC rows each use one.
+
+\textbf{Actor settings.}
+The shared LIBERO recipe uses $K=16$ candidates, weak restoration
+$\eta_0=0.05$, radial restoration $\eta_{\mathrm{anc}}=1$, an RMS radius
+$\rho=0.05$, normalized critic-field cap $\delta_Q=1$, and combined
+step cap $\delta_{\mathrm{tot}}=0.15$. The two main-table settings use
+$\eta_Q=1$ and $2$ across all eight tasks, respectively. This parameter
+scales actor guidance; it is not the critic optimizer learning rate.
+Robomimic and default DMC gradient recipes use $\eta_Q=0.5$ and
+$\rho=0$. The DMC quadruped result is an explicitly tuned exception.
+
+\section{Physical Refinement Protocol}
+\label{supp:physical}
+\textbf{Platform and policy.}
+The OpenArm setup operates the seven-joint left follower arm and its
+parallel gripper. Chest RealSense D435 and wrist D405 cameras provide RGB
+observations, resized to $128\times128$ and encoded by a shared
+ResNet-18. Follower joint/gripper state and a task-language embedding
+condition a flow-matching policy with a diffusion-transformer backbone.
+Ten Euler steps generate 30-step chunks of absolute joint/gripper targets.
+Commands are issued at 15 Hz; a new chunk is requested every eight control
+steps. The common execution interface limits arm-command changes to
+0.6 rad/s and ends attempts after 20 s.
+
+\textbf{Task-specific data.}
+Policy pretraining uses 40 placement demonstrations and approximately
+60 stacking demonstrations. BC refinement uses 30 additional expert
+demonstrations for each task, separate from the pretraining data. For RL
+refinement, we collect 40 physical robot rollouts per task and retain all
+outcomes, including both successes and failures. DICE-RL and CAST share
+the same task-specific rollout pool and outcome labels. Refinement is
+performed offline after data collection. These counts are training
+episodes; the 20 autonomous evaluation attempts per method and task are
+separate.
+
+\textbf{Training.}
+BC fine-tunes the base and encoder for 40 additional epochs; the documented
+peak learning rates are $3\times10^{-5}$ for placement and $10^{-5}$ for
+stacking. Both RL arms freeze the base and encoder and train a residual
+and five-critic ensemble for 6000 critic updates, with 500 critic-only
+warm-up steps and an actor update every two steps. They share the data,
+initialization seed, replay-index schedule, and optimizer budget. The
+batch size is 32, the actor uses 16 noise samples, and critic hidden
+layers have width 256. Actor and
+critic learning rates are $10^{-4}$, the target-critic Polyak coefficient
+is 0.01, the discount is 0.99, and the CQL-style penalty weight is 0.1.
+DICE-RL uses the residual/Q-filtered BC objective with BC weight 100.
+CAST uses gradient guidance with $\eta_Q=1$, $\eta_0=0.05$,
+$\eta_{\mathrm{anc}}=1$, $\rho=0.05$ RMS, $\delta_Q=1$, and
+$\delta_{\mathrm{tot}}=0.15$. These are offline physical-refinement
+settings, not a reproduction of every published online DICE-RL setting.
+BC versus RL changes data, supervision, and trainable parameters; it is
+not a matched collection-effort or actor-only comparison.
+
+\textbf{Replay and evaluation.}
+Saved follower state and issued commands provide the state/action pairs
+for autonomous attempts. The critic and residual correction operate on
+the nominal eight-action executed prefix of each 30-action chunk.
+Behavior latents were not recorded, so the critic is noise-independent;
+new actor candidates still use same-noise base/residual pairing. Only
+successful terminal transitions receive reward 1, all other rewards are
+zero, and nonterminal critic targets bootstrap future value estimates.
+The autonomous success counts are separate from training losses and
+held-out imitation errors. There are 20 attempts per task and method;
+placement poses are randomized on the stairs. Paired resets and a common
+post-release observation interval are not documented. Historical camera
+recordings lack per-frame timestamps, so offline image/state alignment
+is approximate. The reported evaluation counts do not yet identify the
+exact evaluated checkpoint paths or hashes. Matching the training protocol
+therefore does not by itself verify the evaluated checkpoints.
+
+\section{Complete Robomimic Results}
+\label{supp:robomimic}
+\input{sections/tables/05_robomimic}
+Table~\ref{tab:robomimic} retains all reported generator-class comparisons.
+On drifting square, CAST is ahead at the 20K-update comparison, while
+both actors approach 97--99\% with longer training near 40K updates.
+The flow-matching square entry uses value-only guidance; its exact
+interaction budget is unspecified and no speed claim is drawn from it.
+
+The diffusion square comparison uses a shared base with 60\% success.
+The three first evaluated checkpoints at or above 90\% success are
+128K, 160K, and 160K steps for CAST, and 224K, 240K, and 256K for
+DICE-RL. Their means are $448/3\approx149.3$K and 240K steps, a
+$1-(448/3)/240\approx37.8\%$ reduction. These are discrete evaluation
+checkpoints, not exact crossing times interpolated from a learning curve.
+At 496K steps, CAST reaches 95.9\% and DICE-RL reaches 96.5\%.
+No confidence interval or continuous trajectory is inferred from these
+summary measurements.
+
+\textbf{Separate-protocol external references.}
+DIPO, QSM, DQL, IDQL, and AWR use implementations adapted by the DPPO
+authors and approximately 24M environment steps. Their stricter rule
+requires success across an action chunk and scores the base at 34.8\%.
+All gains in the external block use that same-harness base: for example,
+AWR's 39.3\% is a 4.5 pp improvement. DPPO's 67.8\% comes from an
+ongoing run on a 60.0\% base; a separate original-architecture run
+reaches 88.7\% at 11.7M steps. Differences in bases, systems, budgets,
+and evaluation prevent interpreting these rows as an isolated test of
+CAST's components.
+
+\section{Component and Design Studies}
+\label{supp:components}
+\input{sections/tables/05_ablations}
+\textbf{Component settings and replication.}
+The four configurations are specified in Table~\ref{supp:control-settings};
+Table~\ref{tab:ablations} preserves their exact reported success rates.
+The source manuscript describes three seeds per cell, but the available
+aggregate record does not contain per-seed measurements or run manifests
+that verify training/evaluation seed linkage for every cell. We therefore
+show task aggregates without training-variance estimates. The main chart's
+points are tasks, not seeds. Its means are computed from the five task
+values before rounding: base 67.28\%, radial restoration 65.74\%, and
+full CAST 70.34\%. Their mean changes from the base are $-1.54$ and
+$+3.06$ pp, respectively.
+
+\begin{table}[H]
+\centering
+\caption{Controls enabled in the LIBERO component comparison. Caps
+limit the critic field and the combined displacement. Radial restoration
+only also disables weak restoration, so the study is not an exact
+two-factor ablation.}
+\label{supp:control-settings}
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Configuration & Weak restoration & Radial restoration & Caps \\
+\midrule
+No controls & Off & Off & Off \\
+Clipping only & Off & Off & On \\
+Radial restoration only & Off & On & Off \\
+Full CAST & On & On & On \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Alternative constraints.}
+The loss-space hinge replaces the residual penalty's shape with a penalty
+on excess RMS departure inside DICE-RL's actor objective. It retains
+DICE-RL's filtering and weighting. The LIBERO hard-projection recipe
+removes both restoring terms and both displacement caps, then projects
+the action target into a base-centered RMS ball. Thus, the alternatives
+change complete update rules rather than constraint location alone.
+The source reports three training seeds, with 300-episode square
+evaluations and 100 rollouts for each of three LIBERO evaluation seeds.
+The constraint campaign uses CAST references of 97/78/68\% for
+square/mug/ketchup, distinct from the guidance-study references.
+The square value is the experimenter's corrected measurement for this
+comparison; the other campaigns retain their reported values.
+
+The LIBERO launchers identify the shared drifting multitask base, for
+which the source reports 57.3\% on mug and 61.0\% on ketchup. Both square
+design studies use the drifting base with 38.2\% success. The constraint
+comparison reports 48.0\% for the loss-space hinge and 97.0\% for CAST.
+The guidance study retains its own CAST reference and auxiliary settings.
+The separate
+diffusion-base efficiency study still starts from 60.0\% success.
+
+\textbf{Alternative guidance.}
+The gradient recipe uses normalized critic action derivatives. Top-$k$
+transport uses the highest-valued current candidates as attractors;
+value-tilted transport assigns weights proportional to
+$\exp(\hat q_i/\tau)$, where $\hat q_i$ is standardized within the
+state's candidate set. Both value-only recipes use kernel-weighted
+attraction and repulsion over sampled actions. In the available launchers,
+they also use a weak distributional pull toward independent base samples,
+whereas the gradient recipe uses the paired pointwise weak pull. Historical
+square recipes additionally differ in radial-restoration settings. The
+reported square ranges span three training seeds. These comparisons do
+not isolate the source of critic guidance or establish that gradients
+always outperform rankings.
+
+\textbf{Restoration radius.}
+Table~\ref{supp:radius} gives the exploratory single-training-seed sweep
+cited in the main text. The radius is measured in normalized RMS action
+units and controls when stronger restoration starts; it is not a hard
+bound on fitted policy outputs. The weak pull remains at infinite radius.
+These sweep references are retained separately from the main and
+component-study CAST results.
+\begin{table}[H]
+\centering
+\caption{LIBERO success (\%) across restoration radii, with one training
+seed per setting. Radius $\rho$ is measured in normalized RMS action
+units; $\rho=0.05$ is this campaign's reference. Infinite radius disables
+radial restoration while retaining the weak pull. These results do not
+establish an optimal radius.}
+\label{supp:radius}
+\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Radius $\rho$ (RMS) & Mug & Ketchup \\
+\midrule
+0 & 54.9 & 60.1 \\
+0.02 & 86.3 & 73.4 \\
+0.05 & 78.1 & 68.4 \\
+0.10 & 81.2 & 69.4 \\
+0.20 & 77.1 & 67.1 \\
+$\infty$ & 80.3 & 67.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Broader Evaluations}
+\label{supp:scope}
+\input{sections/tables/05_dmc}
+DMC evaluates one-step generative bases distilled from SAC experience.
+Table~\ref{tab:dmc} retains dense/sparse groupings and all incomplete-run,
+tuning, and high-variance markers. Returns use the original 0--1000 scale.
+The target budget is 400K environment steps; exact budgets for the marked
+interim checkpoints are not available in the local records. Quadruped's
+CAST return of 312 uses $\eta_Q=1$ and is below budget; its default
+$\eta_Q=0.5$ arm reports 267. The table is not a ranking of all methods
+at completed, matched budgets. In particular, the unconstrained sparse
+ball-in-cup interim return of 940 exceeds CAST's 925. Sparse reward alone
+therefore does not imply failure without restoration.
+
+\begin{table}[H]
+\centering
+\caption{Success (\%) in two comparisons where DICE-RL exceeds CAST.
+Robomimic transport uses matched budgets of 2.24M environment steps.
+Shared-critic LIBERO jointly refines over eight tasks and evaluates
+best-of-16 value-guided selection; this compares the complete systems
+under their respective refinement recipes.}
+\label{supp:scope-reversals}
+\small
+\begin{tabular}{@{}lrrl@{}}
+\toprule
+Study & DICE-RL & CAST & Protocol \\
+\midrule
+Robomimic transport & 91.2 & 59.4 & 2.24M environment steps \\
+Shared-critic LIBERO & 72.2 & 69.2 & Best-of-16; base 66.9\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Transport shows that restoration can accompany worse refinement even at
+a matched budget; it does not measure how far the optimal behavior lies
+from the base. Shared-critic LIBERO jointly trains over the eight tasks,
+unlike the main per-task study. The DICE-RL row uses its published recipe,
+so this is a system comparison. Single-candidate evaluation and
+best-of-16 selection give different conclusions: useful candidate ranking
+can remain even when residual learning changes little. Neither comparison
+establishes critic accuracy or a universal preference for stronger
+restoration.

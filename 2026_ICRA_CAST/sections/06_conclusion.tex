@@ -1,21 +1,21 @@
-CAST uses a pretrained policy as a persistent reference during critic-guided
-refinement. It constructs action targets by combining critic proposals
-with radial restoration and displacement caps, then fits a residual actor
-to those targets. Matched manipulation studies show substantial success
-gains and earlier improvement; physical placement and stacking provide
-initial evidence for refinement from recorded practice.
+We presented CAST, a likelihood-free method for refining pretrained
+generative robot policies through residual learning. CAST combines
+critic guidance with soft restoration toward the frozen base and clips
+each proposed correction to construct fixed action targets. The residual
+then learns these targets by regression. Experiments with state-based and
+visual manipulation policies show improvements in task success and fewer
+interactions needed to reach a target success rate. Dense- and
+sparse-reward control tasks provide further evidence of useful refinement,
+while offline OpenArm experiments demonstrate gains in physical placement
+and stacking.
 
-The component study gives the clearest evidence for restoration: both
-updates without it lose all success, including the clipped variant.
-Preservation must nevertheless leave room for adaptation. Hard projection
-and value-only guidance lead on individual tasks, while transport and
-shared-critic multitask comparisons favor DICE-RL. DMC further shows that
-sparse rewards alone do not explain the manipulation failures. These
-results make the strength and form of the reference a design choice
-whose value depends on the task.
-
-The analysis characterizes target corrections and candidate distributions;
-it does not guarantee successful behavior after fitting. Adapting
-restoration to measured local critic reliability, together with larger
-physical evaluations, is a next step. The goal remains to retain useful
-parts of a skill while learning the corrections needed to complete it.
+The central design lesson is to maintain a reference to useful behavior
+while allowing the changes needed for improvement. In the five-task
+LIBERO component study, restoration preserves task success where clipping
+alone fails. The constraint and guidance comparisons also show that
+stronger preservation is not uniformly better: its value depends on the
+task and the proposed correction. This balance is relevant to robot skills
+that already reach and grasp successfully but still need to improve
+placement or release. Adapting restoration to local critic reliability
+and expanding physical evaluations are the next steps toward retaining
+these useful behaviors while learning more reliable task completion.

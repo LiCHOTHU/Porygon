@@ -2,13 +2,14 @@
 % best eta independently per task when computing the mean.
 \begin{table*}[t]
 \centering
-\caption{Success (\%) on eight LIBERO-90 tasks with one residual policy and
-critic per task, routed by task ID. Each policy is evaluated with 100
-rollouts for each of three evaluation seeds. Each block uses one pretrained
-multitask base. CAST$_1$ and CAST$_2$ use critic step scales $\eta_Q=1$ and $2$,
-respectively, shared across all eight tasks. Means average each fixed setting across all eight tasks.
-Parentheses give task IDs. Bold marks the highest success per row within
-each base block.}
+\caption{LIBERO-90 success (\%) on eight challenging tasks selected for
+refinement. Each base is pretrained on all 90 tasks and frozen; each
+selected task receives a separate residual policy and critic. CAST$_1$
+and CAST$_2$ use critic-guidance scales $\eta_Q=1$ and $2$, respectively,
+fixed across tasks. Each result uses 100 rollouts per evaluation seed
+(three seeds, not independent training runs). Means cover only the eight
+selected tasks. Parentheses give task IDs; bold marks the highest result
+in each row and base block.}
 \label{tab:libero-main}
 \small
 \begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lcccccccc@{}}

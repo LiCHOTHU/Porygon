@@ -1,0 +1,24 @@
+% Main-text cross-generator block restored from tab:robomimic.
+\begin{table}[t]
+\centering
+\caption{Robomimic success (\%) across pretrained generator classes.
+DICE-RL and CAST refine the same base in each row. Drifting ranges span
+three training seeds, each averaged over its last three 300-episode
+evaluations; $\dagger$ marks two DICE-RL can runs ending before 20K updates.
+Diffusion results use 496K environment steps. $z$: value-only CAST with
+an unspecified interaction budget. Bold marks the higher refinement
+result in each row.}
+\label{tab:base-models}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Task / base class & Base & DICE-RL & CAST \\
+\midrule
+Can / drifting & 87.7 & 94.0--97.0$^{\dagger}$ & \textbf{97.8--99.3} \\
+Square / drifting & 38.2 & 86.1--90.9 & \textbf{91.2--93.0} \\
+Square / diffusion & 60.0 & \textbf{96.5} & 95.9 \\
+Square / flow matching & 57.0 & 83.1 & \textbf{93.4}$^{z}$ \\
+\bottomrule
+\end{tabular}
+\end{table}

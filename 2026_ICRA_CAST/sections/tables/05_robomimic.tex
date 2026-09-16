@@ -1,19 +1,20 @@
 % Sources: tab:matched and the paired/external blocks of tab:baselines,
 % iclr2026/sections/05_experiments.tex at 800cfe6. See RESULTS_PROVENANCE.md.
-\begin{table}[t]
+\begin{table}[H]
 \centering
-\caption{Robomimic success (\%). Top: DICE-RL and CAST refine the
-same base within each row. Drifting-base entries give ranges across three
-training seeds, averaging each seed's last three 300-episode evaluations;
-$\dagger$ marks two can baselines that ended before 20K updates.
-The diffusion pair is evaluated at 496K environment steps; $z$ denotes
-value-only CAST. Bottom: external square results under separate budgets
-and evaluation protocols. Gains $\Delta$ are percentage points (pp) over
-each method's own base; $*$ denotes a stricter success rule and $\circ$
-an ongoing run. Bold marks the highest top-block score per row and the
-highest fine-tuned score and gain within each external baseline group.}
+\caption{Robomimic success (\%). Top: DICE-RL and CAST refine the same
+pretrained base within each row. Drifting entries span three training
+seeds, each averaged over its last three 300-episode evaluations;
+$\dagger$ marks two DICE-RL can runs ending before 20K updates.
+Diffusion results use 496K environment steps; $z$ denotes value-only
+CAST with an unspecified interaction budget. Bottom: external square
+results use separate bases, budgets, and evaluation protocols.
+$\Delta$ is the gain over each method's own base in percentage points
+(pp); $*$ marks a stricter success rule and $\circ$ an ongoing run.
+Bold marks the highest refinement result per row in the top block,
+and the highest fine-tuned result and gain within each external group.}
 \label{tab:robomimic}
-\footnotesize
+\small
 \setlength{\tabcolsep}{3pt}
 \begin{tabular}{@{}lccc@{}}
 \toprule

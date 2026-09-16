@@ -1,15 +1,16 @@
 % Source: ICLR tab:constraint; retain this campaign's CAST reference.
 % Launcher B_ANC omits the weak pull; this is not an exact 2x2 factorial.
-\begin{table}[t]
+\begin{table}[H]
 \centering
-\caption{LIBERO success (\%) under restoration and clipping
-configurations, with three training seeds per configuration. \emph{Neither} disables both restoring terms and both action-space caps;
-\emph{Clip} enables only the caps. \emph{Restore} enables only dead-zone restoration
-($\eta_0=0$), whereas CAST uses both restoring terms and both caps.
-The Restore--CAST comparison therefore also changes the weak pull. Mean averages the
-five tasks. Bold marks the highest success in each row, including the base.}
+\caption{LIBERO success (\%) with different restoration and clipping
+controls. Neither disables all controls; Clip enables only the two caps;
+Restore enables only radial restoration ($\eta_0=0$); CAST enables both
+restoring terms and both caps. Restore--CAST therefore changes weak
+restoration as well as clipping. Entries are task aggregates without
+training-variance estimates; Mean averages the five tasks. Bold marks
+the highest success per row, including the base.}
 \label{tab:ablations}
-\footnotesize
+\small
 \setlength{\tabcolsep}{3pt}
 \begin{tabular}{@{}lccccc@{}}
 \toprule

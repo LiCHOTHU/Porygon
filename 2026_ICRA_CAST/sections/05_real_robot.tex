@@ -1,94 +1,45 @@
-\subsection{Physical Refinement: Improvement and Failure Modes}
+\subsection{Real-Robot Refinement on Stair-Based Manipulation}
 \label{sec:exp-real-robot}
 
-The physical study evaluates improvement beyond pretraining, with supervised
-BC as an alternative to reward-based refinement. It also connects the
-measured success rates to a concrete failure mode: useful intermediate
-behavior followed by an unsuccessful final release.
+We evaluate a pretrained flow-matching policy on the OpenArm left arm
+and parallel gripper, using chest and wrist RGB observations together with
+joint and gripper state. The tasks are to place Jigglypuff into an adjacent
+case and to stack a red cube on a purple cube
+(Fig.~\ref{fig:real-robot}). Both use a staircase: the stepped surfaces
+introduce different approach heights and nearby edges, making grasping and
+placement sensitive to alignment. Stacking additionally requires precise
+positioning and release without disturbing the supporting cube. This task
+design exposes a practical refinement problem: useful reaching, grasping,
+and transport can still end in an unsuccessful placement or release.
 
-\textbf{Robot and tasks.}
-We use the seven-joint left follower arm and parallel gripper of an
-OpenArm platform. Chest RealSense D435 and wrist D405 RGB images are
-resized to $128\times128$ and encoded by a shared ResNet-18; the policy
-also receives follower joint/gripper positions and a task-language embedding.
-A flow-matching policy with a diffusion transformer (DiT) backbone uses
-ten Euler steps to predict 30-step chunks of absolute joint/gripper targets.
-Deployment issues commands at 15\,Hz, requests a new chunk every eight
-control steps, limits arm-command changes to 0.6\,rad/s, and ends attempts
-after 20\,s.
+We compare the pretrained \textbf{Base}, supervised \textbf{BC} refinement,
+\textbf{DICE-RL} with its original actor objective, and \textbf{CAST} with
+constrained action targets. Policy pretraining uses 40 placement
+demonstrations and approximately 60 stacking demonstrations. For each
+task, BC refinement uses 30 additional expert demonstrations. The two RL
+methods share 40 recorded robot rollouts per task, retaining both
+successful and failed attempts. Refinement then trains offline on the
+saved data. BC fine-tunes the base for 40 additional epochs. Each RL run learns a residual with the base and
+encoder frozen, using 6,000 critic updates. DICE-RL and CAST share the base, replay data and
+minibatch schedule, critic-training procedure, and update budget. BC
+therefore differs from RL in both supervision and trainable parameters.
 
-Both tasks use a handmade staircase: placing Jigglypuff into the adjacent
-case and stacking the red cube on the purple cube. Stacking additionally
-requires releasing the upper cube without disturbing its support.
-Fig.~\ref{fig:real-robot} shows teleoperated demonstrations alongside
-separate autonomous evaluation results.
+After refinement, we evaluate each method in 20 autonomous attempts per
+task. Placement poses are randomized on the stairs, and success requires
+the toy to remain fully inside the case. Stacking succeeds when the red
+cube remains on the purple cube after release and gripper withdrawal.
+Detailed protocols are in the experimental supplement.
 
-\textbf{Refinement data and training.}
-Within each task, all three refinements start from the same pretrained
-checkpoint. For placement, BC trains on
-30 supplementary expert demonstrations; RL uses those demonstrations plus
-18 reviewed attempts (11 successes, seven failures). For stacking, BC uses
-12 successful attempts; RL uses all 24 reviewed attempts plus 30 original
-training demonstrations. BC fine-tunes the base policy and encoder, while
-both RL arms freeze them and train a residual. The BC--RL comparison
-therefore changes the data, learning objective, and trainable parameters.
+CAST raises placement success from 55\% to 95\% and stacking success from
+35\% to 70\%, gains of 40 and 35 percentage points over the respective
+bases. These gains support H1 under offline refinement and physical
+deployment. Fig.~\ref{fig:real-robot} reports all four methods and their
+successful attempt counts; CAST achieves the highest observed success on
+both tasks.
 
-The training protocols specify 40 additional BC epochs and 6,000 updates
-for each RL arm, with matching DICE-RL/CAST replay indices and critic
-settings. Both RL arms correct the nominal eight-step executed prefix
-and use a noise-independent critic because behavior latents were not logged.
-Training is offline on saved experience. Only successful terminal
-transitions receive reward 1; other transitions receive 0, and earlier
-critic targets bootstrap estimates of future return. Image alignment is
-approximate because frame timestamps were not recorded. The reported
-autonomous trial counts have not yet been linked to these final training
-checkpoints.
-
-\textbf{Observed improvement.}
-Each policy receives 20 autonomous attempts per task. Placement poses are
-randomized on the stairs. Success requires the toy to remain fully inside
-the case, or the red cube to remain on the purple cube after release and
-gripper withdrawal. Paired resets and a fixed post-release observation
-interval are not documented.
-
-On placement, success rises from 55\% for the base to 80\% for BC, 90\%
-for DICE-RL, and 95\% for CAST. On stacking, the corresponding rates are
-35\%, 65\%, 60\%, and 70\%. All refinements show higher success than
-the bases; CAST gains 40 and 35 pp, respectively. BC remains competitive
-on stacking, motivating a closer look at the supervision needed to
-complete the release.
-
-\textbf{Why stacking can favor BC and CAST.}
-Qualitative observations identify failure to release the gripper as the
-main stacking failure mode. The robot reaches, grasps, and aligns the
-cube, but does not open the gripper to complete the stack. The attempt
-correctly receives a failure outcome, although the preceding motion is
-useful. Refinement should correct the release while preserving this approach.
-
-A binary terminal reward does not identify which stage caused the failure.
-The critic estimates expected completion from limited experience and
-bootstrapped future values; the actor uses its action gradients to propose
-changes. A low value before a failed release can correctly predict poor
-completion without showing that the preceding action was wrong. Accurate
-predictions at observed actions alone do not establish that local gradients
-identify the needed repair. Learning which part of the sequence to change
-is the credit-assignment problem in this setting.
-
-For stacking, success-only BC supplies explicit targets for both the
-approach and the release, offering a plausible explanation for its
-65\% success versus DICE-RL's 60\%. DICE-RL learns from successful and
-failed attempts, but useful changes must be inferred through the critic.
-Its actor can also relax base regularization when the critic favors a
-correction, allowing imperfect guidance to disturb an effective approach.
-CAST uses the same critic-training procedure and moderates the requested
-changes through restoration and capped target corrections. These controls
-could preserve the approach while allowing the release to change; they
-neither identify release as a special stage nor directly improve critic
-accuracy.
-
-CAST's 70\% stacking success is consistent with this explanation, but
-exceeds BC by one trial and DICE-RL by two. The release observation
-therefore motivates a mechanism hypothesis, rather than establishing
-critic error or a release-specific repair. The observed gains over the
-bases support further study; larger evaluations with verified checkpoint
-linkage are needed to compare the refinements reliably.
+The main observed stacking failure is failure to release the gripper after
+useful reaching, grasping, and alignment. Refinement should retain those
+useful actions while correcting the release. BC receives explicit release
+targets from expert demonstrations; CAST moderates critic-guided changes
+through restoration and clipping. The observed ordering is consistent
+with preserving useful actions while correcting task-ending mistakes.

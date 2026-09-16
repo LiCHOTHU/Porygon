@@ -1,7 +1,19 @@
 {
   "kind": "teleoperated demonstration frames with separate autonomous evaluation charts",
   "source_manifest": "iclr2026/figures/real_robot_tasks.json",
-  "results_source": "icra2027/real_robot_results.json",
+  "results_source": "2026_ICRA_CAST/real_robot_results.json",
+  "method_labels": [
+    "Base",
+    "BC",
+    "DICE-RL",
+    "CAST"
+  ],
+  "method_colors": [
+    "#8A96A3",
+    "#D99B38",
+    "#4477AA",
+    "#168F80"
+  ],
   "alignment": "same nominal video index at 15 fps; no per-frame capture timestamps available",
   "crop_xyxy": [
     0,
@@ -109,6 +121,12 @@
           "trials": 20
         }
       ],
+      "labels": [
+        "Base",
+        "BC",
+        "DICE-RL",
+        "CAST"
+      ],
       "values": [
         55.0,
         80.0,
@@ -140,6 +158,12 @@
           "successes": 14,
           "trials": 20
         }
+      ],
+      "labels": [
+        "Base",
+        "BC",
+        "DICE-RL",
+        "CAST"
       ],
       "values": [
         35.0,

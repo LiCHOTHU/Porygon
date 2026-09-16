@@ -1,15 +1,12 @@
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{figures/real_robot_tasks.pdf}
-  \caption{OpenArm tasks and autonomous success rates (\%).
-  The first four panels in each row illustrate a successful teleoperated
-  demonstration: initial state, grasp, alignment, and release. Views alternate
-  between chest and wrist cameras; times are nominal at 15 fps.
-  The final panel reports separate autonomous evaluations, with 20 attempts
-  per method and successful attempts/total above each bar. Base is the
-  pretrained flow-matching policy, BC is supervised refinement, and DICE
-  and +CAST denote DICE-RL and CAST. The two tasks share the same
-  percentage scale; bold counts identify the highest observed success.
-  Placement poses are randomized on the stairs.}
+  \caption{\textbf{Higher autonomous success on physical OpenArm tasks.}
+  Rows show placement (top) and stacking (bottom) on a staircase. Images
+  depict successful \emph{teleoperated demonstrations}, with chest and wrist
+  views of grasping, alignment, and release. Bars report \emph{separate
+  autonomous evaluations} on a common 0--100\% scale; labels give successful
+  attempts out of 20, with the highest count in bold. BC, DICE-RL, and CAST
+  refine the same pretrained flow-matching base offline.}
   \label{fig:real-robot}
 \end{figure*}

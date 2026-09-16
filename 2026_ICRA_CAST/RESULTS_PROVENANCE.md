@@ -86,12 +86,14 @@ therefore does not repeat the old claim of universal gradient superiority.
   tables are manuscript-source checked, not independently rederived from
   unavailable cluster evaluations. Interpretation limits from the code audit
   are recorded below.
-- The current physical-training documents supersede the ICLR setup's planned
-  40/80 base demonstrations, 40 positive BC trajectories, and 40-attempt RL
-  pools as descriptions of the implemented training campaigns. They document
-  offline refinement and task-specific datasets, as detailed below. The
-  supplied autonomous counts remain unchanged; their association with these
-  campaigns' final checkpoints is awaiting experimenter confirmation.
+- The latest experimenter correction supersedes both the ICLR planned budgets
+  and the older 18/24-rollout campaign records: placement pretraining uses
+  40 demonstrations; stacking uses approximately 60 (the experimenter was
+  uncertain about the exact count); BC refinement uses 30 additional expert
+  demonstrations per task; both RL methods share 40 rollouts per task and
+  retain successes and failures. Exact stacking count and additional
+  demonstration use in RL are awaiting clarification. Autonomous evaluation
+  counts are unchanged; checkpoint linkage remains unresolved.
 - Containment endpoints and critic diagnostics are not promoted to the main
   tables. The containment script uses older success references, can overwrite
   iterations across matching runs, and reads global RMS rather than the
@@ -189,7 +191,27 @@ change measurements or silently infer which configuration produced a cell.
   do not claim code-verified isolation of critic information or universal gradient
   superiority. Tilted exceeds the gradient reference on red mug.
 
-### Current physical-training campaigns
+### Latest experimenter-reported physical datasets
+
+The manuscript now uses 40 placement pretraining demonstrations, approximately
+60 stacking pretraining demonstrations, 30 additional BC demonstrations per
+task, and 40 mixed-outcome RL rollouts per task. The approximate stacking
+count preserves the experimenter's uncertainty; it is not independently
+verified. The manuscript does not specify whether the RL pool is augmented
+with the 30 BC demonstrations, pending clarification. The old 11/7 and 12/12
+outcome splits, epoch-17/v2 identifiers, and continued-BC collection policy
+are not attributed to this corrected dataset. The supplement no longer
+asserts equal expert/rollout sampling for it. Reported evaluation results
+remain unchanged.
+
+The manuscript's 40 BC epochs, 6,000 RL updates, and other optimizer settings
+are retained from the documented recipe; the dataset correction alone does
+not independently establish their linkage to the newly described campaign.
+
+### Historical physical-training campaigns (superseded dataset descriptions)
+
+The following records describe earlier datasets and are retained for provenance;
+they do not override the latest experimenter correction above.
 
 - **Jigglypuff:** `real_robot/FOUR_WAY_EXPERIMENT.md:5--24` documents the original
   epoch-17 base; BC fine-tunes on 30 supplementary expert demonstrations; both
@@ -247,7 +269,7 @@ change measurements or silently infer which configuration produced a cell.
   can be correct under a failed continuation; reliability of the local action
   gradient is a separate issue. Neither critic error nor release-specific
   improvement by CAST is established by the success counts.
-- Success-only stacking BC supplies action supervision including successful
+- Stacking BC refinement supplies action supervision including successful
   release. CAST's restoration and clipping apply across action dimensions, with
   no special release-stage mechanism or extra gripper weight. The proposed
   preservation of earlier useful motion is an interpretation, not a measured
