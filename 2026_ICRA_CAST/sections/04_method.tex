@@ -1,0 +1,120 @@
+% Implementation: imitation/algos/dice/distill_rl.py::field_actor_loss,
+% field_pointwise with unit_normalize=false and adaptive_bc=false.
+% q_max_norm clips BEFORE q_step_size; total_max_norm clips the combined
+% displacement. Both bc_step_size and restore_step_size restore to the base.
+
+
+% \method{} retains DICE-RL's frozen-base residual architecture and off-policy critic training~\cite{dicerl2026}, replacing its actor objective with regression to explicit action targets. In the main variant, the critic's action gradient proposes a correction for each sampled action. 
+% We combine this correction with a soft pull toward the base action generated from the same noise, then clip the resulting displacement. 
+% The residual is trained to match the resulting targets, which are held fixed during each actor update. 
+% All computations use normalized action coordinates of dimension $D=Hd$. 
+% The frozen generator supplies samples without requiring policy likelihoods or gradients through its parameters. 
+% We summarize \method{} as a four-step procedure---sample, propose, constrain, and fit---as illustrated in Fig.~\ref{fig:method-update}.
+\method{} retains DICE-RL's off-policy residual framework~\cite{dicerl2026}: the pretrained policy $\pi_0(s,z)$ is frozen, while the residual actor $r_\theta(s,z)$ and critic ensemble $Q_\phi(s,z,a)$ are trained. Here, $s$ is the observation, $z$ the noise, and $a$ the action chunk; noise-independent critics omit $z$. From replayed demonstrations and policy rollouts, the critic learns expected discounted returns using temporal-difference targets that combine rewards with predictions from a slowly updated target critic. Our main variant replaces DICE-RL's actor objective with regression to targets built from critic action gradients, a soft pull toward the same-noise base action, and clipping of the combined displacement. Targets remain fixed during each actor update. Action-space operations use normalized coordinates ($D=Hd$), and the frozen base supplies samples without requiring policy likelihoods or gradients through its parameters. Fig.~\ref{fig:method-update} illustrates the four-step actor update: sample, propose, constrain, and fit.
+
+
+\input{sections/04_method_figure}
+
+\subsection{Sample Actions and Propose Corrections}
+\label{sec:reward-field}
+
+
+\textbf{Step 1: sample paired base and current actions.}
+For each observation $s$ from replayed demonstrations or policy rollouts, draw $K$ independent noise samples $z_i\sim\mathcal{N}(0,I)$. Using the frozen pretrained policy $\pi_0$, generate the base action $a_{0,i}=\pi_0(s,z_i)$ and a fresh candidate:
+\begin{equation}
+  \bar r_i=\operatorname{sg}[r_\theta(s,z_i)],
+  \qquad a_i=a_{0,i}+\bar r_i,
+  \label{eq:candidates}
+\end{equation}
+where $\operatorname{sg}$ stops gradients during target construction. Each paired base action provides a fixed restoration reference for the same $(s,z_i)$.
+
+\textbf{Step 2: ask the critic for a local correction.}
+Let $\bar Q_\phi(s,z,a)$ denote the conservative critic-ensemble aggregate; we omit $z$ for noise-independent critics. We divide its action gradient by the detached scale $q_{\mathrm{scale}}=\max(\epsilon,\mathbb{E}_{\mathrm{batch}}[|\bar Q_\phi|])$, computed over the current candidates, where $\epsilon>0$ prevents division by zero. This reduces sensitivity to the overall magnitude of predicted values. Holding critic parameters fixed, the proposed critic displacement is
+\begin{equation}
+  d_i^Q=\eta_Q C_{\delta_Q}\!\left(
+  \frac{\nabla_a\bar Q_\phi(s,z_i,a_i)}{q_{\mathrm{scale}}}
+  \right),
+  \label{eq:reward-step}
+\end{equation}
+where $C_\delta(v)=v\min(1,\delta/\|v\|_2)$ and $C_\delta(0)=0$. The scale $\eta_Q$ sets the strength of critic guidance. The field cap $\delta_Q$ clips the normalized gradient \emph{before} applying $\eta_Q$, so $\|d_i^Q\|_2\leq\eta_Q\delta_Q$. The critic thus proposes a local change aimed at increasing predicted return. The next step balances this proposal against departure from the base policy.
+
+\subsection{Restore Toward the Base and Limit the Step}
+\label{sec:anchor}
+
+
+
+\textbf{Step 3: combine improvement with a persistent reference.}
+The detached residual $\bar r_i=a_i-a_{0,i}$ measures the current candidate's displacement from its paired base action. We express this departure as the root mean square (RMS) magnitude $m_i=\|\bar r_i\|_2/\sqrt{D}$ and define the restoration displacement as
+\begin{equation}
+d_i^R=-\eta_0\bar r_i
+-\eta_{\mathrm{anc}}
+\left(1-\frac{\rho}{\max(m_i,\epsilon)}\right)_{+}\bar r_i,
+\label{eq:restoring-step}
+\end{equation}
+where $(x)_+=\max(x,0)$. The coefficient $\eta_0$ controls a weak pull toward the base at every nonzero residual, while $\eta_{\mathrm{anc}}$ controls an additional pull beyond the RMS radius $\rho$. This radius leaves room for adaptation under the weak pull before stronger restoration activates. It is a soft threshold, so targets may still lie outside it. Using RMS units makes $\rho$ comparable across action-chunk dimensions.
+
+We combine both displacements at the current candidate: critic guidance favors higher predicted return, and restoration resists accumulated departure from the base. We then clip their sum to construct the residual target:
+\begin{equation}
+\tilde r_i=\operatorname{sg}\!\left[
+\bar r_i+C_{\delta_{\mathrm{tot}}}(d_i^Q+d_i^R)
+\right].
+\label{eq:field-target}
+\end{equation}
+The cap $\delta_{\mathrm{tot}}$ sets the maximum requested change, ensuring $\|\tilde r_i-\bar r_i\|_2\leq\delta_{\mathrm{tot}}$ even when restoration is large. The target is held fixed during the actor update. Together, restoration and clipping balance adaptation with a persistent reference by acting on accumulated departure and individual corrections, respectively. The component study in Sec.~\ref{sec:exp-controls} tests this distinction.
+
+
+\subsection{Learn from Fixed Targets}
+\label{sec:field-update}
+\textbf{Step 4: fit the residual to the corrected actions.}
+Since the base is frozen, fitting the corrected action $\tilde a_i=a_{0,i}+\tilde r_i$ is equivalent to regressing the residual:
+\begin{equation}
+\mathcal L_{\mathrm{actor}}
+=\mathbb{E}_{s}\!\left[
+\frac{1}{KD}\sum_{i=1}^{K}
+\|r_\theta(s,z_i)-\tilde r_i\|_2^2
+\right],
+\label{eq:actor-regression}
+\end{equation}
+where $K$ is the number of sampled candidates per observation and $D=Hd$ is the action-chunk dimension, comprising $H$ controls of $d$ dimensions each. This mean-squared error is the actor's only training loss. Targets are held fixed during each update and recomputed for the next, so gradients do not pass through target construction.
+
+\textbf{Training and execution.}
+Algorithm~\ref{alg:cast} summarizes online training, retaining the baseline's replay mixture, warm-up, exploration, and multi-sample $n$-step TD critic updates. Only the critic uses a slowly updated target network. Physical refinement (Sec.~\ref{sec:exp-real-robot}) trains offline on saved experience, with residual corrections limited to the portion of each chunk designated for execution. At inference, we sample candidate actions as $\pi_0(s,z)+r_\theta(s,z)$ using the base policy's sampling procedure and apply each benchmark's selection rule, including value-guided selection in the matched LIBERO comparisons.
+
+\input{sections/04_algorithm}
+
+
+
+% \subsection{Theoretical Analysis of the Actor Update}
+% \label{sec:method-analysis}
+% \input{sections/04_analysis}
+
+
+
+
+% \subsection{Alternative Guidance and Constraints}
+% \label{sec:method-variants}
+
+% The comparisons in Sec.~\ref{sec:exp-design} examine both how the critic
+% proposes a correction and how departure is constrained.
+% \textbf{Value-only guidance} replaces the action gradient with a
+% kernel-weighted attraction--repulsion field over sampled actions.
+% The top-$k$ variant attracts candidates toward the highest-valued current
+% samples and repels them from the current sample cloud. The value-tilted
+% variant uses all candidates as attractors, with weights proportional to
+% $\exp(\hat q_i/\tau)$, where $\hat q_i$ is the critic value standardized
+% within the state's candidate set and $\tau>0$ is a temperature; repulsion
+% uses uniformly weighted current samples. The reported value-only recipes
+% also use a weak distributional restoring field toward independent base
+% samples in place of $-\eta_0\bar r_i$. They retain radial restoration and
+% displacement caps, with settings described in the experimental comparisons.
+
+% \textbf{Alternative constraints} change where preservation enters the
+% update. The loss-space hinge penalizes $(m-\rho)_+^2$ within DICE-RL's
+% actor objective, using the differentiable residual magnitude
+% $m=\|r_\theta(s,z)\|_2/\sqrt D$ and retaining its BC filtering. Hard
+% projection rescales a proposed residual target
+% into $\|\tilde r_i\|_2\leq\sqrt{D}\rho$, a ball around the base action.
+% CAST's cap in \eqref{eq:field-target} is centered on the current action.
+% The reported alternatives also differ in auxiliary restoration and
+% clipping settings, so the experiments compare the implemented updates
+% as a whole.

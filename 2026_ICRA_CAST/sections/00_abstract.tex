@@ -1,0 +1,29 @@
+Reinforcement learning can improve pretrained robot policies, but imperfect critic guidance can also disrupt the useful behaviors they have already learned. 
+Even with a frozen base policy, repeated critic-guided corrections can gradually override useful pretrained behavior, making small updates alone insufficient to ensure its preservation. 
+We present \method{} (Constrained Action-Space Transport), a likelihood-free method that learns residual corrections to a frozen generative policy. 
+\method{} constructs action targets by combining critic guidance with a soft pull toward the corresponding base actions and capping each proposed correction. 
+The residual then learns these targets by regression. 
+This design maintains a persistent reference to pretrained behavior while leaving room for adaptation. 
+Experiments in simulated manipulation show improved task success and fewer environment steps needed to reach a target success rate. 
+Real-robot experiments on OpenArm further show improved placement and stacking success over the pretrained policies. 
+Ablations show that restoration can preserve task success where clipping alone fails, supporting the importance of a persistent reference during refinement. 
+Broader evaluations reveal that the benefits of anchoring vary across tasks, highlighting the need to balance preserving useful behavior with allowing the changes required for improvement.
+% A failed robot task can contain useful behavior that refinement should retain. 
+% With sparse rewards, however, the outcome does not identify which actions need to change, and imperfect critic guidance can disrupt an existing skill. 
+
+% Reinforcement learning can improve pretrained robot policies, but imperfect critic guidance can also disrupt the useful behaviors they have already learned.
+% We present \method{} (Constrained Action-Space Transport), a likelihood-free method for refining a frozen generative policy through learned residual corrections. 
+% CAST constructs explicit action targets by combining critic guidance with soft restoration toward the base and clipping the resulting displacement. 
+% The residual then learns these targets by regression. 
+% Restoration opposes accumulated departure from the base, while clipping limits each requested correction. 
+% To address this, we present \method{} (Constrained Action-Space Transport), a likelihood-free method that learns residual corrections to a frozen generative policy. 
+% We train the residual to match action targets that combine critic guidance with a soft pull toward the base policy and a cap on each proposed correction.
+% Experiments show that \method{} can improve task success and interaction efficiency, with initial gains also observed on a physical robot. 
+% Ablations support maintaining a persistent reference during refinement, while task-dependent results highlight the need to balance preserving useful behavior with allowing adaptation.
+
+% Per-task refinement on eight LIBERO-90 tasks improves mean success by 9.4 percentage points over the drifting-model base, compared with 0.9 for DICE-RL. 
+% On a shared diffusion base for robomimic square, CAST reaches 90\% success with approximately 38\% fewer environment steps than DICE-RL. 
+% In a five-task LIBERO ablation, removing all restoration yields zero success even with clipping. 
+% Initial OpenArm evaluations improve placement and stacking success by 40 and 35 percentage points over their bases. 
+% Task-dependent reversals under alternative constraints and broader evaluations show the limits of anchoring. 
+% The results support a persistent behavioral reference that leaves room for the corrections needed to improve the skill.

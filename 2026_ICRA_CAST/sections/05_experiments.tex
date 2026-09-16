@@ -1,17 +1,11 @@
 % Measurements: ICLR experiment tables; protocol reconciliation:
 % RESULTS_PROVENANCE.md and the corresponding launch scripts.
 
-The experiments test whether CAST improves pretrained skills and which
-update choices support that improvement.
-\textbf{H1~(useful adaptation):} CAST can improve task success or
-interaction efficiency over standard residual refinement.
-\textbf{H2~(persistent reference):} limiting individual target corrections
-is insufficient to preserve success in the tested visual manipulation tasks.
-\textbf{H3~(preservation and adaptation):} effective refinement depends on
-the constraint and guidance choices; harder constraints and value-only
-transport are not uniformly preferable.
-We first evaluate practical gains, then examine the update components,
-and finally identify settings that limit these conclusions.
+Our experiments test three hypotheses about the effectiveness and design of \method{}.
+\textbf{H1~(effective refinement):} \method{} improves task performance or reaches a target success rate with fewer environment steps than standard residual refinement.
+\textbf{H2~(preserving pretrained performance):} Explicit controls on action corrections help prevent performance degradation during critic-guided refinement.
+\textbf{H3~(balancing preservation and adaptation):} Combining action-gradient guidance with soft restoration yields more consistent improvements across tasks than alternative guidance and constraint rules.
+We examine these hypotheses through baseline comparisons, component ablations, and evaluations of alternative updates. Further experiments assess their scope across generator classes, sparse and dense rewards, and real-robot tasks.
 
 \subsection{Evaluation Protocol}
 \label{sec:exp-setup}

@@ -1,0 +1,27 @@
+\subsection{Setting}
+We study off-policy reinforcement learning to refine a pretrained generative policy $\pi_0$ while retaining useful pretrained behavior. 
+Given an observation $s$ and noise $z$, the policy produces an action chunk $a\in\mathbb{R}^{Hd}$ consisting of $H$ controls of dimension $d$. 
+Following prior work on residual RL~\cite{johannink2019residual,ankile2025resfit,dicerl2026}, we keep $\pi_0$ frozen and learn an additive correction $r_\theta$:
+\begin{equation}
+  a_\theta(s,z)=\pi_0(s,z)+r_\theta(s,z),
+  \qquad z\sim\mathcal{N}(0,I).
+  \label{eq:residual}
+\end{equation}
+An ensemble critic learns expected returns through temporal-difference updates on replayed transitions from demonstrations and policy rollouts. 
+Using this critic, \method{} constructs action targets and trains the residual to match them by regression.
+
+\subsection{Accumulated Departure from the Base}
+An imperfect critic may overestimate the value of actions poorly represented in its training data, causing repeated critic-guided updates to move the policy away from useful pretrained behavior~\cite{fujimoto2019bcq}. Limiting each correction does not prevent this accumulated drift: for a fixed observation and noise sample, $|a_{t+1}-a_t|_2\leq\delta$ bounds each update, but the distance from the initial action can still grow over optimization steps $t$. Fig.~\ref{fig:problem} illustrates this behavior under a fixed critic: unanchored ascent moves actions toward an overestimated region, whereas fixed-base projection keeps them near their starting points. This motivates a persistent restoring pull toward the base together with a cap on each proposed correction, preserving useful behavior while allowing adaptation. Because these constraints shape the actor's training targets, they do not guarantee that the fitted policy outputs satisfy the same bounds.
+
+
+% A critic can assign high values to actions outside its training coverage.
+% Repeatedly following those predictions may move the policy away from actions that succeed~\cite{fujimoto2019bcq}. 
+% A step cap alone cannot prevent this: $\|a_{t+1}-a_t\|_2\leq\delta$ permits distance from the initial action to grow with the number of updates. 
+%Here $t$ indexes optimization steps.
+%Fig.~\ref{fig:problem} illustrates the issue by directly updating paired actions under the same critic. 
+% In this toy, vanilla ascent moves probability mass into an overestimated region, while a fixed-base projection retains useful behavior nearby.
+
+% This distinction motivates two controls. Restoration responds to departure from the frozen base; clipping limits the correction requested from the current action. 
+% We express departure as the residual's root-mean-square (rms) magnitude in normalized action coordinates. 
+% The design question is how to resist unnecessary changes while permitting useful ones. 
+% Because a neural actor shares parameters across samples, constraining its targets does not by itself impose the same constraint on its fitted outputs.

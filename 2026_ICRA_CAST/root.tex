@@ -3,6 +3,8 @@
 \IEEEoverridecommandlockouts
 \overrideIEEEmargins
 
+\input{0-preamble.tex}
+
 \usepackage[T1]{fontenc}
 \usepackage{mathptmx}
 \usepackage{cite}
@@ -22,6 +24,7 @@
 \author{Anonymous Authors}
 
 \begin{document}
+\bstctlcite{IEEEexample:BSTcontrol} %limits the listed authors to 10 (edit in bib file)
 
 \maketitle
 \thispagestyle{empty}
@@ -54,6 +57,7 @@
 \section{Discussion and Conclusion}
 \label{sec:conclusion}
 \input{sections/06_conclusion}
+
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}

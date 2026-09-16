@@ -1,0 +1,228 @@
+% Author: Animesh Garg
+% Date: Aug 31 2022
+
+% ---------------------------------
+% Common base packages
+% ---------------------------------
+
+% \usepackage{etoolbox} % fix space between abstract header and abstract body
+% \usepackage[utf8]{inputenc} % allow utf-8 input
+% \usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+% \usepackage[english]{babel} %for hyphenation rules
+% % \usepackage{microtype}      % microtypography
+% \usepackage[protrusion=true,expansion=true]{microtype}
+% %\usepackage{lmodern}
+\usepackage{comment}
+% \usepackage{cancel}
+% \usepackage{csquotes}
+% \usepackage{listings}
+% \usepackage{nameref}
+% % \usepackage{slashbox}
+% \usepackage{paralist}
+% \usepackage{xspace}
+% \usepackage{setspace}
+% % \usepackage{listings} for text to reproduce verbatim
+% \usepackage{makeidx}
+% \usepackage{pdfpages}
+
+% ---------------------------------
+% MATH & Equations
+% ---------------------------------
+\usepackage{amsmath,amssymb} % define this before the line numbering.
+% \usepackage{amsfonts}       % blackboard math symbols
+% \usepackage{mathptmx}
+
+% \usepackage{newtxtext,newtxmath}
+
+\usepackage{mathtools}
+\usepackage{array} %for table entries to be in center of cell
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{breqn}          % dmath multiline
+\usepackage{textcomp}
+\usepackage{bm} %bold symbols in math mode
+\usepackage{pifont}
+\usepackage[
+  separate-uncertainty = true,
+  multi-part-units = repeat
+]{siunitx}
+
+% ---------------------------------
+% Figures & Floats
+% ---------------------------------
+\usepackage{graphicx}
+% \usepackage[pdftex]{graphicx}
+\usepackage{adjustbox} %add additional box operations in addition to resizebox
+\usepackage{epsfig}
+% \pdfoutput=1
+% \graphicspath{{./figures/}}
+% \DeclareGraphicsExtensions{.pdf,.jpeg,.png,.jpg}
+
+\usepackage{float}
+\usepackage{subcaption}
+\usepackage[font=small,labelfont=bf]{caption}
+%\usepackage[justification=raggedright]{caption}	% makes captions ragged right 
+\usepackage{lscape}      %Useful for wide tables or figures.
+%\usepackage{subfig}
+%\usepackage{subfigure}		% For subfigures
+
+\usepackage{tikz}  %make graphs
+\usepackage{makecell}
+\usepackage{overpic}
+\pdfminorversion=4
+
+% ---------------------------------
+% Algorithms
+% ---------------------------------
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+
+% ---------------------------------
+%Table Stuff
+% ---------------------------------
+\usepackage{array} %for table entries to be in center of cell
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{multicol}
+\usepackage{booktabs}   % Publication quality tables
+% \usepackage{colortbl} %dont load with xcolor, loaded in colors
+\usepackage{tablefootnote}
+
+% ---------------------------------
+% LISTS compact itemize/enumeration (e.g. contributions)
+% ---------------------------------
+\usepackage{paralist}
+% \let\labelindent\relax %already included in IEEE
+\usepackage{enumitem}
+\setlist[itemize]{noitemsep,leftmargin=*,topsep=0in}
+\setlist[enumerate]{noitemsep,leftmargin=*,topsep=0in}
+
+% ---------------------------------
+% URLS, Colors, Links
+% ---------------------------------
+\usepackage{url}            % simple URL typesetting
+% \usepackage[table]{xcolor}
+\PassOptionsToPackage{table}{xcolor}
+% \usepackage{color}
+\usepackage{color,colortbl} %superceded by xcolor
+\usepackage{soul}
+
+% \usepackage[capitalize, noabbrev]{cleveref}
+\PassOptionsToPackage{capitalize, noabbrev}{cleveref}
+\usepackage[pagebackref=false,breaklinks=true,colorlinks,urlcolor=blue,citecolor=blue,linkcolor=blue,bookmarks=false]{hyperref}
+
+% ---------------------------------
+% Citation
+% ---------------------------------
+% \makeatletter
+% \let\NAT@parse\undefined
+% \makeatother
+% \usepackage[numbers,sort&compress]{natbib}
+
+% ---------------------------------
+% USER defined macros: shortcuts for standard references
+% ---------------------------------
+
+\newcommand{\Fig}[1]{Fig.~\ref{fig:#1}}
+\newcommand{\Figure}[1]{Figure~\ref{fig:#1}}
+\newcommand{\Tab}[1]{Tab.~\ref{tab:#1}}
+\newcommand{\Table}[1]{Table~\ref{tab:#1}}
+\newcommand{\eq}[1]{(\ref{eq:#1})}
+\newcommand{\Eq}[1]{Eq.~\ref{eq:#1}}
+\newcommand{\Equation}[1]{Equation~\ref{eq:#1}}
+\newcommand{\Sec}[1]{Sec.~\ref{sec:#1}}
+\newcommand{\Section}[1]{Section~\ref{sec:#1}}
+\newcommand{\Appendix}[1]{Appendix~\ref{app:#1}}
+
+% ---------------------------------
+% USER defined macros: lorem (i.e. filler latin text)
+% ---------------------------------
+\usepackage{blindtext}
+\usepackage{bbm}
+\newcommand{\lorem}[1]{\todo{\blindtext[#1]}}
+\usepackage{lipsum}
+\newcommand{\loremnew}[1]{\todo{\lipsum[1][0-#1]}}
+
+% ---------------------------------
+% USER defined macros: footnote without a number
+% ---------------------------------
+\newcommand\blfootnote[1]{%
+  \begingroup
+  \renewcommand\thefootnote{}\footnote{#1}%
+  \addtocounter{footnote}{-1}%
+  \endgroup
+}
+
+% ---------------------------------
+% USER defined macros: Space Tweaks
+% ---------------------------------
+\setlength{\abovecaptionskip}{1.5mm}
+\setlength{\belowcaptionskip}{1.0mm} 
+\setlength{\textfloatsep}{1.5mm}
+\setlength{\dbltextfloatsep}{1.5mm}
+
+%\renewcommand{\baselinestretch}{.9945} %space between lines - use as last resort
+\renewcommand{\arraystretch}{1.1}
+
+% Spacing before and after section headings
+\usepackage{titlesec}
+\titlespacing{\section}{0pt}{0.3\baselineskip}{0.25\baselineskip}
+\titlespacing{\subsection}{0pt}{0.2\baselineskip}{0.15\baselineskip}
+\titlespacing{\subsubsection}{0pt}{0.05\baselineskip}{0.03\baselineskip}
+
+%% paragraph (fine tune spacing close to deadline)
+\renewcommand{\paragraph}[1]{\vspace{0.2em}\noindent\textit{#1} --}
+% \newcommand\numberthis{\addtocounter{equation}{1}\tag{\theequation}}
+
+% ---------------------------------
+% USER defined macros: Comments/edits
+% ---------------------------------
+\newcommand{\todo}[2]{{\color{orange}#1:#2}} %< I changed something and I want you to see it
+\newcommand{\TODO}[2]{\sethlcolor{yellow}\hl{[#1: #2]}}%< inlined comment for max visibility
+\newcommand{\todofoot}[2]{\footnote{{\color{red}#1:#2}}}%< useful for ~deadline (no layout changes)
+
+%%
+%% Colors
+%%
+% \definecolor{Lightapricot}{rgb}{0.99,0.84,0.69}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% New list style
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\usepackage{listings}
+\lstset{escapeinside={*@}{@*},
+breaklines=true, breakatwhitespace=false,}
+\def\code#1{\texttt{#1}}
+% https://www.overleaf.com/learn/latex/Code_listing
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.4,0.4,0.4}
+\definecolor{codepurple}{rgb}{0.5,0,0.9}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.95}
+
+\definecolor{lightgray}{rgb}{0.9,0.9,0.9}
+\definecolor{lightpink}{rgb}{0.98,0.85,0.86}
+\definecolor{lightblue}{rgb}{0.68,0.84,0.9}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\fontsize{8}{8}\selectfont\ttfamily\ttfamily,
+    breakatwhitespace=false,         
+    breaklines=true,
+    breakindent=0pt,
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=none,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle}
+\renewcommand{\lstlistingname}{Snippet}

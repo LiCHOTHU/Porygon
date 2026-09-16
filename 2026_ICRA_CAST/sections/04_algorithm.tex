@@ -1,0 +1,33 @@
+\begin{algorithm}[t]
+  \caption{CAST: online residual fine-tuning}
+  \label{alg:cast}
+  \small
+  \begin{algorithmic}[1]
+    \Require Frozen policy $\pi_0$, demonstrations $\mathcal D$,
+      candidates per state $K$
+    \State Initialize residual $r_\theta$, critic $Q_\phi$,
+      and target parameters $\phi^-\gets\phi$
+    \State Seed replay $\mathcal R$ with base-policy rollouts
+    \For{each online iteration}
+      \State Collect policy rollouts and append them to $\mathcal R$
+      \For{each gradient step}
+        \State Sample a minibatch from $\mathcal R$ and $\mathcal D$
+        \State Compute $n$-step TD loss $\mathcal L_Q$ using $Q_{\phi^-}$
+        \If{an actor update is due}
+          \State \textbf{Sample:} Form $K$ paired candidates per state
+            \eqref{eq:candidates}
+          \State \textbf{Propose:} Compute critic corrections $d_i^Q$
+            \eqref{eq:reward-step}
+          \State \textbf{Constrain:} Apply restoration and clipping
+            to obtain fixed targets $\tilde r_i$
+            \eqref{eq:restoring-step}--\eqref{eq:field-target}
+          \State \textbf{Fit:} Regress $r_\theta$ onto $\tilde r_i$
+            \eqref{eq:actor-regression}
+        \EndIf
+        \State Update $\phi$ using $\mathcal L_Q$
+        \State Update $\phi^-$ by Polyak averaging when due
+      \EndFor
+    \EndFor
+    \State \Return $\pi_\theta(s,z)=\pi_0(s,z)+r_\theta(s,z)$
+  \end{algorithmic}
+\end{algorithm}
