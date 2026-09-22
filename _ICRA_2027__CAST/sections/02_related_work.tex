@@ -1,0 +1,35 @@
+\subsection{Fine-Tuning and Steering Generative Policies}
+
+Reward feedback can enter a generative policy through its training objective
+or its sampling procedure. DPPO optimizes the diffusion denoising
+process~\cite{ren2024dppo,black2024training}; ReinFlow introduces stochastic flow transitions
+with tractable likelihoods~\cite{reinflow2025}; and Flow Policy Optimization
+uses a flow-matching loss surrogate~\cite{mcallister2025flowmatchingpolicygradients}.
+Diffusion-QL combines diffusion behavior cloning with value
+maximization~\cite{wang2023diffusionql}, while Flow Q-Learning trains a
+one-step actor with critic guidance and distillation
+regularization~\cite{park2025fql}.
+
+A frozen policy can also be improved by changing how its samples are
+obtained or selected. DSRL learns the input noise
+distribution~\cite{wagenmaker2025dsrl}, and V-GPS ranks sampled actions
+using an offline-trained value function~\cite{nakamoto2025vgps}. IBRL
+uses imitation-policy proposals for exploration and value
+bootstrapping~\cite{hu2024ibrl}. CAST operates on the generator's output:
+it learns residual action corrections while retaining the frozen base's
+sampling procedure.
+
+\subsection{Critic-Guided Action and Particle Updates}
+
+Critic guidance can be incorporated into either the action targets or the training objective of a generative policy. DIPO applies critic-gradient ascent to stored actions~\cite{dipo2024}, while PA-RL combines candidate ranking and local action optimization with supervised policy fitting~\cite{mark2024parl}. Q-Score Matching (QSM) instead connects the policy score directly to the critic's action gradient~\cite{psenka2024qsm}. Related methods such as AWR, MPO, and IDQL use value-weighted fitting or action selection~\cite{peng2019awr,abdolmaleki2018mpo,hansenestruch2023idql,nair2020awac}.
+
+Particle-based updates provide another connection to CAST. Soft Q-Learning trains an amortized Stein sampler~\cite{haarnoja2017sql}, while drifting models learn from displaced samples through regression~\cite{deng2026drifting}. CAST applies a related update-and-fit structure to residual policy refinement, constructing fresh targets that combine critic-guided improvement with preservation of the frozen base policy. Its main variant pairs each candidate with its same-noise base output, combines a clipped critic-gradient proposal with radial restoration, and caps the resulting target displacement. Value-only variants replace the local action gradient with sample-based guidance.
+
+
+
+\subsection{Residual Refinement and Behavioral Constraints}
+
+Residual RL refines an existing controller by learning additive action corrections~\cite{johannink2019residual}. ResFiT extends this formulation to sparse-reward fine-tuning of frozen, action-chunked BC policies~\cite{ankile2025resfit}. Policy Decorator bounds residual outputs while gradually expanding exploration~\cite{yuan2025policydecorator}, DICE-RL combines residual value maximization with selective behavior regularization and value-guided action selection~\cite{dicerl2026}.
+
+Behavioral constraints serve a related purpose in offline RL by limiting exploitation of critic errors. BEAR constrains the learned policy toward the support of the dataset~\cite{kumar2019bear}, while TD3+BC adds a behavior-cloning penalty to the actor objective~\cite{fujimoto2021td3bc}. CAST instead applies preservation directly during target construction: base-policy samples provide a persistent reference for radial restoration, while per-candidate displacement caps limit each requested correction. The restoring terms depend on accumulated departure from the base and remain active independently of the critic's preference for the current action. Within the DICE-RL framework, we test whether clipping alone can replace this persistent reference and compare CAST with loss-space penalties and hard target projection.
+

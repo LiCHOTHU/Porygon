@@ -8,12 +8,10 @@ To limit this accumulated drift, we introduce \method{} (Constrained Action-Spac
 
 Across matched simulations, \method{} improves both task success and interaction efficiency over standard residual refinement, achieving a 9.4-percentage-point mean gain across eight LIBERO-90 tasks and requiring approximately 38\% fewer environment steps to reach 90\% success on robomimic square. A five-task component study further supports restoration as an effective mechanism for preserving useful pretrained behavior during refinement. Real-robot evaluations confirm these gains, improving placement and stacking success by 40 and 35 percentage points, respectively.
 
-
-
 Our contributions are:
 \begin{itemize}
-\item \method{}, a likelihood-free residual-refinement framework that converts critic guidance into explicit action targets using only samples from a frozen generative policy.
-\item A same-noise anchoring mechanism that assigns each candidate a persistent base reference and combines radial restoration against accumulated drift with displacement clipping of each requested correction.
-\item Analyses connecting constrained target regression to regularized actor learning and same-noise residual coupling to an upper bound on the squared 2-Wasserstein distance between candidate action distributions.
+\item We introduce \method{}, a likelihood-free method that improves pretrained generative robot policies by learning action corrections while keeping the original policy frozen.
+\item We combine a persistent reference to pretrained actions with limits on each proposed change, allowing refinement to improve a skill while resisting unnecessary changes to useful behavior.
+\item We demonstrate refinement gains in simulation and in physical placement and stacking on OpenArm. Our experiments cover dense and sparse rewards and show how restoration, clipping, and critic guidance affect the balance between preserving behavior and improving performance.
 \end{itemize}
 

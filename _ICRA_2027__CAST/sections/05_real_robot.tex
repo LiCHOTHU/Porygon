@@ -1,0 +1,30 @@
+\subsection{Real-Robot Refinement on Stair-Based Manipulation}
+\label{sec:exp-real-robot}
+
+We evaluate pretrained flow-matching policies on OpenArm with a parallel gripper, using chest and wrist RGB images, joint states, and gripper state. 
+The tasks are placing Jigglypuff into an adjacent case and stacking a red cube on a purple cube (Fig.~\ref{fig:real-robot}). 
+Both use a staircase scene, whose varying approach heights and nearby edges require careful grasping and placement alignment. Stacking also requires accurate positioning and release without disturbing the supporting cube. These tasks test whether refinement can correct unsuccessful placement or release while retaining useful reaching, grasping, and transport.
+
+We compare the pretrained \textbf{Base}, supervised \textbf{BC} refinement, \textbf{DICE-RL} with its original actor objective, and \textbf{CAST} with constrained action targets. Base pretraining uses 40 placement and 80 stacking demonstrations. Refinement is offline: BC fine-tunes the base for 40 epochs on 30 additional expert demonstrations per task; both RL methods learn residuals from 40 recorded rollouts per task, including successes and failures, with the base and encoder frozen. DICE-RL and CAST share the base, replay data, minibatch schedule, critic training, and update budget; BC differs in supervision and trainable parameters. Each method receives 30 autonomous evaluation attempts per task, with placement poses randomized on the stairs. Success requires the toy to remain fully inside the case, or the red cube to remain on the purple cube after release and gripper withdrawal. Detailed protocols are in the supplement.
+
+% We evaluate a pretrained flow-matching policy on the OpenArm and parallel gripper, using chest and wrist RGB observations together with
+% joint and gripper state. The tasks are to place Jigglypuff into an adjacent
+% case and to stack a red cube on a purple cube
+% (Fig.~\ref{fig:real-robot}). Both use a staircase: the stepped surfaces
+% introduce different approach heights and nearby edges, making grasping and
+% placement sensitive to alignment. 
+% Stacking additionally requires precise
+% positioning and release without disturbing the supporting cube. 
+% This task design exposes a practical refinement problem: useful reaching, grasping,
+% and transport can still end in an unsuccessful placement or release.
+
+% We compare the pretrained \textbf{Base}, supervised \textbf{BC} refinement, \textbf{DICE-RL} with its original actor objective, and \textbf{CAST} with constrained action targets. The bases are pretrained on 40 placement and 80 stacking demonstrations. All refinement is offline: BC fine-tunes the base for 40 epochs using 30 additional expert demonstrations per task, while both RL methods learn residual corrections from 40 recorded rollouts per task, including successes and failures, with the base and encoder frozen. DICE-RL and CAST share the base, replay data, minibatch schedule, critic-training procedure, and update budget; BC differs in supervision and trainable parameters. We evaluate each method in 30 autonomous attempts per task, with placement poses randomized on the stairs. Placement succeeds when the toy remains fully inside the case; stacking succeeds when the red cube remains on the purple cube after release and gripper withdrawal. Detailed protocols are in the experimental supplement.
+
+
+As the results shown in Fig.~\ref{fig:real-robot}, CAST raises placement success from 55\% to 95\% and stacking success from 35\% to 70\%, achieving the highest observed success on both tasks (Fig.~\ref{fig:real-robot}). 
+These gains support \textbf{H1 (useful refinement)} under offline training and physical deployment. 
+BC remains competitive on stacking, where demonstrations explicitly supervise successful motions, including release. 
+Reward-based refinement instead relies on critic guidance learned from task outcomes to identify useful corrections. 
+This distinction matters because the main observed stacking failure occurs after successful reaching, grasping, and alignment: the robot positions the cube but does not release it. 
+The failed outcome therefore does not imply that all preceding actions should change. 
+CAST combines critic-guided corrections with restoration toward pretrained actions and clipping of each requested change, providing a persistent reference while allowing adaptation. Thus, the physical results support \textbf{H1 (useful refinement)} and motivate \textbf{H2 (a persistent reference)}, whose contribution beyond clipping is tested in the following component study.

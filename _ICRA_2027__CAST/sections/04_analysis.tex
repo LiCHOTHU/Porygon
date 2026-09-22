@@ -1,0 +1,50 @@
+\subsection{Theoretical Interpretation of the Actor Update}
+
+We analyze the main action-gradient variant with paired restoration in normalized action coordinates. The analysis explains how target regression balances critic guidance with preservation, and why the restoration penalty provides a reference to the pretrained action distribution.
+
+\textbf{Restoration defines a penalty on departure.}
+The restoring displacement in \eqref{eq:restoring-step} directly determines the penalty
+\begin{equation}
+U(r)=\frac{\eta_0}{2}\|r\|_2^2+
+\frac{\eta_{\mathrm{anc}}}{2}
+\left(\|r\|_2-\sqrt{D}\rho\right)_+^2.
+\label{eq:radial-potential}
+\end{equation}
+For $\rho=0$ or $\rho\geq\epsilon$, differentiating $U$ gives exactly $d_i^R=-\nabla_rU(\bar r_i)$, including a zero gradient at $\bar r_i=0$. With nonnegative restoration coefficients, the first term penalizes overall departure from the base, while the second adds resistance beyond the RMS radius $\rho$. Thus, the penalty follows directly from CAST's restoration rule.
+
+\textbf{Target regression implements a regularized actor update.}
+Using this penalty, define
+\begin{equation}
+\mathcal L_{\mathrm{reg}}(\theta)
+=\mathbb E_s\!\left[
+\frac{1}{K}\sum_{i=1}^{K}
+\left(
+-\frac{\eta_Q\bar Q_\phi(s,z_i,a_\theta(s,z_i))}
+{q_{\mathrm{scale}}}
++U(r_\theta(s,z_i))
+\right)
+\right].
+\end{equation}
+This objective favors higher predicted return while penalizing departure from the base. When both caps are inactive, CAST's requested correction is the negative action gradient of the corresponding term in this objective.
+
+Let $\theta_{\mathrm{old}}$ denote the parameters used to construct the targets. At these parameters, the regression error equals the negative requested correction. Differentiating the mean-squared error therefore yields
+\begin{equation}
+\left.\nabla_\theta\mathcal L_{\mathrm{actor}}\right|_{\theta_{\mathrm{old}}}
+=
+\frac{2}{D}
+\left.\nabla_\theta\mathcal L_{\mathrm{reg}}\right|_{\theta_{\mathrm{old}}},
+\label{eq:local-gradient}
+\end{equation}
+where the derivatives exist and samples, critic parameters, normalization, and regression targets are held fixed. The factor $2/D$ comes from the mean-squared error's normalization. Unclipped target regression therefore follows the same local gradient direction as regularized critic optimization. With clipping active, CAST modifies individual requested corrections before fitting the actor, so this equivalence need not hold.
+
+\textbf{The penalty bounds departure between action distributions.}
+At a fixed observation $s$, let $P_\theta^s$ and $P_0^s$ denote the current actor's and frozen base's candidate-action distributions before selection, with finite second moments. Sampling both with the same noise defines a pairing whose squared separation is $\|r_\theta(s,z)\|_2^2$. Since the squared 2-Wasserstein distance minimizes this expected separation over all pairings, for $\eta_0>0$ and $\eta_{\mathrm{anc}}\geq0$,
+\begin{equation}
+\begin{aligned}
+W_2^2(P_\theta^s,P_0^s)
+&\leq \mathbb E_z\|r_\theta(s,z)\|_2^2\\
+&\leq \frac{2}{\eta_0}\mathbb E_zU(r_\theta(s,z)).
+\end{aligned}
+\label{eq:coupling-bound}
+\end{equation}
+A small expected penalty on the actual residual is therefore sufficient to keep these candidate distributions close. This gives $U$ a concrete role: it discourages departure through a likelihood-free upper bound, while the critic term favors improvement. Because the reference remains frozen, the penalty captures accumulated departure across updates. The component study in Sec.~\ref{sec:exp-controls} tests the practical benefit of this persistent reference.

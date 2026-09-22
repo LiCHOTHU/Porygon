@@ -1,0 +1,107 @@
+% Experiment evidence and campaign distinctions: RESULTS_PROVENANCE.md.
+% Complete supporting results and protocols: experiments_supplement.tex.
+We evaluate whether CAST improves pretrained skills and which update
+choices make refinement useful through three hypotheses:
+\begin{itemize}
+\item \textbf{H1 (useful refinement):} CAST improves task performance or
+reaches a target success rate with fewer environment steps than standard
+residual refinement.
+\item \textbf{H2 (a persistent reference):} Restoration toward the frozen
+base helps preserve task performance beyond limiting individual corrections.
+\item \textbf{H3 (preservation and adaptation):} The strength and form of
+preservation affect refinement; stronger constraints need not yield
+better performance.
+\end{itemize}
+
+\label{sec:exp-setup}
+Our evaluation spans state-based robomimic manipulation~\cite{mandlekar2021robomimic},
+image-based LIBERO-90 manipulation~\cite{liu2023libero}, dense- and sparse-reward DeepMind Control Suite (DMC) control~\cite{tassa2018dmc}, and physical OpenArm placement and stacking. Robomimic and LIBERO use sparse task-success rewards; DMC broadens the reward settings and task family. 
+The physical study evaluates offline refinement from recorded experience followed by autonomous robot trials. Together, these settings test different observation modalities, reward structures, and deployment conditions. 
+Simulation and physical comparisons test H1, the component comparison tests H2, and alternative constraints and restoration-radius sweeps test H3. 
+DMC extends the evaluation to dense- and sparse-reward control.
+
+We compare CAST with DICE-RL using the same frozen base, residual architecture, critic-training procedure, replay-sampling settings, and interaction budget. 
+CAST replaces DICE-RL’s actor objective with regression to action targets constructed using critic guidance, restoration, and clipping. 
+We report success as percentages and gains as percentage points (pp); detailed protocols are on our website.
+
+\subsection{Policy Improvement in Simulation}
+\label{sec:exp-libero}
+\input{sections/tables/05_libero}
+
+We evaluate CAST on visual manipulation in LIBERO and state-based manipulation in robomimic, using three generative policy classes. Drifting policies~\cite{deng2026drifting} generate actions from noise in a single forward pass, diffusion policies~\cite{chi2025diffusionpolicy} use iterative denoising, and flow-matching policies~\cite{lipman2022flow} transform noise into actions by following a learned velocity field.
+
+\textbf{Improvement across visual tasks.}
+To test \textbf{H1  (useful refinement)}, we pretrain drifting and flow-matching bases on all 90 LIBERO tasks and refine the same eight challenging tasks, each with a separate residual policy and critic over its shared frozen base. Table~\ref{tab:libero-main} compares CAST$_1$ ($\eta_Q=1$) and CAST$_2$ ($\eta_Q=2$), with each scale fixed across tasks. On the drifting base, CAST$_2$ improves mean success by 9.4 percentage points versus 0.9 for DICE-RL, and both CAST settings improve all eight tasks without task-specific tuning of $\eta_Q$. CAST also improves average success over the stronger flow-matching base, although by a smaller margin, while DICE-RL slightly reduces it. These gains support \textbf{H1  (useful refinement)} across different starting policies: maintaining a base reference remains compatible with improvement. However, increasing $\eta_Q$ does not consistently help, indicating a task-dependent balance between guidance strength and preservation.
+
+\textbf{Refinement across generator classes.}
+\label{sec:exp-robomimic}
+\input{sections/tables/05_base_models}
+Table~\ref{tab:base-models} extends the comparison to robomimic tasks with drifting, diffusion, and flow-matching bases. On drifting-base square, CAST raises success from 38.2\% to 91.2--93.0\%, exceeding DICE-RL across three training seeds at 20K updates. CAST also improves the stronger can policy, while its value-only variant improves flow-matching square. These results demonstrate that the residual framework can refine both one-step and iterative generators using their existing sampling procedures. Additional protocol details and external baseline comparisons are provided in the supplement.
+
+\input{sections/05_efficiency_figure}
+\textbf{Fewer environment steps to useful performance.}
+On the shared diffusion base for square, CAST first reaches 90\% success after an average of 149.3K environment steps, compared with 240K for DICE-RL---approximately 38\% fewer steps (Fig.~\ref{fig:diffusion-efficiency}). Both methods achieve similar final success at the common 496K endpoint. CAST therefore reaches useful performance with less collected experience, supporting H1 through faster improvement even when the final success rates converge.
+
+\input{sections/05_real_robot_figure}
+\input{sections/05_real_robot}
+
+
+\subsection{The Role of Restoration and Clipping}
+\label{sec:exp-controls}
+\input{sections/05_components_figure}
+
+Figure~\ref{fig:component-comparison} compares four configurations on five LIBERO tasks. \emph{No controls} disables both restoring terms and both action-space caps. \emph{Clipping only} enables both caps without restoration. \emph{Radial restoration only} retains the radial pull but disables the weak pull ($\eta_0=0$) and both caps. \emph{Full CAST} enables both restoring terms and both caps. Comparing radial restoration alone with full CAST therefore changes both clipping and the weak pull.
+
+Both configurations without restoration reach zero success on every task, while both restoration variants retain nonzero success. This supports \textbf{H2  (a persistent reference)}: freezing the base and limiting individual corrections are insufficient to preserve performance in this setting. Clipping allows small changes to accumulate, whereas restoration responds to accumulated departure. However, avoiding collapse does not ensure improvement: radial restoration alone averages 65.7\%, below the base's 67.3\%, and improves only two tasks. Full CAST reaches 70.3\% and improves all five, although radial restoration alone leads on red mug and juice. Thus, restoration helps retain task success, while the complete update achieves broader improvement without being best on every task.
+
+
+
+% \subsection{The Role of Restoration and Clipping}
+% \label{sec:exp-controls}
+% \input{sections/05_components_figure}
+
+% To test \textbf{H2 (a persistent reference)}, we compare four update configurations on five LIBERO tasks: no controls, clipping only, radial restoration only, and full CAST (Fig.~\ref{fig:component-comparison}). Radial restoration alone disables the weak pull ($\eta_0=0$) and both action-space caps, while full CAST enables both restoring terms and both caps. Their comparison therefore changes more than clipping alone.
+
+% Without restoration, success falls to zero on every task, including when individual corrections are clipped. 
+% Both restoration variants retain nonzero success. These results support \textbf{H2 (a persistent reference)}: limiting each correction is insufficient to preserve performance in this setting. Clipping restricts individual changes but allows them to accumulate, whereas restoration continually responds to departure from the frozen base. 
+% Keeping the base frozen in the architecture therefore does not, by itself, preserve its task performance.
+
+% Avoiding collapse and improving a skill are distinct outcomes. Radial restoration alone achieves 65.7\% mean success, below the base's 67.3\%, and improves only two tasks. 
+% Full CAST reaches 70.3\% and improves all five tasks, although radial restoration alone performs better on red mug and juice. 
+% Restoration thus helps retain task success, while the complete update achieves broader improvement across the tested skills. 
+% This supports combining a persistent reference with controlled corrections, without implying that the same combination is best for every task.
+
+
+\subsection{Choosing the Constraint and Critic Guidance}
+\label{sec:exp-design}
+\input{sections/tables/05_update_design}
+
+\textbf{Comparing preservation rules.}
+Table~\ref{tab:update-design}(a) compares a loss penalty, hard target projection, and CAST's soft restoration. The \emph{loss-space hinge} uses $(m-\rho)_+^2$ as DICE-RL's residual penalty, where $m=\|r_\theta(s,z)\|_2/\sqrt{D}$, while retaining its BC filtering. \emph{Hard projection} enforces $\|\tilde r_i\|_2\leq\sqrt{D}\rho$. CAST instead restores toward the base while capping the change from the current action through \eqref{eq:field-target}. The LIBERO projection variant also removes restoration and both caps, so these are comparisons of complete update rules.
+
+Projection leads on mug (93.0\% versus CAST's 78.0\%), but reduces ketchup success to 54.0\%, below its 61.0\% base; CAST reaches 68.0\%. Thus, a hard constraint on action departure does not necessarily preserve task performance. The hinge improves all three tasks, although its square result remains far below CAST (48.0\% versus 97.0\%). These task-dependent outcomes support \textbf{H3  (preservation and adaptation)}: stronger preservation does not uniformly improve refinement, and the appropriate constraint depends on the skill.
+
+% \textbf{Comparing critic-guidance rules.}
+% Table~\ref{tab:update-design}(b) examines guidance using critic values without action derivatives. \emph{Top-$k$} attracts candidates toward the highest-valued current samples. \emph{Value-tilted} guidance weights all sampled attractors by $\exp(\hat q_i/\tau)$, where $\hat q_i$ is the critic value standardized within each state's candidate set and $\tau>0$ controls weight concentration. Both repel from uniformly weighted current samples and replace the weak paired pull with restoration toward independent base samples, retaining radial restoration and displacement caps.
+
+% The gradient recipe performs best on square and ketchup and improves all three tasks over their bases. On ketchup, it reaches 62.7\%, while top-$k$ and value-tilted guidance fall to 34.1\% and 37.8\%, respectively. Its advantage here primarily reflects avoiding degradation. However, value-tilted guidance leads on mug (69.7\% versus 60.0\%), showing that action gradients are not uniformly preferable. Since auxiliary restoration also differs, these results compare complete guidance recipes rather than isolating the value of action derivatives.
+
+
+\textbf{Comparing critic-guidance rules.}
+Table~\ref{tab:update-design}(b) compares action-gradient guidance with two value-only alternatives. \emph{Top-$k$} attracts candidates toward the $k$ highest-valued current samples; \emph{value-tilted} uses all candidates, weighted proportionally to $\exp(\hat q_i/\tau)$, where $\hat q_i$ is standardized within each state's candidate set and $\tau>0$ controls weight concentration. Both alternatives repel from uniformly weighted current samples and replace the weak paired pull with restoration toward independent base samples. Radial restoration and both caps remain enabled.
+
+The gradient recipe improves all three tasks over their bases and leads on square and ketchup. On ketchup, it reaches 62.7\%, compared with 34.1\% for top-$k$ and 37.8\% for value-tilted guidance, primarily avoiding the degradation seen with these alternatives. Value-tilted guidance instead leads on mug (69.7\% versus 60.0\%), so action gradients are not uniformly preferable. Because auxiliary restoration also changes, these results compare complete guidance recipes rather than isolating action derivatives.
+
+\textbf{Allowing room for adaptation.}
+A positive radius $\rho$ permits adaptation under the weak pull before stronger restoration activates. In exploratory single-training-seed sweeps, radii from 0.02 to 0.20 improve mug and ketchup over $\rho=0$. For instance, $\rho=0.05$ raises mug success from 54.9\% to 78.1\%. This provides further support for \textbf{H3  (preservation and adaptation)}: applying stronger restoration to every departure can restrict useful improvement. As $\rho\to\infty$, the weak pull remains, so this setting still differs from removing restoration. Complete settings and sweep results are in the supplement.
+
+
+
+
+\subsection{Refinement under Dense and Sparse Rewards}
+\label{sec:exp-dmc}
+\input{sections/tables/05_dmc_main}
+
+Table~\ref{tab:dmc-main} extends the evaluation to DMC control tasks using one-step bases distilled from SAC experience. CAST improves dense-reward swing-up from 429 to 715 return and sparse-reward balance from 90 to 1000, demonstrating useful refinement under both reward settings. However, unconstrained refinement also improves sparse balance and ball-in-cup catch. Sparse rewards alone therefore do not imply the collapse observed in the LIBERO component study. Together, these results show that CAST's applicability extends beyond manipulation, while the benefit of restoration depends on the refinement setting. Evaluation details and the budgets of incomplete runs are documented in the caption and supplement.
+
+Overall, the manipulation and physical evaluations support \textbf{H1  (useful refinement)} through higher task success or fewer environment steps to reach useful performance. The LIBERO component study supports \textbf{H2  (a persistent reference)}: both configurations without restoration lose all task success, including the clipped variant (Fig.~\ref{fig:component-comparison}). The task reversals among constraint rules and the benefits of positive restoration radii support \textbf{H3  (preservation and adaptation)} (Table~\ref{tab:update-design}(a)). The central finding is that a pretrained policy can provide a useful reference, but refinement must leave sufficient room for corrections that improve the skill.
