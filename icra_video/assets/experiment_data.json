@@ -1,0 +1,36 @@
+{
+  "provenance": {
+    "description": "Transcribed published-manuscript measurements; not newly executed evaluations. No complete local evaluation histories or run-level component seed records were available.",
+    "sources": [
+      "iclr2026/sections/05_experiments.tex: diffusion threshold paragraph and tab:constraint",
+      "2026_ICRA_CAST/sections/tables/05_ablations.tex",
+      "2026_ICRA_CAST/RESULTS_PROVENANCE.md"
+    ]
+  },
+  "diffusion_efficiency": {
+    "task": "robomimic square",
+    "base": "shared diffusion checkpoint",
+    "threshold_success_percent": 90,
+    "measurement": "First evaluated checkpoint meeting the success threshold, one value per training run; source does not supply seed identifiers here.",
+    "environment_steps": {"CAST": [128000, 160000, 160000], "DICE-RL": [224000, 240000, 256000]},
+    "endpoint_environment_steps": 496000,
+    "endpoint_success_percent": {"CAST": 95.9, "DICE-RL": 96.5}
+  },
+  "component_comparison": {
+    "measurement": "Task-level success aggregates transcribed from the component campaign. Individual training-seed outcomes are not available; points in the chart are tasks, not seeds.",
+    "units": "success percent",
+    "configurations": [
+      {"key": "none", "label": "No controls", "weak": false, "radial": false, "caps": false},
+      {"key": "clipping", "label": "Clipping only", "weak": false, "radial": false, "caps": true},
+      {"key": "radial", "label": "Radial restoration only", "weak": false, "radial": true, "caps": false},
+      {"key": "full", "label": "Full CAST", "weak": true, "radial": true, "caps": true}
+    ],
+    "tasks": [
+      {"name": "Red mug", "base": 57.3, "none": 0.0, "clipping": 0.0, "radial": 81.0, "full": 60.0},
+      {"name": "Ketchup", "base": 61.0, "none": 0.0, "clipping": 0.0, "radial": 38.7, "full": 62.7},
+      {"name": "Bowl", "base": 81.8, "none": 0.0, "clipping": 0.0, "radial": 80.7, "full": 84.0},
+      {"name": "Juice", "base": 78.5, "none": 0.0, "clipping": 0.0, "radial": 86.0, "full": 82.0},
+      {"name": "Right caddy", "base": 57.8, "none": 0.0, "clipping": 0.0, "radial": 42.3, "full": 63.0}
+    ]
+  }
+}

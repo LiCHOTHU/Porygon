@@ -1,0 +1,12 @@
+{
+  "status": "awaiting actual evaluation videos",
+  "proposed_slide": 6,
+  "proposed_duration_seconds": 9,
+  "timing": "Use the first nine seconds of slide 6, followed by the measured comparison; keep slide 6 at 28 seconds total.",
+  "clips": [
+    {"benchmark": "LIBERO", "seconds": 3, "video_path": null, "task": null, "policy": null, "checkpoint": null, "evaluation_seed": null, "input": "images", "reward": "sparse task success"},
+    {"benchmark": "robomimic", "seconds": 3, "video_path": null, "task": "square preferred", "policy": null, "checkpoint": null, "evaluation_seed": null, "input": "state", "reward": "sparse task success"},
+    {"benchmark": "DMC", "seconds": 3, "video_path": null, "task": null, "policy": null, "checkpoint": null, "evaluation_seed": null, "input": "state", "reward": "label the actual selected task's setting"}
+  ],
+  "comparison_guidance": "Use actual saved evaluations; match camera, playback speed and initial state when comparing methods. Label checkpoint progression only when actual checkpoint footage is available."
+}

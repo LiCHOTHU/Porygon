@@ -1,0 +1,66 @@
+{
+  "benchmark": "DMC",
+  "task": "cartpole / balance",
+  "reward_setting": "dense",
+  "kind": "scripted LQR controller in the actual DMC simulator",
+  "cast_evaluation": false,
+  "policy_checkpoint": null,
+  "seed": 285,
+  "initial_qpos": [
+    0,
+    0.2
+  ],
+  "frames": 360,
+  "fps": 30,
+  "duration_seconds": 12,
+  "control_timestep": 0.01,
+  "LQR_Q": [
+    [
+      3.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      35.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      2.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      4.0
+    ]
+  ],
+  "LQR_R": [
+    [
+      0.3
+    ]
+  ],
+  "LQR_K": [
+    [
+      -2.309661281619243,
+      -21.41676582378462,
+      -3.6239891032061107,
+      -5.892841827041947
+    ]
+  ],
+  "cart_reference": "x=0.55*sin(0.85*t); xdot=0.55*0.85*cos(0.85*t)",
+  "camera_id": 0,
+  "mujoco_version": "3.14.0",
+  "resolution": [
+    1280,
+    720
+  ],
+  "mean_reward_diagnostic_only": 0.9278670414682612,
+  "max_abs_pole_angle": 0.19946018476851277,
+  "source_url": "https://github.com/google-deepmind/dm_control"
+}

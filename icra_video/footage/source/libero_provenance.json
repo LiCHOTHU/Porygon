@@ -1,0 +1,23 @@
+{
+  "benchmark": "libero",
+  "kind": "recorded human demonstration; simulator-state replay",
+  "source_dataset": "/home/licho/workspace/imitation/data/libero/libero_90_unprocessed/LIVING_ROOM_SCENE5_put_the_red_mug_on_the_left_plate_demo.hdf5",
+  "source_sha256": "6d73840ba02f8f98c08668d948d1c731c660c6dd4fb0d6fc3f4a8a3bfa44f88c",
+  "episode": "demo_0",
+  "frames": 127,
+  "fps": 20,
+  "duration_seconds": 6.35,
+  "camera": "agentview; widescreen aspect ratio, original pose and vertical field of view",
+  "render_options": "visual meshes on; collision meshes and diagnostic sites hidden",
+  "resolution": [
+    1280,
+    720
+  ],
+  "mujoco_version": "3.8.1",
+  "asset_paths_relocated": 83,
+  "xml_compatibility_edits": [],
+  "states_replayed_exactly": true,
+  "policy_checkpoint": null,
+  "cast_evaluation": false,
+  "source_final_reward": 1.0
+}

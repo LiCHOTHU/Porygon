@@ -1,0 +1,249 @@
+{
+  "canvas_points": [
+    960,
+    540
+  ],
+  "video_canvas_pixels": [
+    1920,
+    1080
+  ],
+  "total_seconds": 180,
+  "slots": [
+    {
+      "id": "A01",
+      "slide": 2,
+      "kind": "animation",
+      "title": "Accumulated drift",
+      "brief": "Animate matched synthetic actions with clipping alone versus the exact CAST restoration and caps. Same base, critic, and step cap.",
+      "filename": "animations/A01_accumulated_drift.mp4",
+      "slide_start_seconds": 10,
+      "slide_duration_seconds": 20,
+      "box_points": [
+        42,
+        153,
+        604,
+        339
+      ],
+      "box_inches": [
+        0.58333,
+        2.125,
+        8.38889,
+        4.70833
+      ],
+      "suggested_pixels": [
+        1208,
+        678
+      ],
+      "pptx_shape_name": "MEDIA_A01_FRAME",
+      "status": "completed; embedded MP4 with poster",
+      "poster": "animations/posters/A01_accumulated_drift.png",
+      "playback_box_points": [
+        42.666666666666686,
+        153.0,
+        602.6666666666666,
+        339.0
+      ],
+      "pptx_video_shape_name": "MEDIA_A01_VIDEO"
+    },
+    {
+      "id": "A02",
+      "slide": 3,
+      "kind": "animation",
+      "title": "Paired residual actions",
+      "brief": "Reveal base actions and learned residual arrows for the same noise samples. Keep the base fixed.",
+      "filename": "animations/A02_paired_residuals.mp4",
+      "slide_start_seconds": 30,
+      "slide_duration_seconds": 15,
+      "box_points": [
+        468,
+        159,
+        450,
+        304
+      ],
+      "box_inches": [
+        6.5,
+        2.20833,
+        6.25,
+        4.22222
+      ],
+      "suggested_pixels": [
+        900,
+        608
+      ],
+      "pptx_shape_name": "MEDIA_A02_FRAME",
+      "status": "completed; embedded MP4 with poster",
+      "poster": "animations/posters/A02_paired_residuals.png",
+      "playback_box_points": [
+        468.0,
+        184.4375,
+        450.0,
+        253.125
+      ],
+      "pptx_video_shape_name": "MEDIA_A02_VIDEO"
+    },
+    {
+      "id": "A03",
+      "slide": 4,
+      "kind": "animation",
+      "title": "Construct the action target",
+      "brief": "Animate the normalized critic proposal, paired weak/radial restoration, and combined displacement cap. Restoration is evaluated at the current action.",
+      "filename": "animations/A03_cast_update.mp4",
+      "slide_start_seconds": 45,
+      "slide_duration_seconds": 25,
+      "box_points": [
+        342,
+        145,
+        576,
+        324
+      ],
+      "box_inches": [
+        4.75,
+        2.01389,
+        8.0,
+        4.5
+      ],
+      "suggested_pixels": [
+        1152,
+        648
+      ],
+      "pptx_shape_name": "MEDIA_A03_FRAME",
+      "status": "completed; embedded MP4 with poster",
+      "poster": "animations/posters/A03_cast_update.png",
+      "playback_box_points": [
+        342.0,
+        145.0,
+        576.0,
+        324.0
+      ],
+      "pptx_video_shape_name": "MEDIA_A03_VIDEO"
+    },
+    {
+      "id": "A04",
+      "slide": 5,
+      "kind": "animation",
+      "title": "Fit \u2192 refresh targets",
+      "brief": "Show fixed targets during regression; move the actor toward them, then recompute. Illustrate the soft restoration potential without claiming a hard policy-output bound.",
+      "filename": "animations/A04_regress_refresh.mp4",
+      "slide_start_seconds": 70,
+      "slide_duration_seconds": 22,
+      "box_points": [
+        42,
+        150,
+        494,
+        292
+      ],
+      "box_inches": [
+        0.58333,
+        2.08333,
+        6.86111,
+        4.05556
+      ],
+      "suggested_pixels": [
+        988,
+        584
+      ],
+      "pptx_shape_name": "MEDIA_A04_FRAME",
+      "status": "completed; embedded MP4 with poster",
+      "poster": "animations/posters/A04_regress_refresh.png",
+      "playback_box_points": [
+        42.0,
+        157.0625,
+        494.0,
+        277.875
+      ],
+      "pptx_video_shape_name": "MEDIA_A04_VIDEO"
+    },
+    {
+      "id": "A05",
+      "slide": 6,
+      "kind": "animation",
+      "title": "Measured restoration ablation",
+      "brief": "Animate equal-status bars for the base and four component configurations using the five-task mean success from the submitted paper. This is an aggregate comparison, not a learning curve.",
+      "filename": "animations/A05_measured_learning_progress.mp4",
+      "slide_start_seconds": 92,
+      "slide_duration_seconds": 28,
+      "box_points": [
+        42,
+        147,
+        463,
+        303
+      ],
+      "box_inches": [
+        0.58333,
+        2.04167,
+        6.43056,
+        4.20833
+      ],
+      "suggested_pixels": [
+        926,
+        606
+      ],
+      "pptx_shape_name": "MEDIA_A05_FRAME",
+      "status": "completed; embedded MP4 with poster",
+      "poster": "animations/posters/A05_measured_learning_progress.png",
+      "playback_box_points": [
+        42.0,
+        168.28125,
+        463.0,
+        260.4375
+      ],
+      "pptx_video_shape_name": "MEDIA_A05_VIDEO"
+    },
+    {
+      "id": "V01",
+      "slide": 8,
+      "kind": "robot_video",
+      "title": "Autonomous placement",
+      "brief": "Insert an actual autonomous placement rollout. Current still is a labeled teleoperated illustration, not a CAST evaluation.",
+      "filename": "animations/V01_jigglypuff_autonomous.mp4",
+      "slide_start_seconds": 136,
+      "slide_duration_seconds": 16,
+      "box_points": [
+        42,
+        151,
+        542,
+        305
+      ],
+      "box_inches": [
+        0.58333,
+        2.09722,
+        7.52778,
+        4.23611
+      ],
+      "suggested_pixels": [
+        1084,
+        610
+      ],
+      "pptx_shape_name": "MEDIA_V01_FRAME",
+      "status": "reserved; no completed animation or autonomous footage embedded"
+    },
+    {
+      "id": "V02",
+      "slide": 9,
+      "kind": "robot_video",
+      "title": "Autonomous stacking",
+      "brief": "Insert an actual autonomous stacking rollout showing release and stable final stack. Current still is teleoperated; no per-method clip is available here.",
+      "filename": "animations/V02_stack_autonomous.mp4",
+      "slide_start_seconds": 152,
+      "slide_duration_seconds": 20,
+      "box_points": [
+        42,
+        151,
+        542,
+        305
+      ],
+      "box_inches": [
+        0.58333,
+        2.09722,
+        7.52778,
+        4.23611
+      ],
+      "suggested_pixels": [
+        1084,
+        610
+      ],
+      "pptx_shape_name": "MEDIA_V02_FRAME",
+      "status": "reserved; no completed animation or autonomous footage embedded"
+    }
+  ]
+}

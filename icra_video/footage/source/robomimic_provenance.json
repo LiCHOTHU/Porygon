@@ -1,0 +1,23 @@
+{
+  "benchmark": "robomimic",
+  "kind": "recorded human demonstration; simulator-state replay",
+  "source_dataset": "/tmp/icra-video-raw/square_ph_low_dim.hdf5",
+  "source_sha256": "aa3cef7b7f9ba6ba8c25a5d1a690d06b2468b55e3a0999ab6e3c188c800355d9",
+  "episode": "demo_0",
+  "frames": 127,
+  "fps": 20,
+  "duration_seconds": 6.35,
+  "camera": "agentview; widescreen aspect ratio, original pose and vertical field of view",
+  "render_options": "visual meshes on; collision meshes and diagnostic sites hidden",
+  "resolution": [
+    1280,
+    720
+  ],
+  "mujoco_version": "3.8.1",
+  "asset_paths_relocated": 30,
+  "xml_compatibility_edits": [],
+  "states_replayed_exactly": true,
+  "policy_checkpoint": null,
+  "cast_evaluation": false,
+  "source_final_reward": 1.0
+}

@@ -1,0 +1,151 @@
+{
+  "title": "CAST \u2014 Anchoring Critic-Guided Fine-Tuning of Generative Robot Policies",
+  "aspect_ratio": "16:9",
+  "total_duration_seconds": 180,
+  "method_duration_seconds": 120,
+  "robot_duration_seconds": 60,
+  "slides": [
+    {
+      "id": "01",
+      "start": 0,
+      "duration": 10,
+      "section": "The idea",
+      "title": "Improve the skill. Keep what works.",
+      "narration": "A robot can position an object correctly, yet fail at release. CAST improves the skill while preserving behavior that already works.",
+      "slots": [],
+      "sources": [
+        "sections/01_introduction.tex"
+      ]
+    },
+    {
+      "id": "02",
+      "start": 10,
+      "duration": 20,
+      "section": "Why anchoring matters",
+      "title": "Small steps can still drift.",
+      "narration": "A critic predicts which actions are valuable. Here, its predictions favor actions far from the useful region. Watch the action distributions shift during optimization. Clipping keeps each correction small, but repeated corrections still drift. CAST restores toward the frozen base while allowing a useful adjustment. This is an illustrative toy example.",
+      "slots": [
+        "A01"
+      ],
+      "sources": [
+        "sections/03_problem_statement.tex",
+        "sections/04_analysis.tex"
+      ]
+    },
+    {
+      "id": "03",
+      "start": 30,
+      "duration": 15,
+      "section": "Policy architecture",
+      "title": "Freeze the base. Learn a correction.",
+      "narration": "We freeze the generative policy and learn an additive residual. The same observation and noise pair each current action with its base action, giving corrections a consistent reference without policy likelihoods.",
+      "slots": [
+        "A02"
+      ],
+      "sources": [
+        "sections/03_problem_statement.tex",
+        "sections/04_method.tex"
+      ]
+    },
+    {
+      "id": "04",
+      "start": 45,
+      "duration": 25,
+      "section": "Construct the target",
+      "title": "Propose. Restore. Limit the step.",
+      "narration": "First, the critic proposes an improvement. We normalize and cap its gradient, then scale the proposal. A weak pull always points toward the paired base action. Beyond a soft reference radius, an additional radial pull becomes active. We add these fields and cap the final step from the current action. The resulting target teaches the residual policy.",
+      "slots": [
+        "A03"
+      ],
+      "sources": [
+        "sections/04_method.tex"
+      ]
+    },
+    {
+      "id": "05",
+      "start": 70,
+      "duration": 22,
+      "section": "Learn and repeat",
+      "title": "A soft reference, learned through fixed targets.",
+      "narration": "The squares are fixed targets. The white actor learns to match them by regression; its fitting error decreases. Then we construct new targets and repeat. Restoration corresponds to a penalty on departure from the base. With clipping inactive, the first regression gradient follows regularized critic optimization. The reference stays soft, leaving room to improve.",
+      "slots": [
+        "A04"
+      ],
+      "sources": [
+        "sections/04_method.tex",
+        "sections/04_analysis.tex"
+      ]
+    },
+    {
+      "id": "06",
+      "start": 92,
+      "duration": 28,
+      "section": "Simulation evidence",
+      "title": "Reach useful performance with less experience.",
+      "narration": "These task demonstrations show visual LIBERO manipulation, state-based robomimic, and DMC control. They illustrate the environments. On robomimic square, CAST reaches ninety percent success with thirty-eight percent fewer environment steps. In the five-task LIBERO ablation, both updates without restoration reach zero success. Full CAST improves all five tasks over the base, although radial restoration alone is better on two.",
+      "slots": [
+        "A05"
+      ],
+      "sources": [
+        "sections/05_experiments.tex",
+        "sections/tables/05_ablations.tex",
+        "figures/experiment_chart_data.json"
+      ]
+    },
+    {
+      "id": "07",
+      "start": 120,
+      "duration": 16,
+      "section": "Real robot \u2014 setup",
+      "title": "From recorded experience to robot execution.",
+      "narration": "We evaluate OpenArm with chest and wrist cameras, joint state, and a parallel gripper. A flow-matching policy predicts action chunks. Refinement trains offline on recorded successes and failures, then we evaluate placement and stacking autonomously on a staircase scene.",
+      "slots": [],
+      "sources": [
+        "sections/05_real_robot.tex",
+        "sections/05_experimental_supplement.tex"
+      ]
+    },
+    {
+      "id": "08",
+      "start": 136,
+      "duration": 16,
+      "section": "Real robot \u2014 placement",
+      "title": "Place accurately across changing heights.",
+      "narration": "Placement requires putting the toy fully inside the case. CAST raises success from fifty-five to ninety-five percent, compared with eighty percent for BC refinement and ninety percent for DICE-RL, all starting from the same base.",
+      "slots": [
+        "V01"
+      ],
+      "sources": [
+        "sections/05_real_robot.tex",
+        "real_robot_results.json"
+      ]
+    },
+    {
+      "id": "09",
+      "start": 152,
+      "duration": 20,
+      "section": "Real robot \u2014 stacking",
+      "title": "Preserve the approach. Improve the finish.",
+      "narration": "Stacking requires alignment and a clean release. A common observed failure is reaching the correct position without releasing the cube. The failed outcome does not mean every preceding action was wrong. CAST reaches seventy percent success, versus thirty-five for the base, sixty-five for BC refinement, and sixty for DICE-RL.",
+      "slots": [
+        "V02"
+      ],
+      "sources": [
+        "sections/05_real_robot.tex",
+        "real_robot_results.json"
+      ]
+    },
+    {
+      "id": "10",
+      "start": 172,
+      "duration": 8,
+      "section": "Takeaway",
+      "title": "Improve the skill. Keep a persistent reference.",
+      "narration": "CAST combines critic guidance, soft restoration, and bounded target steps: improve the skill while keeping a persistent reference.",
+      "slots": [],
+      "sources": [
+        "sections/06_conclusion.tex"
+      ]
+    }
+  ]
+}
