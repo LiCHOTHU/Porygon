@@ -1,0 +1,31 @@
+{
+  "clip": "dmc_walker_run_learning",
+  "benchmark": "DMC",
+  "domain": "walker",
+  "task": "run",
+  "kind": "learning progress: three training stages, early -> mid -> final",
+  "policy_checkpoint": "/storage/cedar/cedar0/cedarp-agarg35-0/liquan.w/imitation_scratch/dmc_base/sac_walker_run.pt",
+  "stages": [
+    {
+      "stage": "EARLY  (start of training)",
+      "snapshot": 0,
+      "return_over_clip": 77.0
+    },
+    {
+      "stage": "MID-TRAINING",
+      "snapshot": 2,
+      "return_over_clip": 113.5
+    },
+    {
+      "stage": "FINAL  (converged)",
+      "snapshot": "final",
+      "return_over_clip": 127.4
+    }
+  ],
+  "fps": 30,
+  "seconds_per_stage": 6.0,
+  "resolution": [
+    640,
+    480
+  ]
+}

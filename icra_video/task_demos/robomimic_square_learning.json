@@ -1,0 +1,15 @@
+{
+  "clip": "robomimic_square_learning",
+  "benchmark": "robomimic",
+  "task": "square (nut-assembly / peg insertion)",
+  "kind": "learning progression: CAST policy rolled out at 3 training checkpoints, early -> mid -> final",
+  "cast_evaluation": true,
+  "stages": [
+    {"stage": "EARLY",  "checkpoint": "model_step_2000",  "result": "fails the insertion (runs full episode)"},
+    {"stage": "MID",    "checkpoint": "model_step_16000", "result": "task solved"},
+    {"stage": "FINAL",  "checkpoint": "model_step_31000", "result": "reliable success (~94%)"}
+  ],
+  "run": "newbase_CASTv2_s42 (CAST on square)",
+  "resolution": [256, 256],
+  "note": "real CAST policy rollouts in the robomimic simulator"
+}

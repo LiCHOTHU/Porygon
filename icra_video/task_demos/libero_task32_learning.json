@@ -1,0 +1,24 @@
+{
+  "clip": "libero_task32_learning",
+  "benchmark": "LIBERO-90",
+  "task": "task 32",
+  "kind": "2-stage before/after: frozen base vs CAST-finetuned policy, same initial state",
+  "stages": [
+    {
+      "stage": "FROZEN BASE",
+      "result": "fails",
+      "note": "base success rate ~0.60"
+    },
+    {
+      "stage": "CAST (ours)",
+      "result": "succeeds",
+      "note": "base + trained residual"
+    }
+  ],
+  "resolution": [
+    384,
+    440
+  ],
+  "fps": 20,
+  "source": "real policy rollouts in the LIBERO simulator (agentview camera)"
+}
