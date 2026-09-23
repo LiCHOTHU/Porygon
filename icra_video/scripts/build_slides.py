@@ -12,6 +12,7 @@ import re
 import subprocess
 import sys
 import textwrap
+from build_voiceover import cue_notes, write_voiceover_documents
 
 # Optional temporary dependency directory; normal virtualenv installs also work.
 DEPS = Path(os.environ.get('ICRA_VIDEO_DEPS', '/tmp/icra-video-deps'))
@@ -227,7 +228,7 @@ class Deck:
         self.pdf.setFillColor(HexColor(BG)); self.pdf.rect(0,0,W,H,fill=1,stroke=0)
         self.pdf.bookmarkPage(item['id']); self.pdf.addOutlineEntry(item['title'],item['id'])
         self.text(42,24,670,18,item['section'].upper(),11,TEAL,bold=True)
-        phase='IDEA + METHOD' if item['start']<120 else 'REAL ROBOT'
+        phase='IDEA + METHOD' if int(item['id'])<=6 else 'REAL ROBOT'
         self.text(748,24,170,18,phase,10,MUTED,align='right')
         if self.num!=1 and self.num!=10:
             self.text(42,62,876,79,item['title'],31,WHITE,bold=True)
@@ -259,10 +260,11 @@ class Deck:
         self.text(42,512,760,15,'CAST  /  ICRA 2027 supplementary video',9,MUTED)
         self.text(858,512,60,15,f"{self.num:02d} / 10",9,MUTED,align='right')
         self.rect(0,536,W,4,CARD)
-        self.rect(0,536,W*(item['start']+item['duration'])/180,4,TEAL)
+        self.rect(0,536,W*(item['start']+item['duration'])/STORY['total_duration_seconds'],4,TEAL)
         slot_notes='\n'.join(f"{s['id']}: {s['brief']}" for s in SLOTS if s['slide']==self.num)
         notes=(f"{timecode(item['start'])}–{timecode(item['start']+item['duration'])} | {item['duration']} seconds\n\n"
-               f"NARRATION\n{item['narration']}\n\nVISUAL CUES\n{slot_notes or 'Static slide; no animation required.'}\n\n"
+               f"NARRATION\n{item['narration']}\n\nTIMED DELIVERY CUES (DIRECTIONS ARE NOT SPOKEN)\n{cue_notes(item)}\n\n"
+               f"VISUAL CUES\n{slot_notes or 'Static slide; no animation required.'}\n\n"
                f"SOURCES\n"+'\n'.join('_ICRA_2027__CAST/'+s for s in item['sources']))
         self.slide.notes_slide.notes_text_frame.text=notes
         trans=OxmlElement('p:transition'); trans.set('advClick','1'); trans.set('advTm',str(item['duration']*1000))
@@ -374,28 +376,11 @@ def make_slides(d):
     d.text(737,381,151,25,'Current action',14,GRAY)
     d.finish()
 
-    # 04 — exact target-construction geometry, awaiting animation.
+    # 04 — full-frame animated Figure 2; math stays readable in focus shots.
     d.begin(STORY['slides'][3])
-    note_card(d,43,154,274,'1  Critic guidance','Normalize and cap the proposal; then scale it.',ORANGE,89)
-    note_card(d,43,257,274,'2  Restoration','Weak pull + stronger pull beyond the reference radius.',TEAL,96)
-    note_card(d,43,367,274,'3  Combined cap','Limit the final target step from the current action.',BLUE,95)
-    d.slot('A03',342,145,576,324,'Construct the action target','Animate the normalized critic proposal, paired weak/radial restoration, and combined displacement cap. Restoration is evaluated at the current action.','animations/A03_cast_update.mp4')
-    base=(442,345); current=(584,296)
-    d.ellipse(base[0]-65,base[1]-65,130,130,None,BLUE,1)
-    d.ellipse(current[0]-60,current[1]-60,120,120,None,MUTED,1)
-    point(d,*base,BLUE,6); point(d,*current,GRAY,6)
-    d.line(*base,*current,BLUE,1,dash=True)
-    proposed=(746,233); restored=(683,255); target=(639,273)
-    d.arrow(*current,*proposed,ORANGE,3)
-    d.arrow(*proposed,*restored,TEAL,3)
-    d.arrow(*current,*target,TEAL,3)
-    point(d,*target,TEAL,7)
-    d.text(386,415,120,20,'Paired base',14,BLUE)
-    d.text(559,370,158,23,'Current action',14,MUTED)
-    d.text(702,194,163,25,'Critic proposal',14,ORANGE)
-    d.text(743,280,150,43,'Restoring\ncorrection',14,TEAL)
-    d.text(649,325,182,25,'Capped target',15,TEAL,bold=True)
-    d.text(351,480,558,25,'Targets are constrained; fitted outputs are not hard-bounded.',13,MUTED,align='center')
+    d.slot('A03',0,0,960,540,'Animated Figure 2: sample → propose → constrain → fit',
+           'Reuse the submitted figure samples and vectors. Reveal the matching equations and zoom into each clockwise stage. Show the raw critic request contracting to the critic cap, then restoration and total clipping around the current action.',
+           'animations/A03_cast_update.mp4')
     d.finish()
 
     # 05 — fit/refresh and an explanatory penalty curve.
@@ -423,7 +408,7 @@ def make_slides(d):
 
     # 06 — no fabricated training curves; measured threshold comparison stays visible.
     d.begin(STORY['slides'][5])
-    d.slot('A05',42,147,463,303,'Benchmark tasks and measured ablation','First nine seconds: LIBERO and robomimic human demonstration replays, then DMC with a scripted controller. Remaining nineteen seconds: the unchanged measured five-task LIBERO component comparison. Task footage illustrates the environments.','footage/A05_environments_and_results.mp4' if (ROOT/'footage/A05_environments_and_results.mp4').exists() else 'animations/A05_measured_learning_progress.mp4')
+    d.slot('A05',42,147,463,303,'Benchmark tasks and measured ablation','First nine seconds: LIBERO and robomimic human demonstration replays, then DMC with a scripted controller. Remaining twenty-one seconds: the unchanged measured five-task LIBERO component comparison. Task footage illustrates the environments.','footage/A05_environments_and_results.mp4' if (ROOT/'footage/A05_environments_and_results.mp4').exists() else 'animations/A05_measured_learning_progress.mp4')
     d.text(69,197,409,27,'Success over training',19,WHITE,bold=True)
     d.line(89,379,468,379,LINE,1); d.line(89,246,89,379,LINE,1)
     d.line(89,263,468,263,LINE,1,dash=True)
@@ -490,15 +475,15 @@ def make_slides(d):
 
 
 def write_documents():
-    assert sum(s['duration'] for s in STORY['slides'])==180
-    assert sum(s['duration'] for s in STORY['slides'] if s['start']<120)==120
+    assert sum(s['duration'] for s in STORY['slides'])==STORY['total_duration_seconds']<=180
+    assert sum(s['duration'] for s in STORY['slides'][:6])==STORY['method_duration_seconds']
     expected=0
     for s in STORY['slides']:
         assert s['start']==expected
         expected+=s['duration']
-    (ROOT/'animation_manifest.json').write_text(json.dumps({'canvas_points':[W,H],'video_canvas_pixels':[1920,1080],'total_seconds':180,'slots':SLOTS},indent=2)+'\n')
+    (ROOT/'animation_manifest.json').write_text(json.dumps({'canvas_points':[W,H],'video_canvas_pixels':[1920,1080],'total_seconds':STORY['total_duration_seconds'],'slots':SLOTS},indent=2)+'\n')
     (ROOT/'layout_manifest.json').write_text(json.dumps(BOUNDS,indent=2)+'\n')
-    lines=['# CAST — three-minute narration and edit plan','', 'The first 120 seconds explain the idea, method, and simulation evidence. The final 60 seconds cover the real robot and takeaway. Timings are embedded in the PowerPoint. These are draft readings, not a recorded voiceover.','', '| Slide | Time | Duration | Topic | Media |','|---|---|---:|---|---|']
+    lines=['# CAST — three-minute narration and edit plan','', 'The first 96 seconds explain the idea, method, and simulation evidence. The final 60 seconds cover the real robot and takeaway. The current 156-second draft leaves 24 seconds for incoming simulation footage within the three-minute limit. Timings are embedded in the PowerPoint. These are draft readings, not a recorded voiceover.','', '| Slide | Time | Duration | Topic | Media |','|---|---|---:|---|---|']
     for s in STORY['slides']:
         lines.append(f"| {s['id']} | {timecode(s['start'])}–{timecode(s['start']+s['duration'])} | {s['duration']} s | {s['title']} | {', '.join(s['slots']) or 'Static'} |")
     lines+=['','## Narration and sources','']
@@ -509,6 +494,7 @@ def write_documents():
             if slot['slide']==int(s['id']): lines += [f"**{slot['id']} cue:** {slot['brief']}",'']
     lines += ['## Protocol counts awaiting author confirmation','', 'The main physical section says 80 stacking pretraining demonstrations and 30 evaluation attempts. The bundled supplement and result figure retain approximately 60 and 20. This deck deliberately omits those counts. It preserves the reported success percentages (55/80/90/95 for placement; 35/65/60/70 for stacking), rather than inventing new 30-trial counts.','', 'Demonstration stills illustrate the scene only. Replace V01/V02 with correctly attributed autonomous footage before final video export.','']
     (ROOT/'narration.md').write_text('\n'.join(lines))
+    write_voiceover_documents(STORY)
 
 
 def render_previews():
@@ -529,7 +515,7 @@ def main():
     for rel in ['assets/math','previews']:(ROOT/rel).mkdir(parents=True,exist_ok=True)
     d=Deck(); make_slides(d); d.save(); write_documents()
     if not args.no_preview: render_previews()
-    print('Built 10 editable slides and PDF: 180 seconds (120 method + 60 robot).')
+    print(f"Built 10 editable slides and PDF: {STORY['total_duration_seconds']} seconds; {180-STORY['total_duration_seconds']} seconds remain within the three-minute budget.")
     print(f"Embedded {sum(s['status'].startswith('completed') for s in SLOTS)} animations; remaining media slots stay reserved.")
     print('Narration words:',sum(len(s['narration'].split()) for s in STORY['slides']))
 

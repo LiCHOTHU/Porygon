@@ -1,0 +1,37 @@
+;FFMETADATA1
+title=CAST — paper explanation
+[CHAPTER]
+TIMEBASE=1/1000
+START=0
+END=6000
+title=The idea
+[CHAPTER]
+TIMEBASE=1/1000
+START=6000
+END=18000
+title=Why anchoring matters
+[CHAPTER]
+TIMEBASE=1/1000
+START=18000
+END=26000
+title=Policy architecture
+[CHAPTER]
+TIMEBASE=1/1000
+START=26000
+END=56000
+title=Method and equations
+[CHAPTER]
+TIMEBASE=1/1000
+START=56000
+END=66000
+title=Learn and repeat
+[CHAPTER]
+TIMEBASE=1/1000
+START=66000
+END=96000
+title=Simulation evidence
+[CHAPTER]
+TIMEBASE=1/1000
+START=96000
+END=104000
+title=Takeaway

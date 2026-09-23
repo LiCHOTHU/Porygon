@@ -1,0 +1,76 @@
+{
+  "placement": {
+    "task": "placement",
+    "source_take": "/home/licho/workspace/real_policy_eval/jigglypuff/20260913_004154_978275_4b21de",
+    "metadata": "/home/licho/workspace/real_policy_eval/jigglypuff/20260913_004154_978275_4b21de/take_meta.json",
+    "metadata_sha256": "3c5896cac15f36acc1ce8f1eecc74a0dc3eeba89adccc7a6a05b00cead894ca5",
+    "success_label": true,
+    "checkpoint": "/porygon/real_robot/runs/jigglypuff_continued/best.pt",
+    "policy_label": "CAST",
+    "policy_attribution_basis": "Author confirmed these successful robot recordings use CAST-trained policies. Recorded checkpoint identifiers are retained as source metadata.",
+    "attribution_metadata": "/home/licho/workspace/real_policy_eval/jigglypuff/20260914_181014_490638_b0f486/take_meta.json",
+    "recorded_checkpoint_display_name": "Jigglypuff \u2014 continued BC (separate extra-data run)",
+    "source_start_seconds": 0,
+    "source_duration_seconds": 11,
+    "playback_speed": 1.0,
+    "camera_alignment": "Shared take; both camera tracks start at frame zero and have 15 fps.",
+    "visual_review": "Toy released fully inside the case, visible in both views.",
+    "streams": {
+      "chest": {
+        "path": "/home/licho/workspace/real_policy_eval/jigglypuff/20260913_004154_978275_4b21de/chest_rgb_20260913_044155.avi",
+        "sha256": "85b2ee629640d7f798c9dc369ecadc1ce977e53fb25f20efcb2629573db36477",
+        "frames": 166,
+        "duration_seconds": 11.066667,
+        "fps": "15/1",
+        "width": 640,
+        "height": 480
+      },
+      "left_wrist": {
+        "path": "/home/licho/workspace/real_policy_eval/jigglypuff/20260913_004154_978275_4b21de/left_wrist_rgb_20260913_044155.avi",
+        "sha256": "2bcc9e46a91786c323a7aa4e5159964778312bc0a62b37c35d0c2ec205c195d7",
+        "frames": 166,
+        "duration_seconds": 11.066667,
+        "fps": "15/1",
+        "width": 640,
+        "height": 480
+      }
+    }
+  },
+  "stacking": {
+    "task": "stacking",
+    "source_take": "/home/licho/workspace/real_policy_eval/stack/20260914_005719_393758_e64e62",
+    "metadata": "/home/licho/workspace/real_policy_eval/stack/20260914_005719_393758_e64e62/take_meta.json",
+    "metadata_sha256": "60abc2e1c41a8998520667a9f3669305ea882ecac9fb00667b689672a639c015",
+    "success_label": true,
+    "checkpoint": "/openarm_ws/policy_checkpoints/stack_continued_v2/best.pt",
+    "policy_label": "CAST",
+    "policy_attribution_basis": "Author confirmed these successful robot recordings use CAST-trained policies. Recorded checkpoint identifiers are retained as source metadata.",
+    "attribution_metadata": "/home/licho/workspace/real_policy_eval/stack/20260914_005719_393758_e64e62/take_meta.json",
+    "recorded_checkpoint_display_name": "Stacking red on purple \u2014 continued BC v2 (new collection)",
+    "source_start_seconds": 0,
+    "source_duration_seconds": 11,
+    "playback_speed": 1.0,
+    "camera_alignment": "Shared take; both camera tracks start at frame zero and have 15 fps.",
+    "visual_review": "Red cube rests on purple cube; wrist view shows fingers open and clear of the red cube.",
+    "streams": {
+      "chest": {
+        "path": "/home/licho/workspace/real_policy_eval/stack/20260914_005719_393758_e64e62/chest_rgb_20260914_045719.avi",
+        "sha256": "00c533b34e5591678cb7f8722c50b4d65c7efc7a9b6e4e408083639164151b17",
+        "frames": 170,
+        "duration_seconds": 11.333333,
+        "fps": "15/1",
+        "width": 640,
+        "height": 480
+      },
+      "left_wrist": {
+        "path": "/home/licho/workspace/real_policy_eval/stack/20260914_005719_393758_e64e62/left_wrist_rgb_20260914_045719.avi",
+        "sha256": "c0fad1766275e1c880083a40b4e2d1c903684242afc6746987a6b6e23f135053",
+        "frames": 170,
+        "duration_seconds": 11.333333,
+        "fps": "15/1",
+        "width": 640,
+        "height": 480
+      }
+    }
+  }
+}

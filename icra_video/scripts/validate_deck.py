@@ -12,8 +12,8 @@ story=json.loads((ROOT/'storyboard.json').read_text())
 manifest=json.loads((ROOT/'animation_manifest.json').read_text())
 prs=Presentation(ROOT/'cast_video_slides.pptx')
 assert len(prs.slides)==10
-assert sum(s['duration'] for s in story['slides'])==180
-assert story['slides'][6]['start']==120
+assert sum(s['duration'] for s in story['slides'])==story['total_duration_seconds']<=180
+assert story['slides'][6]['start']==story['method_duration_seconds']==96
 assert len(manifest['slots'])==7
 assert [s['id'] for s in manifest['slots']]==['A01','A02','A03','A04','A05','V01','V02']
 for i,(slide,item) in enumerate(zip(prs.slides,story['slides']),1):
@@ -36,6 +36,6 @@ info=subprocess.check_output(['pdfinfo',str(ROOT/'cast_video_slides.pdf')],text=
 assert 'Pages:           10' in info
 for image in sorted((ROOT/'previews').glob('slide-*.png')):
     assert Image.open(image).size==(1920,1080)
-checks=['10 slides / 180 seconds','120-second method segment / 60-second robot segment','All narration under 160 words per minute','Speaker notes and automatic slide timings present','Seven named media containers; five completed animation clips and two robot-video reservations','All shapes within slide bounds','Source measurement files unchanged','10-page PDF and 1920×1080 slide previews']
+checks=['10 slides / 156 seconds; 24 seconds available within the three-minute limit','96-second method and simulation segment / 60-second robot segment','All narration under 160 words per minute','Speaker notes and automatic slide timings present','Seven named media containers; five completed animation clips and two robot-video reservations','All shapes within slide bounds','Source measurement files unchanged','10-page PDF and 1920×1080 slide previews']
 (ROOT/'VALIDATION.md').write_text('# Build validation\n\n'+''.join('- Passed: '+s+'\n' for s in checks)+'\nPDF previews are rendered from the same layout primitives as the editable PowerPoint. Native PowerPoint playback was not available in this environment.\n')
 print('\n'.join('PASS: '+s for s in checks))

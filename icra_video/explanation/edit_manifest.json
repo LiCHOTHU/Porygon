@@ -1,0 +1,305 @@
+{
+  "title": "CAST \u2014 paper explanation",
+  "duration_seconds": 104,
+  "maximum_final_duration_seconds": 180,
+  "remaining_footage_budget_seconds": 76,
+  "insert_rollouts_before_closing_at_seconds": 96,
+  "audio": "No narration recorded; ready for the author\u2019s voiceover.",
+  "source_storyboard": "../storyboard.json",
+  "slides": [
+    {
+      "id": "01",
+      "start": 0,
+      "duration": 6,
+      "section": "The idea",
+      "title": "Improve the skill. Keep what works.",
+      "narration": "We introduce CAST, which improves robot skills while keeping the original policy as a reference.",
+      "slots": [],
+      "sources": [
+        "sections/01_introduction.tex"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 6,
+          "visual": "Title and OpenArm scene; introduce the problem.",
+          "text": "We introduce CAST, which improves robot skills while keeping the original policy as a reference."
+        }
+      ],
+      "source_slide_id": "01",
+      "source_start": 0,
+      "segment": "segments/01_slide_01.mp4",
+      "media_sources": []
+    },
+    {
+      "id": "02",
+      "start": 6,
+      "duration": 12,
+      "section": "Why anchoring matters",
+      "title": "Small steps can still drift.",
+      "narration": "This matters because the critic can misjudge which actions are better. As orange shows, even small updates can drift away. CAST pulls back, as green shows.",
+      "slots": [
+        "A01"
+      ],
+      "sources": [
+        "sections/03_problem_statement.tex",
+        "sections/04_analysis.tex"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 5,
+          "visual": "A01: the toy critic curve predicts which actions are valuable.",
+          "text": "This matters because the critic can misjudge which actions are better."
+        },
+        {
+          "start": 5,
+          "end": 9,
+          "visual": "Orange: repeated clipped updates drift away from the blue base.",
+          "text": "As orange shows, even small updates can drift away."
+        },
+        {
+          "start": 9,
+          "end": 12,
+          "visual": "Green: restoration keeps the updated policy near the base.",
+          "text": "CAST pulls back, as green shows."
+        }
+      ],
+      "source_slide_id": "02",
+      "source_start": 6,
+      "segment": "segments/02_slide_02.mp4",
+      "media_sources": [
+        "explanation/animations/A01_accumulated_drift.mp4"
+      ]
+    },
+    {
+      "id": "03",
+      "start": 18,
+      "duration": 8,
+      "section": "Policy architecture",
+      "title": "Freeze the base. Learn a correction.",
+      "narration": "So we keep the original policy fixed and learn a correction. Each action keeps its own reference.",
+      "slots": [
+        "A02"
+      ],
+      "sources": [
+        "sections/03_problem_statement.tex",
+        "sections/04_method.tex"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 5,
+          "visual": "A02: frozen base plus learned residual; point to the sum.",
+          "text": "So we keep the original policy fixed and learn a correction."
+        },
+        {
+          "start": 5,
+          "end": 8,
+          "visual": "The paired samples share the same observation and noise.",
+          "text": "Each action keeps its own reference."
+        }
+      ],
+      "source_slide_id": "03",
+      "source_start": 18,
+      "segment": "segments/03_slide_03.mp4",
+      "media_sources": [
+        "explanation/animations/A02_paired_residuals.mp4"
+      ]
+    },
+    {
+      "id": "04",
+      "start": 26,
+      "duration": 30,
+      "section": "Method and equations",
+      "title": "CAST in four steps: animated Figure 2.",
+      "narration": "Here\u2019s one learning step. We first sample paired actions. Next, the critic proposes an improvement. We normalize, cap, and scale its gradient. We also pull toward the base, with a stronger pull beyond the reference radius. We combine these arrows and cap the target step around the current action. We then fit the correction to these fixed targets, and repeat the process.",
+      "slots": [
+        "A03"
+      ],
+      "sources": [
+        "sections/04_method.tex",
+        "sections/04_method_figure.tex",
+        "figures/method_update.npz",
+        "figures/method_update.json"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 2,
+          "visual": "A03: clockwise overview of Figure 2.",
+          "text": "Here\u2019s one learning step."
+        },
+        {
+          "start": 2,
+          "end": 5,
+          "visual": "Sample panel: base/current pairs and residual arrows.",
+          "text": "We first sample paired actions."
+        },
+        {
+          "start": 5,
+          "end": 11,
+          "visual": "Critic panel: normalized gradient appears, then contracts to its cap. Scaling follows the cap.",
+          "text": "Next, the critic proposes an improvement. We normalize, cap, and scale its gradient."
+        },
+        {
+          "start": 11,
+          "end": 14,
+          "visual": "Restoration panel: weak pull toward the paired base action.",
+          "text": "We also pull toward the base,"
+        },
+        {
+          "start": 14,
+          "end": 18,
+          "visual": "Additional radial restoration appears beyond the reference radius.",
+          "text": "with a stronger pull beyond the reference radius."
+        },
+        {
+          "start": 18,
+          "end": 24,
+          "visual": "Combine the vectors and clip around the CURRENT action. The circle bounds the target step.",
+          "text": "We combine these arrows and cap the target step around the current action."
+        },
+        {
+          "start": 24,
+          "end": 28,
+          "visual": "Fit panel: regression to fixed residual targets; squared-error equation.",
+          "text": "We then fit the correction to these fixed targets,"
+        },
+        {
+          "start": 28,
+          "end": 30,
+          "visual": "Return to the complete clockwise figure; leave a short breath.",
+          "text": "and repeat the process."
+        }
+      ],
+      "source_slide_id": "04",
+      "source_start": 26,
+      "segment": "segments/04_slide_04.mp4",
+      "media_sources": [
+        "explanation/animations/A03_cast_update.mp4"
+      ]
+    },
+    {
+      "id": "05",
+      "start": 56,
+      "duration": 10,
+      "section": "Learn and repeat",
+      "title": "A soft reference, learned through fixed targets.",
+      "narration": "The policy now learns to match the fixed green targets. We refresh them and repeat, while the soft pull leaves room to improve.",
+      "slots": [
+        "A04"
+      ],
+      "sources": [
+        "sections/04_method.tex",
+        "sections/04_analysis.tex"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 5,
+          "visual": "A04: the actor moves toward the fixed green squares; fitting error falls.",
+          "text": "The policy now learns to match the fixed green targets."
+        },
+        {
+          "start": 5,
+          "end": 7,
+          "visual": "The animation constructs fresh targets for another fitting round.",
+          "text": "We refresh them and repeat,"
+        },
+        {
+          "start": 7,
+          "end": 10,
+          "visual": "Right-hand curve: increasing restoration penalty, with a soft threshold.",
+          "text": "while the soft pull leaves room to improve."
+        }
+      ],
+      "source_slide_id": "05",
+      "source_start": 56,
+      "segment": "segments/05_slide_05.mp4",
+      "media_sources": [
+        "explanation/animations/A04_regress_refresh.mp4"
+      ]
+    },
+    {
+      "id": "06",
+      "start": 66,
+      "duration": 30,
+      "section": "Simulation evidence",
+      "title": "Reach useful performance with less experience.",
+      "narration": "We test this approach in LIBERO, robomimic, and DMC, covering manipulation and continuous control. On robomimic square, CAST reaches ninety percent success using thirty-eight percent fewer environment steps than DICE-RL. On five LIBERO tasks, updates with no controls or clipping alone have zero success. CAST improves every task over the base, although radial restoration alone is better on two.",
+      "slots": [
+        "A05"
+      ],
+      "sources": [
+        "sections/05_experiments.tex",
+        "sections/tables/05_ablations.tex",
+        "figures/experiment_chart_data.json"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 9,
+          "visual": "Three benchmark settings: LIBERO images/sparse rewards; robomimic state/sparse rewards; DMC continuous control/dense rewards.",
+          "text": "We test this approach in LIBERO, robomimic, and DMC, covering manipulation and continuous control."
+        },
+        {
+          "start": 9,
+          "end": 18,
+          "visual": "Read the right-hand robomimic square efficiency chart; the left-hand LIBERO bars finish appearing.",
+          "text": "On robomimic square, CAST reaches ninety percent success using thirty-eight percent fewer environment steps than DICE-RL."
+        },
+        {
+          "start": 18,
+          "end": 24,
+          "visual": "Left-hand LIBERO chart: no controls and clipping only both show zero. These are the five tested tasks.",
+          "text": "On five LIBERO tasks, updates with no controls or clipping alone have zero success."
+        },
+        {
+          "start": 24,
+          "end": 30,
+          "visual": "CAST improves over the base on every task; the displayed bars aggregate five tasks. Radial-only beats CAST on two individual tasks.",
+          "text": "CAST improves every task over the base, although radial restoration alone is better on two."
+        }
+      ],
+      "source_slide_id": "06",
+      "source_start": 66,
+      "segment": "segments/06_slide_06.mp4",
+      "media_sources": [
+        "explanation/assets/A05_explanation_results.mp4"
+      ]
+    },
+    {
+      "id": "07",
+      "start": 96,
+      "duration": 8,
+      "section": "Takeaway",
+      "title": "Improve the skill. Keep a persistent reference.",
+      "narration": "In short, we guide improvement, limit each target step, and keep the original skill as a reference.",
+      "slots": [],
+      "sources": [
+        "sections/06_conclusion.tex"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 4,
+          "visual": "Point through the three cards: critic guidance, soft restoration, bounded target steps.",
+          "text": "In short, we guide improvement, limit each target step,"
+        },
+        {
+          "start": 4,
+          "end": 8,
+          "visual": "Hold the closing title and project address.",
+          "text": "and keep the original skill as a reference."
+        }
+      ],
+      "source_slide_id": "10",
+      "source_start": 148,
+      "segment": "segments/07_slide_10.mp4",
+      "media_sources": []
+    }
+  ],
+  "footage": "No simulation or real-robot rollout video is included. The opener retains the labeled robot demonstration photograph.",
+  "style": "Academic: white canvas, dark text, restrained blue/orange/green, flat plots."
+}

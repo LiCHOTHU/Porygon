@@ -8,8 +8,8 @@ BG='#0D1827';WHITE='#F3F6FA';MUTED='#AFBDD0';TEAL='#42D7B4'
 FONT='/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 BOLD='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 ITEMS=[
- dict(id='libero',title='LIBERO',task='Red mug → left plate',source='libero_demonstration.mp4',label='Dataset demonstration',caption='Image-based manipulation · sparse task-success reward',start=3.35),
- dict(id='robomimic',title='robomimic',task='Square nut assembly',source='robomimic_demonstration.mp4',label='Dataset demonstration',caption='State-based manipulation · sparse task-success reward',start=3.35),
+ dict(id='libero',title='LIBERO',task='Red mug → left plate',source='libero_demonstration.mp4',label='Dataset demonstration',caption='Image-based manipulation · sparse task-success reward',start=3.3333333333333335),
+ dict(id='robomimic',title='robomimic',task='Square nut assembly',source='robomimic_demonstration.mp4',label='Dataset demonstration',caption='State-based manipulation · sparse task-success reward',start=3.3333333333333335),
  dict(id='dmc',title='DMC',task='Cartpole balance',source='dmc_cartpole_demonstration.mp4',label='Scripted controller',caption='Continuous control · dense reward',start=0),
 ]
 def run(cmd):subprocess.run(cmd,check=True)
@@ -33,7 +33,7 @@ def main():
             poster=OUT/'posters'/f'{ident}.jpg'
             run(['ffmpeg','-hide_banner','-loglevel','error','-y','-ss','3','-i',str(target),'-frames:v','1','-update','1',str(poster)])
             part=temp/f'{ident}.mp4';parts.append(part)
-            run(['ffmpeg','-hide_banner','-loglevel','error','-y','-ss',str(item['start']),'-i',str(target),'-t','3','-an','-r','30','-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p',str(part)])
+            run(['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(target),'-vf',f"trim=start_frame={round(item['start']*30)}:end_frame={round(item['start']*30)+90},setpts=PTS-STARTPTS",'-frames:v','90','-an','-r','30','-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p',str(part)])
             item.update(filename=target.name,poster=str(poster.relative_to(OUT)),duration_seconds=float(probe(target)['format']['duration']),montage_duration_seconds=3,playback_speed=1.0)
             print('Packaged',ident,flush=True)
         listing=temp/'parts.txt';listing.write_text(''.join(f"file '{p}'\n" for p in parts))
@@ -41,12 +41,12 @@ def main():
         run(['ffmpeg','-hide_banner','-loglevel','error','-y','-f','concat','-safe','0','-i',str(listing),'-c','copy','-movflags','+faststart',str(montage)])
         meta=probe(montage);assert abs(float(meta['format']['duration'])-9)<.04
         run(['ffmpeg','-hide_banner','-loglevel','error','-y','-ss','1.5','-i',str(montage),'-frames:v','1','-update','1',str(OUT/'posters/montage.jpg')])
-    # Keep the existing evidence slide at 28 seconds: 9 seconds of task context,
-    # then 19 seconds of the original measured ablation animation.
+    # Keep the existing evidence slide at 30 seconds: 9 seconds of task context,
+    # then 21 seconds of the original measured ablation animation.
     ablation=ROOT/'animations/A05_measured_learning_progress.mp4'
     if ablation.exists():
         composite=OUT/'A05_environments_and_results.mp4'
-        run(['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(OUT/'benchmark_task_montage.mp4'),'-i',str(ablation),'-filter_complex','[0:v]trim=duration=9,setpts=PTS-STARTPTS[v0];[1:v]trim=duration=19,setpts=PTS-STARTPTS[v1];[v0][v1]concat=n=2:v=1:a=0[out]','-map','[out]','-an','-r','30','-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-movflags','+faststart',str(composite)])
+        run(['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(OUT/'benchmark_task_montage.mp4'),'-i',str(ablation),'-filter_complex','[0:v]trim=duration=9,setpts=PTS-STARTPTS[v0];[1:v]trim=duration=21,setpts=PTS-STARTPTS[v1];[v0][v1]concat=n=2:v=1:a=0[out]','-map','[out]','-an','-r','30','-c:v','libx264','-preset','fast','-crf','18','-pix_fmt','yuv420p','-movflags','+faststart',str(composite)])
         shutil.copy2(ROOT/'animations/posters/A05_measured_learning_progress.png',OUT/'posters/A05_environments_and_results.png')
     record={'description':'Environment task illustrations: human demonstration state replays and a scripted DMC controller. These are not CAST policy evaluations.','montage':'benchmark_task_montage.mp4','duration_seconds':9,'clips':ITEMS}
     (OUT/'manifest.json').write_text(json.dumps(record,indent=2)+'\n')

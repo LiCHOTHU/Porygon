@@ -1,0 +1,22 @@
+scene,panel,output_start_seconds,output_end_seconds,output_start_frame,output_end_frame_exclusive,source_path,source_fps,source_start_seconds,source_end_seconds,source_start_frame,source_end_frame_exclusive,output_motion_end_seconds,last_frame_hold_seconds,speed_relative_to_source,policy_or_content
+01,Full scene,0,6,0,180,/home/licho/workspace/Porygon/icra_video/explanation/segments/01_slide_01.mp4,30,0,6,0,180,6.0,0,1,The idea
+02,Full scene,6,18,180,540,/home/licho/workspace/Porygon/icra_video/explanation/segments/02_slide_02.mp4,30,0,12,0,360,18.0,0,1,Why anchoring matters
+03,Full scene,18,26,540,780,/home/licho/workspace/Porygon/icra_video/explanation/segments/03_slide_03.mp4,30,0,8,0,240,26.0,0,1,Policy architecture
+04,Full scene,26,56,780,1680,/home/licho/workspace/Porygon/icra_video/explanation/segments/04_slide_04.mp4,30,0,30,0,900,56.0,0,1,Method and equations
+05,Full scene,56,66,1680,1980,/home/licho/workspace/Porygon/icra_video/explanation/segments/05_slide_05.mp4,30,0,10,0,300,66.0,0,1,Learn and repeat
+06,Frozen base,66,77,1980,2310,/home/licho/workspace/Porygon/icra_video/task_demos/libero_task32_learning.mp4,20,0.0,15.75,0,315,77.0,0,1.4318181818181819,Frozen base versus CAST
+06,CAST,66,77,1980,2310,/home/licho/workspace/Porygon/icra_video/task_demos/libero_task32_learning.mp4,20,15.75,25.15,315,503,75.4,1.6000000000000014,1.0,Frozen base versus CAST
+07,"Early · step 2,000",77,87,2310,2610,/home/licho/workspace/Porygon/icra_video/task_demos/robomimic_square_learning.mp4,20,0.0,20.7,0,414,87.0,0,2.07,CAST
+07,"Mid · step 16,000",77,87,2310,2610,/home/licho/workspace/Porygon/icra_video/task_demos/robomimic_square_learning.mp4,20,20.7,27.05,414,541,83.35,3.6499999999999986,1.0,CAST
+07,"Final · step 31,000",77,87,2310,2610,/home/licho/workspace/Porygon/icra_video/task_demos/robomimic_square_learning.mp4,20,27.05,33.25,541,665,83.2,3.8000000000000007,1.0,CAST
+08,Early,87,98,2610,2940,/home/licho/workspace/Porygon/icra_video/task_demos/dmc_walker_run_learning.mp4,20,0.0,12.7,0,254,98.0,0,1.1545454545454545,CAST
+08,Mid-training,87,98,2610,2940,/home/licho/workspace/Porygon/icra_video/task_demos/dmc_walker_run_learning.mp4,20,12.7,25.4,254,508,98.0,0,1.1545454545454545,CAST
+08,Final,87,98,2610,2940,/home/licho/workspace/Porygon/icra_video/task_demos/dmc_walker_run_learning.mp4,20,25.4,38.1,508,762,98.0,0,1.1545454545454545,CAST
+09,Full scene,98,119,2940,3570,/home/licho/workspace/Porygon/icra_video/explanation/segments/06_slide_06.mp4,30,9,30,270,900,119.0,0,1,Simulation evidence
+10,Static slide,119,135,3570,4050,/home/licho/workspace/Porygon/icra_video/supplementary/assets/setup.png,30,0,16,0,480,135.0,0,1,Real robot setup
+11,chest,135,146,4050,4380,/home/licho/workspace/real_policy_eval/jigglypuff/20260913_004154_978275_4b21de/chest_rgb_20260913_044155.avi,15,0,11,0,165,146.0,0,1.0,CAST
+11,left_wrist,135,146,4050,4380,/home/licho/workspace/real_policy_eval/jigglypuff/20260913_004154_978275_4b21de/left_wrist_rgb_20260913_044155.avi,15,0,11,0,165,146.0,0,1.0,CAST
+12,chest,146,157,4380,4710,/home/licho/workspace/real_policy_eval/stack/20260914_005719_393758_e64e62/chest_rgb_20260914_045719.avi,15,0,11,0,165,157.0,0,1.0,CAST
+12,left_wrist,146,157,4380,4710,/home/licho/workspace/real_policy_eval/stack/20260914_005719_393758_e64e62/left_wrist_rgb_20260914_045719.avi,15,0,11,0,165,157.0,0,1.0,CAST
+13,Static slide,157,171,4710,5130,/home/licho/workspace/Porygon/icra_video/supplementary/assets/results.png,30,0,14,0,420,171.0,0,1,Reported robot results
+14,Full scene,171,179,5130,5370,/home/licho/workspace/Porygon/icra_video/explanation/segments/07_slide_10.mp4,30,0,8,0,240,179.0,0,1,Takeaway

@@ -1,88 +1,203 @@
 {
   "title": "CAST \u2014 Anchoring Critic-Guided Fine-Tuning of Generative Robot Policies",
   "aspect_ratio": "16:9",
-  "total_duration_seconds": 180,
-  "method_duration_seconds": 120,
+  "total_duration_seconds": 156,
+  "method_duration_seconds": 96,
   "robot_duration_seconds": 60,
   "slides": [
     {
       "id": "01",
       "start": 0,
-      "duration": 10,
+      "duration": 6,
       "section": "The idea",
       "title": "Improve the skill. Keep what works.",
-      "narration": "A robot can position an object correctly, yet fail at release. CAST improves the skill while preserving behavior that already works.",
+      "narration": "We introduce CAST, which improves robot skills while keeping the original policy as a reference.",
       "slots": [],
       "sources": [
         "sections/01_introduction.tex"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 6,
+          "visual": "Title and OpenArm scene; introduce the problem.",
+          "text": "We introduce CAST, which improves robot skills while keeping the original policy as a reference."
+        }
       ]
     },
     {
       "id": "02",
-      "start": 10,
-      "duration": 20,
+      "start": 6,
+      "duration": 12,
       "section": "Why anchoring matters",
       "title": "Small steps can still drift.",
-      "narration": "A critic predicts which actions are valuable. Here, its predictions favor actions far from the useful region. Watch the action distributions shift during optimization. Clipping keeps each correction small, but repeated corrections still drift. CAST restores toward the frozen base while allowing a useful adjustment. This is an illustrative toy example.",
+      "narration": "This matters because the critic can misjudge which actions are better. As orange shows, even small updates can drift away. CAST pulls back, as green shows.",
       "slots": [
         "A01"
       ],
       "sources": [
         "sections/03_problem_statement.tex",
         "sections/04_analysis.tex"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 5,
+          "visual": "A01: the toy critic curve predicts which actions are valuable.",
+          "text": "This matters because the critic can misjudge which actions are better."
+        },
+        {
+          "start": 5,
+          "end": 9,
+          "visual": "Orange: repeated clipped updates drift away from the blue base.",
+          "text": "As orange shows, even small updates can drift away."
+        },
+        {
+          "start": 9,
+          "end": 12,
+          "visual": "Green: restoration keeps the updated policy near the base.",
+          "text": "CAST pulls back, as green shows."
+        }
       ]
     },
     {
       "id": "03",
-      "start": 30,
-      "duration": 15,
+      "start": 18,
+      "duration": 8,
       "section": "Policy architecture",
       "title": "Freeze the base. Learn a correction.",
-      "narration": "We freeze the generative policy and learn an additive residual. The same observation and noise pair each current action with its base action, giving corrections a consistent reference without policy likelihoods.",
+      "narration": "So we keep the original policy fixed and learn a correction. Each action keeps its own reference.",
       "slots": [
         "A02"
       ],
       "sources": [
         "sections/03_problem_statement.tex",
         "sections/04_method.tex"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 5,
+          "visual": "A02: frozen base plus learned residual; point to the sum.",
+          "text": "So we keep the original policy fixed and learn a correction."
+        },
+        {
+          "start": 5,
+          "end": 8,
+          "visual": "The paired samples share the same observation and noise.",
+          "text": "Each action keeps its own reference."
+        }
       ]
     },
     {
       "id": "04",
-      "start": 45,
-      "duration": 25,
-      "section": "Construct the target",
-      "title": "Propose. Restore. Limit the step.",
-      "narration": "First, the critic proposes an improvement. We normalize and cap its gradient, then scale the proposal. A weak pull always points toward the paired base action. Beyond a soft reference radius, an additional radial pull becomes active. We add these fields and cap the final step from the current action. The resulting target teaches the residual policy.",
+      "start": 26,
+      "duration": 30,
+      "section": "Method and equations",
+      "title": "CAST in four steps: animated Figure 2.",
+      "narration": "Here\u2019s one learning step. We first sample paired actions. Next, the critic proposes an improvement. We normalize, cap, and scale its gradient. We also pull toward the base, with a stronger pull beyond the reference radius. We combine these arrows and cap the target step around the current action. We then fit the correction to these fixed targets, and repeat the process.",
       "slots": [
         "A03"
       ],
       "sources": [
-        "sections/04_method.tex"
+        "sections/04_method.tex",
+        "sections/04_method_figure.tex",
+        "figures/method_update.npz",
+        "figures/method_update.json"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 2,
+          "visual": "A03: clockwise overview of Figure 2.",
+          "text": "Here\u2019s one learning step."
+        },
+        {
+          "start": 2,
+          "end": 5,
+          "visual": "Sample panel: base/current pairs and residual arrows.",
+          "text": "We first sample paired actions."
+        },
+        {
+          "start": 5,
+          "end": 11,
+          "visual": "Critic panel: normalized gradient appears, then contracts to its cap. Scaling follows the cap.",
+          "text": "Next, the critic proposes an improvement. We normalize, cap, and scale its gradient."
+        },
+        {
+          "start": 11,
+          "end": 14,
+          "visual": "Restoration panel: weak pull toward the paired base action.",
+          "text": "We also pull toward the base,"
+        },
+        {
+          "start": 14,
+          "end": 18,
+          "visual": "Additional radial restoration appears beyond the reference radius.",
+          "text": "with a stronger pull beyond the reference radius."
+        },
+        {
+          "start": 18,
+          "end": 24,
+          "visual": "Combine the vectors and clip around the CURRENT action. The circle bounds the target step.",
+          "text": "We combine these arrows and cap the target step around the current action."
+        },
+        {
+          "start": 24,
+          "end": 28,
+          "visual": "Fit panel: regression to fixed residual targets; squared-error equation.",
+          "text": "We then fit the correction to these fixed targets,"
+        },
+        {
+          "start": 28,
+          "end": 30,
+          "visual": "Return to the complete clockwise figure; leave a short breath.",
+          "text": "and repeat the process."
+        }
       ]
     },
     {
       "id": "05",
-      "start": 70,
-      "duration": 22,
+      "start": 56,
+      "duration": 10,
       "section": "Learn and repeat",
       "title": "A soft reference, learned through fixed targets.",
-      "narration": "The squares are fixed targets. The white actor learns to match them by regression; its fitting error decreases. Then we construct new targets and repeat. Restoration corresponds to a penalty on departure from the base. With clipping inactive, the first regression gradient follows regularized critic optimization. The reference stays soft, leaving room to improve.",
+      "narration": "The policy now learns to match the fixed green targets. We refresh them and repeat, while the soft pull leaves room to improve.",
       "slots": [
         "A04"
       ],
       "sources": [
         "sections/04_method.tex",
         "sections/04_analysis.tex"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 5,
+          "visual": "A04: the actor moves toward the fixed green squares; fitting error falls.",
+          "text": "The policy now learns to match the fixed green targets."
+        },
+        {
+          "start": 5,
+          "end": 7,
+          "visual": "The animation constructs fresh targets for another fitting round.",
+          "text": "We refresh them and repeat,"
+        },
+        {
+          "start": 7,
+          "end": 10,
+          "visual": "Right-hand curve: increasing restoration penalty, with a soft threshold.",
+          "text": "while the soft pull leaves room to improve."
+        }
       ]
     },
     {
       "id": "06",
-      "start": 92,
-      "duration": 28,
+      "start": 66,
+      "duration": 30,
       "section": "Simulation evidence",
       "title": "Reach useful performance with less experience.",
-      "narration": "These task demonstrations show visual LIBERO manipulation, state-based robomimic, and DMC control. They illustrate the environments. On robomimic square, CAST reaches ninety percent success with thirty-eight percent fewer environment steps. In the five-task LIBERO ablation, both updates without restoration reach zero success. Full CAST improves all five tasks over the base, although radial restoration alone is better on two.",
+      "narration": "We test this approach in LIBERO, robomimic, and DMC. These clips introduce the tasks. On robomimic square, CAST reaches ninety percent success using thirty-eight percent fewer environment steps than DICE-RL. On five LIBERO tasks, updates with no controls or clipping alone have zero success. CAST improves every task over the base, although radial restoration alone is better on two.",
       "slots": [
         "A05"
       ],
@@ -90,62 +205,164 @@
         "sections/05_experiments.tex",
         "sections/tables/05_ablations.tex",
         "figures/experiment_chart_data.json"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 9,
+          "visual": "A05: LIBERO demonstration (0\u20133 s), robomimic demonstration (3\u20136 s), DMC scripted controller (6\u20139 s). These introduce the environments.",
+          "text": "We test this approach in LIBERO, robomimic, and DMC. These clips introduce the tasks."
+        },
+        {
+          "start": 9,
+          "end": 18,
+          "visual": "Read the right-hand robomimic square efficiency chart; the left-hand LIBERO bars finish appearing.",
+          "text": "On robomimic square, CAST reaches ninety percent success using thirty-eight percent fewer environment steps than DICE-RL."
+        },
+        {
+          "start": 18,
+          "end": 24,
+          "visual": "Left-hand LIBERO chart: no controls and clipping only both show zero. These are the five tested tasks.",
+          "text": "On five LIBERO tasks, updates with no controls or clipping alone have zero success."
+        },
+        {
+          "start": 24,
+          "end": 30,
+          "visual": "CAST improves over the base on every task; the displayed bars aggregate five tasks. Radial-only beats CAST on two individual tasks.",
+          "text": "CAST improves every task over the base, although radial restoration alone is better on two."
+        }
       ]
     },
     {
       "id": "07",
-      "start": 120,
+      "start": 96,
       "duration": 16,
       "section": "Real robot \u2014 setup",
       "title": "From recorded experience to robot execution.",
-      "narration": "We evaluate OpenArm with chest and wrist cameras, joint state, and a parallel gripper. A flow-matching policy predicts action chunks. Refinement trains offline on recorded successes and failures, then we evaluate placement and stacking autonomously on a staircase scene.",
+      "narration": "We then bring CAST to OpenArm, using chest and wrist cameras. Its flow-matching policy predicts short action sequences. We refine that policy offline, using recorded successes and failures, before testing autonomous placement and stacking.",
       "slots": [],
       "sources": [
         "sections/05_real_robot.tex",
         "sections/05_experimental_supplement.tex"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 5,
+          "visual": "OpenArm scene and chest/wrist camera views.",
+          "text": "We then bring CAST to OpenArm, using chest and wrist cameras."
+        },
+        {
+          "start": 5,
+          "end": 9,
+          "visual": "Policy block: a flow policy plus residual predicts action chunks.",
+          "text": "Its flow-matching policy predicts short action sequences."
+        },
+        {
+          "start": 9,
+          "end": 16,
+          "visual": "Follow the recorded rollouts \u2192 offline refinement \u2192 autonomous evaluation diagram.",
+          "text": "We refine that policy offline, using recorded successes and failures, before testing autonomous placement and stacking."
+        }
       ]
     },
     {
       "id": "08",
-      "start": 136,
+      "start": 112,
       "duration": 16,
       "section": "Real robot \u2014 placement",
       "title": "Place accurately across changing heights.",
-      "narration": "Placement requires putting the toy fully inside the case. CAST raises success from fifty-five to ninety-five percent, compared with eighty percent for BC refinement and ninety percent for DICE-RL, all starting from the same base.",
+      "narration": "In placement, the robot must put the toy fully inside the case. CAST increases success from fifty-five percent to ninety-five percent. That\u2019s higher than behavior cloning and DICE-RL refinement.",
       "slots": [
         "V01"
       ],
       "sources": [
         "sections/05_real_robot.tex",
         "real_robot_results.json"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 5,
+          "visual": "Placement task illustration; autonomous footage slot V01 currently contains a labeled demonstration still.",
+          "text": "In placement, the robot must put the toy fully inside the case."
+        },
+        {
+          "start": 5,
+          "end": 11,
+          "visual": "Read base 55% and CAST 95% bars; leave a short pause around the percentages.",
+          "text": "CAST increases success from fifty-five percent to ninety-five percent."
+        },
+        {
+          "start": 11,
+          "end": 16,
+          "visual": "BC 80% and DICE-RL 90% remain visible; do not read every number.",
+          "text": "That\u2019s higher than behavior cloning and DICE-RL refinement."
+        }
       ]
     },
     {
       "id": "09",
-      "start": 152,
+      "start": 128,
       "duration": 20,
       "section": "Real robot \u2014 stacking",
       "title": "Preserve the approach. Improve the finish.",
-      "narration": "Stacking requires alignment and a clean release. A common observed failure is reaching the correct position without releasing the cube. The failed outcome does not mean every preceding action was wrong. CAST reaches seventy percent success, versus thirty-five for the base, sixty-five for BC refinement, and sixty for DICE-RL.",
+      "narration": "Stacking adds another challenge: a correct approach can still end in a failed release. With sparse rewards, that final failure makes the earlier actions harder to judge. Here, CAST increases success from thirty-five to seventy percent, again exceeding both refinement baselines.",
       "slots": [
         "V02"
       ],
       "sources": [
         "sections/05_real_robot.tex",
         "real_robot_results.json"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 7,
+          "visual": "Stacking task illustration; V02 currently contains a labeled demonstration still. Explain the observed release failure.",
+          "text": "Stacking adds another challenge: a correct approach can still end in a failed release."
+        },
+        {
+          "start": 7,
+          "end": 13,
+          "visual": "Connect the release failure to sparse-reward credit assignment; this is an interpretation, not a separate measured result.",
+          "text": "With sparse rewards, that final failure makes the earlier actions harder to judge."
+        },
+        {
+          "start": 13,
+          "end": 20,
+          "visual": "Read base 35% and CAST 70%; BC 65% and DICE-RL 60% remain visible.",
+          "text": "Here, CAST increases success from thirty-five to seventy percent, again exceeding both refinement baselines."
+        }
       ]
     },
     {
       "id": "10",
-      "start": 172,
+      "start": 148,
       "duration": 8,
       "section": "Takeaway",
       "title": "Improve the skill. Keep a persistent reference.",
-      "narration": "CAST combines critic guidance, soft restoration, and bounded target steps: improve the skill while keeping a persistent reference.",
+      "narration": "In short, we guide improvement, limit each target step, and keep the original skill as a reference.",
       "slots": [],
       "sources": [
         "sections/06_conclusion.tex"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 4,
+          "visual": "Point through the three cards: critic guidance, soft restoration, bounded target steps.",
+          "text": "In short, we guide improvement, limit each target step,"
+        },
+        {
+          "start": 4,
+          "end": 8,
+          "visual": "Hold the closing title and project address.",
+          "text": "and keep the original skill as a reference."
+        }
       ]
     }
-  ]
+  ],
+  "maximum_duration_seconds": 180,
+  "remaining_simulation_footage_seconds": 24
 }

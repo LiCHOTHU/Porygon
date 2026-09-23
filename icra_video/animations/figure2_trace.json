@@ -1,0 +1,116 @@
+{
+  "source_npz": "../_ICRA_2027__CAST/figures/method_update.npz",
+  "source_json": "../_ICRA_2027__CAST/figures/method_update.json",
+  "duration_seconds": 30,
+  "cues": [
+    {
+      "start": 0,
+      "end": 2,
+      "stage": "overview",
+      "explanation": "Clockwise roadmap from the submitted Figure 2"
+    },
+    {
+      "start": 2,
+      "end": 5,
+      "stage": "sample",
+      "explanation": "Pair base and current samples with the same noise"
+    },
+    {
+      "start": 5,
+      "end": 8,
+      "stage": "raw",
+      "explanation": "Show the normalized critic request"
+    },
+    {
+      "start": 8,
+      "end": 11,
+      "stage": "critic_cap",
+      "explanation": "Contract the raw request to the critic cap"
+    },
+    {
+      "start": 11,
+      "end": 14,
+      "stage": "weak",
+      "explanation": "Weak restoration is active at every nonzero residual"
+    },
+    {
+      "start": 14,
+      "end": 18,
+      "stage": "radial",
+      "explanation": "Additional restoration activates outside the RMS radius"
+    },
+    {
+      "start": 18,
+      "end": 24,
+      "stage": "total_cap",
+      "explanation": "Clip the combined update around the current action"
+    },
+    {
+      "start": 24,
+      "end": 28,
+      "stage": "fit",
+      "explanation": "Fit detached targets using the actor MSE"
+    },
+    {
+      "start": 28,
+      "end": 30,
+      "stage": "recap",
+      "explanation": "Return to the complete clockwise figure"
+    }
+  ],
+  "fitting": {
+    "actor": "r_theta(s,z)=theta in this 2D schematic",
+    "learning_rate": 0.35,
+    "theta": [
+      [
+        0.6000001430511475,
+        0.119999960064888
+      ],
+      [
+        0.5598538517951965,
+        0.1323401778936386
+      ],
+      [
+        0.533758819103241,
+        0.14036132395267487
+      ],
+      [
+        0.5167970061302185,
+        0.14557506144046783
+      ],
+      [
+        0.5057718753814697,
+        0.14896400272846222
+      ],
+      [
+        0.49860551953315735,
+        0.15116681158542633
+      ],
+      [
+        0.4939473867416382,
+        0.15259863436222076
+      ],
+      [
+        0.4909195899963379,
+        0.1535293161869049
+      ],
+      [
+        0.48895153403282166,
+        0.15413425862789154
+      ]
+    ],
+    "loss": [
+      0.007200012914836407,
+      0.0030420031398534775,
+      0.0012852473882958293,
+      0.0005430165911093354,
+      0.00022942505893297493,
+      9.693217725725845e-05,
+      4.0953913412522525e-05,
+      1.7303014828939922e-05,
+      7.310559794859728e-06
+    ]
+  },
+  "cap_center": "current action",
+  "note": "Original figure vectors are reused. Fitting is an illustrative translation actor trained to the figure targets, not benchmark evidence."
+}

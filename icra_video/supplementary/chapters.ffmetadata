@@ -1,0 +1,72 @@
+;FFMETADATA1
+title=CAST — supplementary video
+[CHAPTER]
+TIMEBASE=1/1000
+START=0
+END=6000
+title=The idea
+[CHAPTER]
+TIMEBASE=1/1000
+START=6000
+END=18000
+title=Why anchoring matters
+[CHAPTER]
+TIMEBASE=1/1000
+START=18000
+END=26000
+title=Policy architecture
+[CHAPTER]
+TIMEBASE=1/1000
+START=26000
+END=56000
+title=Method and equations
+[CHAPTER]
+TIMEBASE=1/1000
+START=56000
+END=66000
+title=Learn and repeat
+[CHAPTER]
+TIMEBASE=1/1000
+START=66000
+END=77000
+title=LIBERO: place the bottle in the drawer
+[CHAPTER]
+TIMEBASE=1/1000
+START=77000
+END=87000
+title=robomimic: learning square-nut insertion
+[CHAPTER]
+TIMEBASE=1/1000
+START=87000
+END=98000
+title=DMC walker-run: locomotion learning
+[CHAPTER]
+TIMEBASE=1/1000
+START=98000
+END=119000
+title=Simulation evidence
+[CHAPTER]
+TIMEBASE=1/1000
+START=119000
+END=135000
+title=Real robot setup
+[CHAPTER]
+TIMEBASE=1/1000
+START=135000
+END=146000
+title=Successful placement example
+[CHAPTER]
+TIMEBASE=1/1000
+START=146000
+END=157000
+title=Successful stacking example
+[CHAPTER]
+TIMEBASE=1/1000
+START=157000
+END=171000
+title=Reported robot results
+[CHAPTER]
+TIMEBASE=1/1000
+START=171000
+END=179000
+title=Takeaway

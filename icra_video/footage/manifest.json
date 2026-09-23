@@ -1,0 +1,49 @@
+{
+  "description": "Environment task illustrations: human demonstration state replays and a scripted DMC controller. These are not CAST policy evaluations.",
+  "montage": "benchmark_task_montage.mp4",
+  "duration_seconds": 9,
+  "clips": [
+    {
+      "id": "libero",
+      "title": "LIBERO",
+      "task": "Red mug \u2192 left plate",
+      "source": "libero_demonstration.mp4",
+      "label": "Dataset demonstration",
+      "caption": "Image-based manipulation \u00b7 sparse task-success reward",
+      "start": 3.3333333333333335,
+      "filename": "libero_task_demo.mp4",
+      "poster": "posters/libero.jpg",
+      "duration_seconds": 6.366667,
+      "montage_duration_seconds": 3,
+      "playback_speed": 1.0
+    },
+    {
+      "id": "robomimic",
+      "title": "robomimic",
+      "task": "Square nut assembly",
+      "source": "robomimic_demonstration.mp4",
+      "label": "Dataset demonstration",
+      "caption": "State-based manipulation \u00b7 sparse task-success reward",
+      "start": 3.3333333333333335,
+      "filename": "robomimic_task_demo.mp4",
+      "poster": "posters/robomimic.jpg",
+      "duration_seconds": 6.366667,
+      "montage_duration_seconds": 3,
+      "playback_speed": 1.0
+    },
+    {
+      "id": "dmc",
+      "title": "DMC",
+      "task": "Cartpole balance",
+      "source": "dmc_cartpole_demonstration.mp4",
+      "label": "Scripted controller",
+      "caption": "Continuous control \u00b7 dense reward",
+      "start": 0,
+      "filename": "dmc_task_demo.mp4",
+      "poster": "posters/dmc.jpg",
+      "duration_seconds": 12.0,
+      "montage_duration_seconds": 3,
+      "playback_speed": 1.0
+    }
+  ]
+}

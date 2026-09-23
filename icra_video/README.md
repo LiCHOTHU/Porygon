@@ -1,56 +1,49 @@
-# CAST — ICRA supplementary-video slides
+# CAST — ICRA supplementary video
 
-A **10-slide, 16:9, three-minute animated draft** based on `_ICRA_2027__CAST`.
+## Final cut: 2:59
 
-## Open these files
+The final cut combines the CAST method animation, all three supplied simulation videos, successful robot task examples, and the paper's measured results. It uses a white academic layout at **1920 × 1080 / 30 fps**.
 
-- **`cast_video_slides.pptx`** — editable PowerPoint. Text, diagrams, bars, and placeholder frames are native objects. Five method clips are embedded MP4s with automatic-start timing; the residual equation and photographs are image assets. Each slide has a timed narration in its speaker notes and an automatic advance time.
-- **`cast_video_slides.pdf`** — matching layout preview with animation poster frames.
-- **`cast_method_preview.mp4`** — the first two minutes with animations, rendered at 1080p; silent, ready for narration review.
-- **`animations/index.html`** — full-size player for the five individual clips.
-- **`preview.html`** — local browser preview with synchronized video overlays and a scrubber. Arrow keys change slides; Space plays/pauses the timed 180-second sequence. The Notes button displays the narration. It works directly from disk, without a server or external libraries.
-- **`previews/contact_sheet.jpg`** — all slides at a glance.
-- **`narration.md`** — full script, timing table, source references, and media cues.
+- **[Captioned rehearsal video](supplementary/cast_supplementary_video_captioned.mp4)**
+- **[Clean editing master](supplementary/cast_supplementary_video.mp4)**, with optional subtitles
+- [Video player with scene navigation](supplementary/index.html)
+- **[Timestamped reading script](voiceover_recording_script.md)** — one paragraph per scene, ready to read aloud
+- [Continuous spoken script](voiceover_script.md) and [phrase-by-phrase recording cues](voiceover_cue_sheet.md)
+- **[Exact timeline](supplementary/timeline.md)** — 14 scenes, 179 seconds, 5,370 frames
+- [Scene timing CSV](supplementary/timeline.csv), [narration timing CSV](supplementary/voiceover_timing.csv), and [source-media timing CSV](supplementary/source_timing.csv)
+- [Footage sources, attribution, and validation](supplementary/README.md)
 
-## Structure
+Narration audio is ready to be recorded by the author. The scripts and subtitles follow this exact cut. The first 1:06 explains the method; simulation footage and results run to 1:59; the last minute covers the robot setup, successful task examples, results, and takeaway.
 
-| Time | Slides | Story |
-|---|---|---|
-| 00:00–00:30 | 1–2 | A mostly correct robot skill can still fail; small critic-guided updates can accumulate. |
-| 00:30–01:32 | 3–5 | Frozen base + residual; same-noise pairing; critic proposal, weak/radial restoration, combined cap; fixed-target fitting and the penalty interpretation. |
-| 01:32–02:00 | 6 | Recorded steps-to-success evidence and the restoration ablation; animated measured ablation comparison. |
-| 02:00–02:16 | 7 | OpenArm, chest/wrist RGB, joint/gripper state, and offline refinement before autonomous evaluation. |
-| 02:16–02:52 | 8–9 | Placement and stacking, with autonomous-video placeholders and reported success rates. |
-| 02:52–03:00 | 10 | Improve the skill while keeping a persistent reference. |
+The simulations show CAST learning in LIBERO, robomimic, and DMC; LIBERO also includes a frozen-base comparison. The robot rollouts show CAST successfully completing placement and stacking. Aggregate results accompany the demonstrations. Source data and the submitted paper are unchanged.
 
-**Method/idea/evidence: 120 seconds. Robot/takeaway: 60 seconds.**
-
-## Completed animations
-
-Five clips (**A01–A05**) show policy-distribution drift, paired residual actions, the CAST target construction, actual actor regression, and the measured LIBERO ablation. They are embedded in the PowerPoint and browser preview. Two autonomous-video slots (**V01–V02**) remain reserved.
-
-- `animation_manifest.json` gives exact placement, clip paths, posters, and completion status.
-- `animations/README.md` explains the teaching sequence, CS 285 reference, toy-model settings, exact equations, and benchmark-footage plan.
-- `animations/toy_trace.json` records the actual actor parameter updates used in the animation.
-- `scripts/build_animations.py` implements training and rendering. No robot learning curves are invented.
-- `assets/source_manifest.json` identifies the source of photographs, result data, and teaching references.
-
-The MP4 and browser preview are the most reliable ways to review playback here. Native PowerPoint playback was unavailable, although embedded-video relationships and automatic-start XML are validated. The PDF is static.
-
-## Data and media choices in this draft
-
-- The submitted paper's numerical measurements are unchanged. Figure summaries support mean steps to the first evaluation reaching 90% success; they do not provide a complete training curve. A05 animates the exact five-task component aggregates instead. Full learning curves can be added if the original evaluation logs become available.
-- Robot photographs are labeled **teleoperated demonstration stills**, not autonomous CAST executions. V01/V02 need correctly attributed autonomous footage before final export.
-- The submitted main text and supplement disagree on stacking pretraining and evaluation counts (80/30 versus approximately 60/20). Those counts are omitted pending author confirmation. Reported success percentages match the paper's figure and data file.
-- The first draft explains the restoration penalty and local-gradient interpretation. It does not reproduce the full Wasserstein proof. The animation brief records that the distributional bound concerns candidate actions before selection and is conditional on the actual expected residual penalty.
-
-## Rebuild
-
-Use Python 3 with the packages in `requirements.txt` FFmpeg for video, and Poppler's `pdftoppm` for slide previews:
+### Rebuild the final video
 
 ```bash
-python -m pip install -r icra_video/requirements.txt
+python icra_video/scripts/build_supplementary_video.py
+```
+
+Requires Python dependencies in `requirements.txt`, FFmpeg, the paper-only scene segments in `explanation/segments/`, the supplied clips and metadata in `task_demos/`, and the selected robot recordings in `/home/licho/workspace/real_policy_eval`.
+
+The final builder generates the videos, narration documents, subtitles, chapters, source manifests, and all timing sheets together. Use `supplementary/edit_manifest.json` to inspect this edit; the earlier `storyboard.json` describes the original slide deck.
+
+## Earlier production assets
+
+These remain useful for editing individual visuals. Their timelines precede the final 2:59 video above.
+
+- [Paper-only academic cut](explanation/index.html): 1:44, seven scenes, method and simulation results; [rebuild notes](explanation/README.md).
+- [Original PowerPoint](cast_video_slides.pptx) and [PDF layout preview](cast_video_slides.pdf): ten-slide draft with embedded method animations and earlier footage placeholders.
+- [Original browser slide preview](preview.html) and [slide contact sheet](previews/contact_sheet.jpg).
+- [Method animation documentation](animations/README.md) and [individual animation player](animations/index.html).
+- [Original environment demonstrations](footage/index.html).
+
+The Figure 2 animation uses the submitted figure's samples and vectors, with math beside each operation. Toy optimization animations explain the updates; aggregate charts use the submitted measurements. They do not invent robot learning curves. Source references are recorded in `assets/source_manifest.json`; experiment data are in `assets/experiment_data.json` and `assets/robot_results.json`.
+
+To rebuild the earlier production assets:
+
+```bash
 python icra_video/scripts/build_animations.py
+python icra_video/scripts/build_environment_montage.py
 python icra_video/scripts/build_slides.py
 python icra_video/scripts/build_preview.py
 python icra_video/scripts/render_video_preview.py
@@ -58,8 +51,4 @@ python icra_video/scripts/validate_deck.py
 python icra_video/scripts/validate_animations.py
 ```
 
-The current environment also supports temporary dependencies in `/tmp/icra-video-deps`, which the scripts detect automatically. Override that directory with `ICRA_VIDEO_DEPS` if needed. Use `--no-preview` to build the deck and PDF without Poppler.
-
-The deck uses **DejaVu Sans**. Use the same font when editing or recording to retain the previewed typography. Editable content lives in the PowerPoint; reproducible layouts are in `scripts/build_slides.py`, and timings/narration are in `storyboard.json`. Rebuilding replaces generated PPTX/PDF outputs, so retain a separate copy of direct PowerPoint edits.
-
-All new files stay in `icra_video`; the submitted paper is unchanged.
+The deck uses DejaVu Sans. Temporary slide dependencies can be provided with `ICRA_VIDEO_DEPS`. Rebuilding the earlier deck retains the final video's root reading script; its own slide notes still follow its original ten-slide storyboard.

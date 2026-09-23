@@ -1,113 +1,113 @@
 # CAST — three-minute narration and edit plan
 
-The first 120 seconds explain the idea, method, and simulation evidence. The final 60 seconds cover the real robot and takeaway. Timings are embedded in the PowerPoint. These are draft readings, not a recorded voiceover.
+The first 96 seconds explain the idea, method, and simulation evidence. The final 60 seconds cover the real robot and takeaway. The current 156-second draft leaves 24 seconds for incoming simulation footage within the three-minute limit. Timings are embedded in the PowerPoint. These are draft readings, not a recorded voiceover.
 
 | Slide | Time | Duration | Topic | Media |
 |---|---|---:|---|---|
-| 01 | 00:00–00:10 | 10 s | Improve the skill. Keep what works. | Static |
-| 02 | 00:10–00:30 | 20 s | Small steps can still drift. | A01 |
-| 03 | 00:30–00:45 | 15 s | Freeze the base. Learn a correction. | A02 |
-| 04 | 00:45–01:10 | 25 s | Propose. Restore. Limit the step. | A03 |
-| 05 | 01:10–01:32 | 22 s | A soft reference, learned through fixed targets. | A04 |
-| 06 | 01:32–02:00 | 28 s | Reach useful performance with less experience. | A05 |
-| 07 | 02:00–02:16 | 16 s | From recorded experience to robot execution. | Static |
-| 08 | 02:16–02:32 | 16 s | Place accurately across changing heights. | V01 |
-| 09 | 02:32–02:52 | 20 s | Preserve the approach. Improve the finish. | V02 |
-| 10 | 02:52–03:00 | 8 s | Improve the skill. Keep a persistent reference. | Static |
+| 01 | 00:00–00:06 | 6 s | Improve the skill. Keep what works. | Static |
+| 02 | 00:06–00:18 | 12 s | Small steps can still drift. | A01 |
+| 03 | 00:18–00:26 | 8 s | Freeze the base. Learn a correction. | A02 |
+| 04 | 00:26–00:56 | 30 s | CAST in four steps: animated Figure 2. | A03 |
+| 05 | 00:56–01:06 | 10 s | A soft reference, learned through fixed targets. | A04 |
+| 06 | 01:06–01:36 | 30 s | Reach useful performance with less experience. | A05 |
+| 07 | 01:36–01:52 | 16 s | From recorded experience to robot execution. | Static |
+| 08 | 01:52–02:08 | 16 s | Place accurately across changing heights. | V01 |
+| 09 | 02:08–02:28 | 20 s | Preserve the approach. Improve the finish. | V02 |
+| 10 | 02:28–02:36 | 8 s | Improve the skill. Keep a persistent reference. | Static |
 
 ## Narration and sources
 
-### Slide 01 — 00:00–00:10
+### Slide 01 — 00:00–00:06
 
-A robot can position an object correctly, yet fail at release. CAST improves the skill while preserving behavior that already works.
+We introduce CAST, which improves robot skills while keeping the original policy as a reference.
 
-Draft pace: 21 words / approximately 126 words per minute.
+Draft pace: 15 words / approximately 150 words per minute.
 
 Sources: `_ICRA_2027__CAST/sections/01_introduction.tex`.
 
-### Slide 02 — 00:10–00:30
+### Slide 02 — 00:06–00:18
 
-A critic predicts which actions are valuable. Here, its predictions favor actions far from the useful region. Watch the action distributions shift during optimization. Clipping keeps each correction small, but repeated corrections still drift. CAST restores toward the frozen base while allowing a useful adjustment. This is an illustrative toy example.
+This matters because the critic can misjudge which actions are better. As orange shows, even small updates can drift away. CAST pulls back, as green shows.
 
-Draft pace: 51 words / approximately 153 words per minute.
+Draft pace: 26 words / approximately 130 words per minute.
 
 Sources: `_ICRA_2027__CAST/sections/03_problem_statement.tex`, `_ICRA_2027__CAST/sections/04_analysis.tex`.
 
 **A01 cue:** Animate matched synthetic actions with clipping alone versus the exact CAST restoration and caps. Same base, critic, and step cap.
 
-### Slide 03 — 00:30–00:45
+### Slide 03 — 00:18–00:26
 
-We freeze the generative policy and learn an additive residual. The same observation and noise pair each current action with its base action, giving corrections a consistent reference without policy likelihoods.
+So we keep the original policy fixed and learn a correction. Each action keeps its own reference.
 
-Draft pace: 31 words / approximately 124 words per minute.
+Draft pace: 17 words / approximately 128 words per minute.
 
 Sources: `_ICRA_2027__CAST/sections/03_problem_statement.tex`, `_ICRA_2027__CAST/sections/04_method.tex`.
 
 **A02 cue:** Reveal base actions and learned residual arrows for the same noise samples. Keep the base fixed.
 
-### Slide 04 — 00:45–01:10
+### Slide 04 — 00:26–00:56
 
-First, the critic proposes an improvement. We normalize and cap its gradient, then scale the proposal. A weak pull always points toward the paired base action. Beyond a soft reference radius, an additional radial pull becomes active. We add these fields and cap the final step from the current action. The resulting target teaches the residual policy.
+Here’s one learning step. We first sample paired actions. Next, the critic proposes an improvement. We normalize, cap, and scale its gradient. We also pull toward the base, with a stronger pull beyond the reference radius. We combine these arrows and cap the target step around the current action. We then fit the correction to these fixed targets, and repeat the process.
 
-Draft pace: 57 words / approximately 137 words per minute.
+Draft pace: 62 words / approximately 124 words per minute.
 
-Sources: `_ICRA_2027__CAST/sections/04_method.tex`.
+Sources: `_ICRA_2027__CAST/sections/04_method.tex`, `_ICRA_2027__CAST/sections/04_method_figure.tex`, `_ICRA_2027__CAST/figures/method_update.npz`, `_ICRA_2027__CAST/figures/method_update.json`.
 
-**A03 cue:** Animate the normalized critic proposal, paired weak/radial restoration, and combined displacement cap. Restoration is evaluated at the current action.
+**A03 cue:** Reuse the submitted figure samples and vectors. Reveal the matching equations and zoom into each clockwise stage. Show the raw critic request contracting to the critic cap, then restoration and total clipping around the current action.
 
-### Slide 05 — 01:10–01:32
+### Slide 05 — 00:56–01:06
 
-The squares are fixed targets. The white actor learns to match them by regression; its fitting error decreases. Then we construct new targets and repeat. Restoration corresponds to a penalty on departure from the base. With clipping inactive, the first regression gradient follows regularized critic optimization. The reference stays soft, leaving room to improve.
+The policy now learns to match the fixed green targets. We refresh them and repeat, while the soft pull leaves room to improve.
 
-Draft pace: 54 words / approximately 147 words per minute.
+Draft pace: 23 words / approximately 138 words per minute.
 
 Sources: `_ICRA_2027__CAST/sections/04_method.tex`, `_ICRA_2027__CAST/sections/04_analysis.tex`.
 
 **A04 cue:** Show fixed targets during regression; move the actor toward them, then recompute. Illustrate the soft restoration potential without claiming a hard policy-output bound.
 
-### Slide 06 — 01:32–02:00
+### Slide 06 — 01:06–01:36
 
-On robomimic square, CAST reaches ninety percent success with thirty-eight percent fewer environment steps than DICE-RL, while final success is similar. In a separate five-task LIBERO study, both updates without restoration lose all task success, including clipping alone. Full CAST improves every task over its base, although radial restoration alone is better on two tasks.
+We test this approach in LIBERO, robomimic, and DMC. These clips introduce the tasks. On robomimic square, CAST reaches ninety percent success using thirty-eight percent fewer environment steps than DICE-RL. On five LIBERO tasks, updates with no controls or clipping alone have zero success. CAST improves every task over the base, although radial restoration alone is better on two.
 
-Draft pace: 55 words / approximately 118 words per minute.
+Draft pace: 59 words / approximately 118 words per minute.
 
 Sources: `_ICRA_2027__CAST/sections/05_experiments.tex`, `_ICRA_2027__CAST/sections/tables/05_ablations.tex`, `_ICRA_2027__CAST/figures/experiment_chart_data.json`.
 
-**A05 cue:** Animate equal-status bars for the base and four component configurations using the five-task mean success from the submitted paper. This is an aggregate comparison, not a learning curve.
+**A05 cue:** First nine seconds: LIBERO and robomimic human demonstration replays, then DMC with a scripted controller. Remaining twenty-one seconds: the unchanged measured five-task LIBERO component comparison. Task footage illustrates the environments.
 
-### Slide 07 — 02:00–02:16
+### Slide 07 — 01:36–01:52
 
-We evaluate OpenArm with chest and wrist cameras, joint state, and a parallel gripper. A flow-matching policy predicts action chunks. Refinement trains offline on recorded successes and failures, then we evaluate placement and stacking autonomously on a staircase scene.
+We then bring CAST to OpenArm, using chest and wrist cameras. Its flow-matching policy predicts short action sequences. We refine that policy offline, using recorded successes and failures, before testing autonomous placement and stacking.
 
-Draft pace: 39 words / approximately 146 words per minute.
+Draft pace: 34 words / approximately 128 words per minute.
 
 Sources: `_ICRA_2027__CAST/sections/05_real_robot.tex`, `_ICRA_2027__CAST/sections/05_experimental_supplement.tex`.
 
-### Slide 08 — 02:16–02:32
+### Slide 08 — 01:52–02:08
 
-Placement requires putting the toy fully inside the case. CAST raises success from fifty-five to ninety-five percent, compared with eighty percent for BC refinement and ninety percent for DICE-RL, all starting from the same base.
+In placement, the robot must put the toy fully inside the case. CAST increases success from fifty-five percent to ninety-five percent. That’s higher than behavior cloning and DICE-RL refinement.
 
-Draft pace: 35 words / approximately 131 words per minute.
+Draft pace: 29 words / approximately 109 words per minute.
 
 Sources: `_ICRA_2027__CAST/sections/05_real_robot.tex`, `_ICRA_2027__CAST/real_robot_results.json`.
 
 **V01 cue:** Insert an actual autonomous placement rollout. Current still is a labeled teleoperated illustration, not a CAST evaluation.
 
-### Slide 09 — 02:32–02:52
+### Slide 09 — 02:08–02:28
 
-Stacking requires alignment and a clean release. A common observed failure is reaching the correct position without releasing the cube. The failed outcome does not mean every preceding action was wrong. CAST reaches seventy percent success, versus thirty-five for the base, sixty-five for BC refinement, and sixty for DICE-RL.
+Stacking adds another challenge: a correct approach can still end in a failed release. With sparse rewards, that final failure makes the earlier actions harder to judge. Here, CAST increases success from thirty-five to seventy percent, again exceeding both refinement baselines.
 
-Draft pace: 49 words / approximately 147 words per minute.
+Draft pace: 41 words / approximately 123 words per minute.
 
 Sources: `_ICRA_2027__CAST/sections/05_real_robot.tex`, `_ICRA_2027__CAST/real_robot_results.json`.
 
 **V02 cue:** Insert an actual autonomous stacking rollout showing release and stable final stack. Current still is teleoperated; no per-method clip is available here.
 
-### Slide 10 — 02:52–03:00
+### Slide 10 — 02:28–02:36
 
-CAST combines critic guidance, soft restoration, and bounded target steps: improve the skill while keeping a persistent reference.
+In short, we guide improvement, limit each target step, and keep the original skill as a reference.
 
-Draft pace: 18 words / approximately 135 words per minute.
+Draft pace: 17 words / approximately 128 words per minute.
 
 Sources: `_ICRA_2027__CAST/sections/06_conclusion.tex`.
 

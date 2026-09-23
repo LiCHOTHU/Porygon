@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import subprocess
 from functools import lru_cache
 from pathlib import Path
@@ -16,21 +17,27 @@ from PIL import Image, ImageDraw, ImageFont
 import torch
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / 'animations'
+OUT = Path(os.environ.get('CAST_VIDEO_ANIMATION_DIR', ROOT / 'animations'))
 W, H = 1280, 720
 BG = '#16273B'; PANEL = '#102135'; WHITE = '#F3F6FA'; MUTED = '#AFBDD0'
 BLUE = '#7FB0ED'; TEAL = '#42D7B4'; ORANGE = '#F0B360'; GRAY = '#8D9BAC'; LINE = '#33455B'
 FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 BOLD = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+ACADEMIC = os.environ.get('CAST_VIDEO_THEME') == 'academic'
+FILL_GREEN, FILL_ORANGE, REGION = '#25483F', '#514336', '#193C38'
+if ACADEMIC:
+    BG = '#FFFFFF'; PANEL = '#F3F4F5'; WHITE = '#202124'; MUTED = '#626B73'
+    BLUE = '#356A96'; TEAL = '#287764'; ORANGE = '#B0602E'; GRAY = '#777F87'; LINE = '#CBD0D5'
+    FILL_GREEN, FILL_ORANGE, REGION = '#E4EFE9', '#F4E8DC', '#F0F5F1'
 PARAMS = dict(seed=285, dimensions=1, eta_Q=.18, delta_Q=2., eta_0=.12,
               eta_anc=.48, rho=.4, delta_total=.08, actor_lr=.35,
               actor_fit_steps=4, outer_updates=80, batch_size=512)
 CLIPS = {
- 'A01': ('A01_accumulated_drift',20,17),
- 'A02': ('A02_paired_residuals',15,11),
- 'A03': ('A03_cast_update',25,23),
- 'A04': ('A04_regress_refresh',22,17),
- 'A05': ('A05_measured_learning_progress',28,23),
+ 'A01': ('A01_accumulated_drift',12,10),
+ 'A02': ('A02_paired_residuals',8,6),
+ 'A03': ('A03_cast_update',30,21),
+ 'A04': ('A04_regress_refresh',10,7.7),
+ 'A05': ('A05_measured_learning_progress',30,23),
 }
 
 @lru_cache(None)
@@ -116,7 +123,8 @@ class Canvas:
     def square(self,p,color=TEAL,r=8):
         x,y=p; self.d.rectangle((x-r,y-r,x+r,y+r),fill=BG,outline=color,width=3)
     def pill(self,x,y,w,label,color=TEAL,size=24):
-        self.d.rounded_rectangle((x,y,x+w,y+48),radius=12,fill=PANEL)
+        if not ACADEMIC:
+            self.d.rounded_rectangle((x,y,x+w,y+48),radius=12,fill=PANEL)
         self.text(x+w/2,y+24,label,size,color,True,'mm')
     def header(self,title,sub):
         self.text(35,25,title,34,WHITE,True);self.text(36,76,sub,23,MUTED)
@@ -134,7 +142,7 @@ def gaussian(c,mu,sigma,xx,yy,ww,hh,color,filled=False):
     x=xx+(vals+1)/5*ww;y=yy-height
     if filled:
         poly=list(zip(x,y))+[(x[-1],yy),(x[0],yy)]
-        c.d.polygon(poly,fill='#25483F' if color==TEAL else '#514336')
+        c.d.polygon(poly,fill=FILL_GREEN if color==TEAL else FILL_ORANGE)
     c.line(zip(x,y),color,4)
 
 def interpolate_history(hist,k):
@@ -145,7 +153,7 @@ def drift(t,data):
     # Shared action axis across the critic and both policy panels.
     xx,ww=225,995
     mapx=lambda a:xx+(a+1)/5*ww
-    c.d.rounded_rectangle((mapx(-.25),145,mapx(1.15),608),radius=10,fill='#193C38')
+    c.d.rounded_rectangle((mapx(-.25),145,mapx(1.15),608),radius=0 if ACADEMIC else 10,fill=REGION)
     c.text(mapx(.45),122,'Useful region in this toy',21,TEAL,anchor='mm')
     c.text(mapx(3.4),122,'Critic overestimates',21,ORANGE,anchor='mm')
     a=np.linspace(-1,4,300); q=3-.22*(a-3.4)**2
@@ -154,14 +162,14 @@ def drift(t,data):
     c.arrow((mapx(.8),234),(mapx(2.5),183),ORANGE,3,12)
     c.text(35,337,'Clipping',26,ORANGE,True);c.text(35,373,'only',26,ORANGE,True)
     c.text(35,514,'CAST',28,TEAL,True)
-    k=80*smooth((t-2)/14)
+    k=80*smooth((t-.4)/7)
     for method,y,color in [('clipping_only',421,ORANGE),('cast',593,TEAL)]:
         c.line([(xx,y),(xx+ww,y)],LINE,2)
         p=interpolate_history(data[method]['history'],k)
         gaussian(c,p[0],.27+p[1],xx,y,ww,130,color,True)
         gaussian(c,0,.27,xx,y,ww,130,BLUE)
         c.dashed((mapx(0),y-119),(mapx(0),y+5),BLUE,1)
-        if t>15:
+        if t>8:
             label='Keeps moving away' if method=='clipping_only' else 'Improves with a base reference'
             c.text(685,y-71,label,24,color,True)
     c.text(xx,625,'Frozen base',23,BLUE);c.text(745,625,'Action coordinate →',23,MUTED)
@@ -170,7 +178,7 @@ def drift(t,data):
 
 def pairing(t,data):
     c=Canvas();c.header('Every action has its own frozen reference.','The same noise sample goes through both branches.')
-    progress=smooth((t-2)/8)
+    progress=smooth((t-.3)/3.2)
     c.pill(60,125,260,'Shared noise z',BLUE);c.pill(510,125,240,'Frozen base',BLUE);c.pill(940,125,280,'Current policy',TEAL)
     for i,z in enumerate([-1.2,0,1.2]):
         y=247+i*125;a0=.27*z
@@ -245,8 +253,8 @@ def geometry(t,data):
 def regression(t,data):
     c=Canvas();c.header('The target is fixed. The actor learns to match it.','Update the residual parameters, then construct fresh targets.')
     # Three consecutive recorded actor updates, around radial activation.
-    elapsed=min(max(t-1,0),19.5-1/30)
-    round_index=min(int(elapsed//6.5),2);phase=elapsed%6.5
+    elapsed=min(max(t-.3,0),9-1/30)
+    round_index=min(int(elapsed//3),2);phase=(elapsed%3)*6.5/3
     record=data['cast']['records'][4+round_index]
     step=4*smooth((phase-1)/4)
     theta=interpolate_history(record['theta'],step)
@@ -262,8 +270,8 @@ def regression(t,data):
     c.text(35,254,'Action',24,MUTED);c.text(1040,574,'Noise z →',23,MUTED)
     fraction=float(np.mean((record['base']+theta[0]+theta[1]*record['z']-record['target'])**2))/record['losses'][0]
     c.text(858,196,'Target-fitting error',20,MUTED)
-    c.d.rounded_rectangle((859,229,1203,241),radius=4,fill=PANEL)
-    if fraction>0.002:c.d.rounded_rectangle((859,229,859+344*fraction,241),radius=4,fill=TEAL)
+    c.d.rounded_rectangle((859,229,1203,241),radius=0 if ACADEMIC else 4,fill=PANEL)
+    if fraction>0.002:c.d.rounded_rectangle((859,229,859+344*fraction,241),radius=0 if ACADEMIC else 4,fill=TEAL)
     zz=np.linspace(-1.8,1.8,160)
     c.line(zip(sx(zz),sy(.27*zz)),BLUE,3)
     c.line(zip(sx(zz),sy(.27*zz+theta[0]+theta[1]*zz)),WHITE,5)
@@ -290,8 +298,8 @@ def evidence(t,data):
     for i,(name,val,color) in enumerate(zip(names,values,colors)):
         y=185+i*82
         c.text(44,y,name,26,color,name=='CAST')
-        c.d.rounded_rectangle((305,y-1,1113,y+38),radius=4,fill=PANEL)
-        if val>0:c.d.rounded_rectangle((305,y-1,305+808*val/100*f,y+38),radius=4,fill=color)
+        c.d.rounded_rectangle((305,y-1,1113,y+38),radius=0 if ACADEMIC else 4,fill=PANEL)
+        if val>0:c.d.rounded_rectangle((305,y-1,305+808*val/100*f,y+38),radius=0 if ACADEMIC else 4,fill=color)
         else:
             c.line([(305,y),(305,y+38)],color,5)
         if t>5:c.text(1140,y+18,f'{val:.1f}%' if val else '0%',25,color,True,'mm')
@@ -299,7 +307,8 @@ def evidence(t,data):
     c.footer('Reported aggregate success · not a success-versus-training curve')
     return c.im
 
-DRAW={'A01':drift,'A02':pairing,'A03':geometry,'A04':regression,'A05':evidence}
+from figure2_animation import render as animated_figure2, write_trace as write_figure2_trace
+DRAW={'A01':drift,'A02':pairing,'A03':animated_figure2,'A04':regression,'A05':evidence}
 
 def render(ident,data,fps=30,posters_only=False):
     stem,duration,poster_time=CLIPS[ident]
@@ -321,10 +330,10 @@ def render(ident,data,fps=30,posters_only=False):
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--clips',nargs='+',choices=CLIPS,default=list(CLIPS));parser.add_argument('--fps',type=int,default=30);parser.add_argument('--posters-only',action='store_true')
     args=parser.parse_args();(OUT/'posters').mkdir(parents=True,exist_ok=True)
-    data=simulate()
+    data=simulate();write_figure2_trace(OUT/'figure2_trace.json')
     for ident in args.clips:render(ident,data,args.fps,args.posters_only)
     # Consistent review sheet, including geometry's intermediate restoring phase.
-    keys=[('A01',3),('A01',17),('A02',11),('A03',7),('A03',14),('A03',23),('A04',3),('A04',17),('A05',23)]
+    keys=[('A01',2),('A01',10),('A02',6),('A03',9),('A03',15.5),('A03',21),('A03',26),('A04',7.7),('A05',23)]
     sheet=Image.new('RGB',(1280,1080),'#0D1827')
     for i,(key,t) in enumerate(keys):
         frame=DRAW[key](t,data);frame.thumbnail((426,240));sheet.paste(frame,((i%3)*426,(i//3)*360+40))

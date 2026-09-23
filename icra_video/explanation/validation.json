@@ -1,0 +1,20 @@
+{
+  "cast_paper_explanation.mp4": {
+    "duration_seconds": 104.0,
+    "width": 1920,
+    "height": 1080,
+    "fps": "30/1",
+    "frames": 3120,
+    "bytes": 2611367,
+    "sha256": "62dea29262ee701eaac3204a69524ee5e87bb13b80624aab54037f93b2cf783f"
+  },
+  "cast_paper_explanation_captioned.mp4": {
+    "duration_seconds": 104.0,
+    "width": 1920,
+    "height": 1080,
+    "fps": "30/1",
+    "frames": 3120,
+    "bytes": 2813545,
+    "sha256": "35e49640a374318cc6be969d89139c9256a29a460300b7e267c638ba417baa67"
+  }
+}

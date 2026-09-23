@@ -1,0 +1,77 @@
+WEBVTT
+
+00:00:00.000 --> 00:00:06.000
+We introduce CAST, which improves robot skills while keeping the original
+policy as a reference.
+
+00:00:06.000 --> 00:00:11.000
+This matters because the critic can misjudge which actions are better.
+
+00:00:11.000 --> 00:00:15.000
+As orange shows, even small updates can drift away.
+
+00:00:15.000 --> 00:00:18.000
+CAST pulls back, as green shows.
+
+00:00:18.000 --> 00:00:23.000
+So we keep the original policy fixed and learn a correction.
+
+00:00:23.000 --> 00:00:26.000
+Each action keeps its own reference.
+
+00:00:26.000 --> 00:00:28.000
+Here’s one learning step.
+
+00:00:28.000 --> 00:00:31.000
+We first sample paired actions.
+
+00:00:31.000 --> 00:00:37.000
+Next, the critic proposes an improvement. We normalize, cap, and scale its
+gradient.
+
+00:00:37.000 --> 00:00:40.000
+We also pull toward the base,
+
+00:00:40.000 --> 00:00:44.000
+with a stronger pull beyond the reference radius.
+
+00:00:44.000 --> 00:00:50.000
+We combine these arrows and cap the target step around the current action.
+
+00:00:50.000 --> 00:00:54.000
+We then fit the correction to these fixed targets,
+
+00:00:54.000 --> 00:00:56.000
+and repeat the process.
+
+00:00:56.000 --> 00:01:01.000
+The policy now learns to match the fixed green targets.
+
+00:01:01.000 --> 00:01:03.000
+We refresh them and repeat,
+
+00:01:03.000 --> 00:01:06.000
+while the soft pull leaves room to improve.
+
+00:01:06.000 --> 00:01:15.000
+We test this approach in LIBERO, robomimic, and DMC, covering manipulation
+and continuous control.
+
+00:01:15.000 --> 00:01:24.000
+On robomimic square, CAST reaches ninety percent success using thirty-eight
+percent fewer environment steps than DICE-RL.
+
+00:01:24.000 --> 00:01:30.000
+On five LIBERO tasks, updates with no controls or clipping alone have zero
+success.
+
+00:01:30.000 --> 00:01:36.000
+CAST improves every task over the base, although radial restoration alone is
+better on two.
+
+00:01:36.000 --> 00:01:40.000
+In short, we guide improvement, limit each target step,
+
+00:01:40.000 --> 00:01:44.000
+and keep the original skill as a reference.
+

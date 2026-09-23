@@ -1,6 +1,6 @@
 # CAST policy-optimization animations
 
-**Start with [the animation player](index.html)** for full-size playback, or [the timed slide preview](../preview.html) to watch the clips in context. The [two-minute method video](../cast_method_preview.mp4) is a silent, 1080p review export. The PowerPoint embeds the five clips; its PDF shows their poster frames.
+**Start with [the animation player](index.html)** for full-size playback, or [the timed slide preview](../preview.html) to watch the clips in context. The [96-second method video](../cast_method_preview.mp4) is a silent, 1080p review export. The PowerPoint embeds the five clips; its PDF shows their poster frames.
 
 ## The explanation
 
@@ -14,15 +14,15 @@ The visual teaching reference is Sergey Levine’s [CS 285, Fall 2023, Lecture 5
 
 ## Completed clips
 
-All clips are silent H.264 MP4, **1280 × 720, 30 fps**. They fit inside the existing slide slots without changing the 120-second method / 60-second robot split.
+All clips are silent H.264 MP4, **1280 × 720, 30 fps**. They fit inside the existing slide slots with a faster 96-second method/evidence segment and 60-second robot segment. The 156-second draft leaves 24 seconds for incoming simulation footage within the three-minute limit.
 
 | Clip | Duration | Content |
 |---|---:|---|
-| [A01](A01_accumulated_drift.mp4) | 20 s | Matched actor optimization: clipping alone versus CAST |
-| [A02](A02_paired_residuals.mp4) | 15 s | Shared noise, frozen base, and learned residual |
-| [A03](A03_cast_update.mp4) | 25 s | Critic proposal, the two restoring terms, and combined cap |
-| [A04](A04_regress_refresh.mp4) | 22 s | Actual actor regression to fixed targets, then refresh |
-| [A05](A05_measured_learning_progress.mp4) | 28 s | Measured LIBERO component comparison |
+| [A01](A01_accumulated_drift.mp4) | 12 s | Matched actor optimization: clipping alone versus CAST |
+| [A02](A02_paired_residuals.mp4) | 8 s | Shared noise, frozen base, and learned residual |
+| [A03](A03_cast_update.mp4) | 30 s | Animated paper Figure 2, with synchronized equations and both clipping operations |
+| [A04](A04_regress_refresh.mp4) | 10 s | Actual actor regression to fixed targets, then refresh |
+| [A05](A05_measured_learning_progress.mp4) | 30 s | Measured LIBERO component comparison |
 
 A05 retains its original reserved filename, but displays **aggregate success**, not a training curve. Full success-versus-training logs are not available locally. The accompanying slide retains the measured robomimic steps-to-90%-success comparison.
 
@@ -52,7 +52,23 @@ The clipping-only comparison sets both restoring coefficients to zero and change
 
 `toy_trace.json` stores both parameter trajectories, settings, and validation results. A01 renders the corresponding Gaussian action distributions. **Each curve is normalized to the same peak height**, preserving its mean and width; heights are not comparable probability densities. Frames interpolate recorded parameter updates for readable motion. A04 displays three consecutive CAST fitting rounds, using their actual frozen regression targets and fitting errors. A02 reveals the learned residual at a recorded checkpoint.
 
-A03 is a separate two-dimensional geometric example. Its vectors are computed from the same update, with `r=(0.85, 0.28)`, normalized critic gradient `g=(1.8, 0.95)`, `eta_Q=0.55`, `delta_Q=1.2`, `eta_0=0.08`, `eta_anc=0.28`, `rho=0.38`, and `delta_total=0.30`. The radial threshold is `sqrt(2)*rho`. When restoring arrows are drawn head-to-tail, both fields were still evaluated at the current residual.
+## Animated Figure 2 — the main method explanation
+
+[A03](A03_cast_update.mp4) now uses the **submitted Figure 2’s exact numerical construction**, loaded from `_ICRA_2027__CAST/figures/method_update.npz` and its JSON settings. It preserves the clockwise four-panel overview, focuses on one active panel at a time, and returns to the complete figure. No submitted paper asset is modified.
+
+| Time | Visual operation | Equation shown |
+|---|---|---|
+| 0–5 s | Clockwise overview; paired samples | `a0 = pi0(s,z)`, `a = a0 + stop_gradient(r_theta)` |
+| 5–11 s | Raw critic request visibly contracts | `dQ = eta_Q * clip(g, delta_Q)`; `||dQ|| <= eta_Q*delta_Q` |
+| 11–18 s | Weak pull, then additional radial pull | Both terms of the paper’s restoring field; RMS departure `m` |
+| 18–24 s | Combined proposal contracts onto the current-centered cap | `r_target = sg[r + clip(dQ+dR, delta_total)]`; target-step inequality |
+| 24–30 s | Actor fits fixed targets; return to overview | The paper’s actor MSE, target action, and stop-gradient definition |
+
+Math is typeset with Matplotlib’s STIX math renderer. Equations appear beside their corresponding operation. Motion completes within about 1–2 seconds, leaving brief reading time rather than slow transitions.
+
+The original schematic uses `D=2`, `eta_Q=1`, `eta_0=0.05`, `eta_anc=1`, `rho=0.10`, `delta_Q=0.25`, and `delta_total=0.12`. Its restoration vectors are evaluated at the current residual and drawn head-to-tail only to illustrate addition. The last stage performs eight gradient-descent steps on a translation residual with learning rate 0.35, using the figure’s fixed targets. This is an illustrative fit, not benchmark training. `figure2_trace.json` records the cue timings, fitting parameters, and loss values.
+
+The surrounding explanations are shorter: drift **20 → 12 s**, shared-noise pairing **15 → 8 s**, and fitting/refresh **22 → 10 s**. The main Figure 2 sequence receives 30 seconds because it now carries the complete mathematical update.
 
 ## Exact CAST target construction
 
@@ -82,7 +98,7 @@ The local regression-gradient identity used in the slide narration applies at ta
 
 ## Benchmark and robot footage
 
-A **6–9 second montage of actual evaluation rollouts** would help show the range of tasks. Use approximately 2–3 seconds per benchmark, inside slide 6’s existing 28-second allocation, then show the measured comparison. The main method explanation should remain the focus.
+A **nine-second task-demonstration montage** is now available in `../footage/benchmark_task_montage.mp4`. It uses recorded LIBERO and robomimic human demonstrations and a scripted DMC controller. These clips establish the task setting; they are not CAST evaluation rollouts. Incoming server footage can replace them or use the remaining 24-second budget. Use approximately 2–3 seconds per benchmark, inside slide 6’s 30-second allocation, then show the measured comparison. The main method explanation should remain the focus.
 
 - **LIBERO:** image-based manipulation with sparse task-success rewards. Choose a task actually refined from the LIBERO-90 base.
 - **robomimic:** state-based manipulation with sparse task-success rewards. A square/nut-assembly rollout connects directly to the steps-to-success result. A rendered camera view does not mean this policy takes images as input.
@@ -90,7 +106,7 @@ A **6–9 second montage of actual evaluation rollouts** would help show the ran
 
 Show saved policy evaluation rollouts, not the optimizer “running inside” the environment. A base / CAST comparison should use the same task, camera, playback speed, and preferably the same initial state or evaluation seed. For training progression, label actual saved checkpoints and use matching evaluation logs; do not infer a success curve from video snippets.
 
-No local rollout video or model checkpoint was found during this build. `benchmark_footage_plan.json` records the desired inputs and proposed timing. Environment animations have not been fabricated.
+High-resolution task demonstrations were rendered from local LIBERO simulator states, official robomimic simulator states, and the actual DMC environment. `../footage/README.md` records provenance and reproduction. `benchmark_footage_plan.json` distinguishes these task illustrations from incoming policy evaluation footage.
 
 - **V01:** autonomous placement, showing approach, insertion, and withdrawal.
 - **V02:** autonomous stacking, including gripper opening and the stable final stack.
@@ -103,6 +119,7 @@ From the repository root, with the Python dependencies in `../requirements.txt`,
 
 ```bash
 python icra_video/scripts/build_animations.py
+python icra_video/scripts/build_environment_montage.py
 python icra_video/scripts/build_slides.py
 python icra_video/scripts/build_preview.py
 python icra_video/scripts/render_video_preview.py
@@ -110,6 +127,6 @@ python icra_video/scripts/validate_deck.py
 python icra_video/scripts/validate_animations.py
 ```
 
-Use `build_animations.py --posters-only` for quick layout review, or `--clips A03` to rerender one clip. `render_video_preview.py --full` exports a three-minute silent draft with the robot placeholders. The default export is the first two minutes.
+Use `build_animations.py --posters-only` for quick layout review, or `--clips A03` to rerender one clip. `render_video_preview.py --full` exports the complete 156-second silent draft with the robot placeholders. The default export is the 96-second method/evidence segment.
 
 All files stay in `icra_video`; the submitted paper is unchanged.

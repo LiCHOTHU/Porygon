@@ -1,0 +1,26 @@
+{
+  "cast_supplementary_video.mp4": {
+    "duration_seconds": 179.0,
+    "frames": 5370,
+    "resolution": [
+      1920,
+      1080
+    ],
+    "fps": 30,
+    "bytes": 24523110,
+    "sha256": "4898d80cf72e0c8fb7e98ef81e1892a8bc2edd51c3e8e5810b57ef8452d1dfac",
+    "decode": "passed"
+  },
+  "cast_supplementary_video_captioned.mp4": {
+    "duration_seconds": 179.0,
+    "frames": 5370,
+    "resolution": [
+      1920,
+      1080
+    ],
+    "fps": 30,
+    "bytes": 20363382,
+    "sha256": "cb640c56038e8d7d733e8eb1a966308005bb734569c822c5aeff996f12b0c415",
+    "decode": "passed"
+  }
+}

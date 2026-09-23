@@ -1,0 +1,863 @@
+{
+  "title": "CAST \u2014 supplementary video",
+  "file_stem": "cast_supplementary_video",
+  "duration_seconds": 179,
+  "maximum_final_duration_seconds": 180,
+  "remaining_footage_budget_seconds": 1,
+  "slides": [
+    {
+      "id": "01",
+      "start": 0,
+      "duration": 6,
+      "section": "The idea",
+      "title": "Improve the skill. Keep what works.",
+      "narration": "We introduce CAST, which improves robot skills while keeping the original policy as a reference.",
+      "slots": [],
+      "sources": [
+        "sections/01_introduction.tex"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 6,
+          "visual": "Title and OpenArm scene; introduce the problem.",
+          "text": "We introduce CAST, which improves robot skills while keeping the original policy as a reference."
+        }
+      ],
+      "source_slide_id": "01",
+      "source_start": 0,
+      "segment": "segments/01_existing.mp4",
+      "media_sources": [],
+      "kind": "existing",
+      "source_segment": "/home/licho/workspace/Porygon/icra_video/explanation/segments/01_slide_01.mp4"
+    },
+    {
+      "id": "02",
+      "start": 6,
+      "duration": 12,
+      "section": "Why anchoring matters",
+      "title": "Small steps can still drift.",
+      "narration": "This matters because the critic can misjudge which actions are better. As orange shows, even small updates can drift away. CAST pulls back, as green shows.",
+      "slots": [
+        "A01"
+      ],
+      "sources": [
+        "sections/03_problem_statement.tex",
+        "sections/04_analysis.tex"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 5,
+          "visual": "A01: the toy critic curve predicts which actions are valuable.",
+          "text": "This matters because the critic can misjudge which actions are better."
+        },
+        {
+          "start": 5,
+          "end": 9,
+          "visual": "Orange: repeated clipped updates drift away from the blue base.",
+          "text": "As orange shows, even small updates can drift away."
+        },
+        {
+          "start": 9,
+          "end": 12,
+          "visual": "Green: restoration keeps the updated policy near the base.",
+          "text": "CAST pulls back, as green shows."
+        }
+      ],
+      "source_slide_id": "02",
+      "source_start": 6,
+      "segment": "segments/02_existing.mp4",
+      "media_sources": [
+        "explanation/animations/A01_accumulated_drift.mp4"
+      ],
+      "kind": "existing",
+      "source_segment": "/home/licho/workspace/Porygon/icra_video/explanation/segments/02_slide_02.mp4"
+    },
+    {
+      "id": "03",
+      "start": 18,
+      "duration": 8,
+      "section": "Policy architecture",
+      "title": "Freeze the base. Learn a correction.",
+      "narration": "So we keep the original policy fixed and learn a correction. Each action keeps its own reference.",
+      "slots": [
+        "A02"
+      ],
+      "sources": [
+        "sections/03_problem_statement.tex",
+        "sections/04_method.tex"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 5,
+          "visual": "A02: frozen base plus learned residual; point to the sum.",
+          "text": "So we keep the original policy fixed and learn a correction."
+        },
+        {
+          "start": 5,
+          "end": 8,
+          "visual": "The paired samples share the same observation and noise.",
+          "text": "Each action keeps its own reference."
+        }
+      ],
+      "source_slide_id": "03",
+      "source_start": 18,
+      "segment": "segments/03_existing.mp4",
+      "media_sources": [
+        "explanation/animations/A02_paired_residuals.mp4"
+      ],
+      "kind": "existing",
+      "source_segment": "/home/licho/workspace/Porygon/icra_video/explanation/segments/03_slide_03.mp4"
+    },
+    {
+      "id": "04",
+      "start": 26,
+      "duration": 30,
+      "section": "Method and equations",
+      "title": "CAST in four steps: animated Figure 2.",
+      "narration": "Here\u2019s one learning step. We first sample paired actions. Next, the critic proposes an improvement. We normalize, cap, and scale its gradient. We also pull toward the base, with a stronger pull beyond the reference radius. We combine these arrows and cap the target step around the current action. We then fit the correction to these fixed targets, and repeat the process.",
+      "slots": [
+        "A03"
+      ],
+      "sources": [
+        "sections/04_method.tex",
+        "sections/04_method_figure.tex",
+        "figures/method_update.npz",
+        "figures/method_update.json"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 2,
+          "visual": "A03: clockwise overview of Figure 2.",
+          "text": "Here\u2019s one learning step."
+        },
+        {
+          "start": 2,
+          "end": 5,
+          "visual": "Sample panel: base/current pairs and residual arrows.",
+          "text": "We first sample paired actions."
+        },
+        {
+          "start": 5,
+          "end": 11,
+          "visual": "Critic panel: normalized gradient appears, then contracts to its cap. Scaling follows the cap.",
+          "text": "Next, the critic proposes an improvement. We normalize, cap, and scale its gradient."
+        },
+        {
+          "start": 11,
+          "end": 14,
+          "visual": "Restoration panel: weak pull toward the paired base action.",
+          "text": "We also pull toward the base,"
+        },
+        {
+          "start": 14,
+          "end": 18,
+          "visual": "Additional radial restoration appears beyond the reference radius.",
+          "text": "with a stronger pull beyond the reference radius."
+        },
+        {
+          "start": 18,
+          "end": 24,
+          "visual": "Combine the vectors and clip around the CURRENT action. The circle bounds the target step.",
+          "text": "We combine these arrows and cap the target step around the current action."
+        },
+        {
+          "start": 24,
+          "end": 28,
+          "visual": "Fit panel: regression to fixed residual targets; squared-error equation.",
+          "text": "We then fit the correction to these fixed targets,"
+        },
+        {
+          "start": 28,
+          "end": 30,
+          "visual": "Return to the complete clockwise figure; leave a short breath.",
+          "text": "and repeat the process."
+        }
+      ],
+      "source_slide_id": "04",
+      "source_start": 26,
+      "segment": "segments/04_existing.mp4",
+      "media_sources": [
+        "explanation/animations/A03_cast_update.mp4"
+      ],
+      "kind": "existing",
+      "source_segment": "/home/licho/workspace/Porygon/icra_video/explanation/segments/04_slide_04.mp4"
+    },
+    {
+      "id": "05",
+      "start": 56,
+      "duration": 10,
+      "section": "Learn and repeat",
+      "title": "A soft reference, learned through fixed targets.",
+      "narration": "The policy now learns to match the fixed green targets. We refresh them and repeat, while the soft pull leaves room to improve.",
+      "slots": [
+        "A04"
+      ],
+      "sources": [
+        "sections/04_method.tex",
+        "sections/04_analysis.tex"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 5,
+          "visual": "A04: the actor moves toward the fixed green squares; fitting error falls.",
+          "text": "The policy now learns to match the fixed green targets."
+        },
+        {
+          "start": 5,
+          "end": 7,
+          "visual": "The animation constructs fresh targets for another fitting round.",
+          "text": "We refresh them and repeat,"
+        },
+        {
+          "start": 7,
+          "end": 10,
+          "visual": "Right-hand curve: increasing restoration penalty, with a soft threshold.",
+          "text": "while the soft pull leaves room to improve."
+        }
+      ],
+      "source_slide_id": "05",
+      "source_start": 56,
+      "segment": "segments/05_existing.mp4",
+      "media_sources": [
+        "explanation/animations/A04_regress_refresh.mp4"
+      ],
+      "kind": "existing",
+      "source_segment": "/home/licho/workspace/Porygon/icra_video/explanation/segments/05_slide_05.mp4"
+    },
+    {
+      "section": "LIBERO: place the bottle in the drawer",
+      "title": "LIBERO: place the bottle in the drawer",
+      "duration": 11,
+      "kind": "sim_libero",
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 6,
+          "visual": "Both policies begin from the same initial state.",
+          "text": "Now let\u2019s look at the experiments. In LIBERO, both policies start from the same state."
+        },
+        {
+          "start": 6,
+          "end": 11,
+          "visual": "The right-hand CAST rollout places the bottle in the drawer; the left-hand base fails.",
+          "text": "CAST places the bottle in the drawer; the base fails."
+        }
+      ],
+      "narration": "Now let\u2019s look at the experiments. In LIBERO, both policies start from the same state. CAST places the bottle in the drawer; the base fails.",
+      "id": "06",
+      "start": 66,
+      "segment": "segments/06_sim_libero.mp4",
+      "simulation_source": {
+        "source": "/home/licho/workspace/Porygon/icra_video/task_demos/libero_task32_learning.mp4",
+        "sha256": "5a689ee62ed4cd94e6bc57d2d1c4aa01385cced9c5c593116c8c9a1465274db7",
+        "metadata": "/home/licho/workspace/Porygon/icra_video/task_demos/libero_task32_learning.json",
+        "metadata_contents": {
+          "clip": "libero_task32_learning",
+          "benchmark": "LIBERO-90",
+          "task": "task 32",
+          "kind": "2-stage before/after: frozen base vs CAST-finetuned policy, same initial state",
+          "stages": [
+            {
+              "stage": "FROZEN BASE",
+              "result": "fails",
+              "note": "base success rate ~0.60"
+            },
+            {
+              "stage": "CAST (ours)",
+              "result": "succeeds",
+              "note": "base + trained residual"
+            }
+          ],
+          "resolution": [
+            384,
+            440
+          ],
+          "fps": 20,
+          "source": "real policy rollouts in the LIBERO simulator (agentview camera)"
+        },
+        "actual_source_fps": 20,
+        "actual_source_frames": 503,
+        "policy": "Frozen base versus CAST",
+        "policy_attribution_basis": "Author confirmed that the supplied successful demonstrations use CAST-trained policies. Original source metadata is retained verbatim.",
+        "output_duration_seconds": 11,
+        "image_crop_width_height_x_y": [
+          512,
+          512,
+          0,
+          64
+        ],
+        "crop_note": "Remove the original title banner and, for DMC, black letterbox bars; retain the complete simulator image.",
+        "layout": "Complete stage intervals shown simultaneously. Shorter stages play at source speed and hold their last frame; longer stages accelerate to fit.",
+        "boundary_detection": "Stage title changes in the actual encoded video; timing uses ffprobe rather than stale duration fields in the sidecars.",
+        "stages": [
+          {
+            "label": "Frozen base",
+            "start_frame": 0,
+            "end_frame": 315,
+            "source_start_seconds": 0.0,
+            "source_end_seconds": 15.75,
+            "source_frame_count": 315,
+            "speed_relative_to_source": 1.4318181818181819,
+            "output_motion_duration_seconds": 11.0,
+            "last_frame_hold_seconds": 0.0,
+            "output_box": [
+              160,
+              285,
+              700,
+              700
+            ]
+          },
+          {
+            "label": "CAST",
+            "start_frame": 315,
+            "end_frame": 503,
+            "source_start_seconds": 15.75,
+            "source_end_seconds": 25.15,
+            "source_frame_count": 188,
+            "speed_relative_to_source": 1.0,
+            "output_motion_duration_seconds": 9.4,
+            "last_frame_hold_seconds": 1.5999999999999996,
+            "output_box": [
+              1060,
+              285,
+              700,
+              700
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "section": "robomimic: learning square-nut insertion",
+      "title": "robomimic: learning square-nut insertion",
+      "duration": 10,
+      "kind": "sim_robomimic",
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 4,
+          "visual": "Compare the three supplied CAST checkpoints side by side.",
+          "text": "To see how learning progresses, robomimic compares three CAST checkpoints."
+        },
+        {
+          "start": 4,
+          "end": 10,
+          "visual": "The middle and final policies place the nut onto the square peg; their last frames remain visible.",
+          "text": "The early policy struggles, while later checkpoints complete the nut insertion."
+        }
+      ],
+      "narration": "To see how learning progresses, robomimic compares three CAST checkpoints. The early policy struggles, while later checkpoints complete the nut insertion.",
+      "id": "07",
+      "start": 77,
+      "segment": "segments/07_sim_robomimic.mp4",
+      "simulation_source": {
+        "source": "/home/licho/workspace/Porygon/icra_video/task_demos/robomimic_square_learning.mp4",
+        "sha256": "b0d98a259cd66e3264a802b3fe5bec444bac1d513109a7d08ba8ca43eb0ed12e",
+        "metadata": "/home/licho/workspace/Porygon/icra_video/task_demos/robomimic_square_learning.json",
+        "metadata_contents": {
+          "clip": "robomimic_square_learning",
+          "benchmark": "robomimic",
+          "task": "square (nut-assembly / peg insertion)",
+          "kind": "learning progression: CAST policy rolled out at 3 training checkpoints, early -> mid -> final",
+          "cast_evaluation": true,
+          "stages": [
+            {
+              "stage": "EARLY",
+              "checkpoint": "model_step_2000",
+              "result": "fails the insertion (runs full episode)"
+            },
+            {
+              "stage": "MID",
+              "checkpoint": "model_step_16000",
+              "result": "task solved"
+            },
+            {
+              "stage": "FINAL",
+              "checkpoint": "model_step_31000",
+              "result": "reliable success (~94%)"
+            }
+          ],
+          "run": "newbase_CASTv2_s42 (CAST on square)",
+          "resolution": [
+            256,
+            256
+          ],
+          "note": "real CAST policy rollouts in the robomimic simulator"
+        },
+        "actual_source_fps": 20,
+        "actual_source_frames": 665,
+        "policy": "CAST",
+        "policy_attribution_basis": "Author confirmed that the supplied successful demonstrations use CAST-trained policies. Original source metadata is retained verbatim.",
+        "output_duration_seconds": 10,
+        "image_crop_width_height_x_y": [
+          512,
+          512,
+          0,
+          64
+        ],
+        "crop_note": "Remove the original title banner and, for DMC, black letterbox bars; retain the complete simulator image.",
+        "layout": "Complete stage intervals shown simultaneously. Shorter stages play at source speed and hold their last frame; longer stages accelerate to fit.",
+        "boundary_detection": "Stage title changes in the actual encoded video; timing uses ffprobe rather than stale duration fields in the sidecars.",
+        "stages": [
+          {
+            "label": "Early \u00b7 step 2,000",
+            "start_frame": 0,
+            "end_frame": 414,
+            "source_start_seconds": 0.0,
+            "source_end_seconds": 20.7,
+            "source_frame_count": 414,
+            "speed_relative_to_source": 2.07,
+            "output_motion_duration_seconds": 10.0,
+            "last_frame_hold_seconds": 0.0,
+            "output_box": [
+              70,
+              335,
+              560,
+              560
+            ]
+          },
+          {
+            "label": "Mid \u00b7 step 16,000",
+            "start_frame": 414,
+            "end_frame": 541,
+            "source_start_seconds": 20.7,
+            "source_end_seconds": 27.05,
+            "source_frame_count": 127,
+            "speed_relative_to_source": 1.0,
+            "output_motion_duration_seconds": 6.35,
+            "last_frame_hold_seconds": 3.6500000000000004,
+            "output_box": [
+              680,
+              335,
+              560,
+              560
+            ]
+          },
+          {
+            "label": "Final \u00b7 step 31,000",
+            "start_frame": 541,
+            "end_frame": 665,
+            "source_start_seconds": 27.05,
+            "source_end_seconds": 33.25,
+            "source_frame_count": 124,
+            "speed_relative_to_source": 1.0,
+            "output_motion_duration_seconds": 6.2,
+            "last_frame_hold_seconds": 3.8,
+            "output_box": [
+              1290,
+              335,
+              560,
+              560
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "section": "DMC walker-run: locomotion learning",
+      "title": "DMC walker-run: locomotion learning",
+      "duration": 11,
+      "kind": "sim_dmc",
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 11,
+          "visual": "CAST training checkpoints show a walker progressing toward running.",
+          "text": "Beyond manipulation, DMC tests locomotion with dense rewards. As CAST learns, the walker progresses from unsteady movement toward running."
+        }
+      ],
+      "narration": "Beyond manipulation, DMC tests locomotion with dense rewards. As CAST learns, the walker progresses from unsteady movement toward running.",
+      "id": "08",
+      "start": 87,
+      "segment": "segments/08_sim_dmc.mp4",
+      "simulation_source": {
+        "source": "/home/licho/workspace/Porygon/icra_video/task_demos/dmc_walker_run_learning.mp4",
+        "sha256": "efd6a88b24207503e89212af61ca0d1832524aecb5c6870822c042e62d1ecfb3",
+        "metadata": "/home/licho/workspace/Porygon/icra_video/task_demos/dmc_walker_run_learning.json",
+        "metadata_contents": {
+          "clip": "dmc_walker_run_learning",
+          "benchmark": "DMC",
+          "domain": "walker",
+          "task": "run",
+          "kind": "learning progress: three training stages, early -> mid -> final",
+          "policy_checkpoint": "/storage/cedar/cedar0/cedarp-agarg35-0/liquan.w/imitation_scratch/dmc_base/sac_walker_run.pt",
+          "stages": [
+            {
+              "stage": "EARLY  (start of training)",
+              "snapshot": 0,
+              "return_over_clip": 77.0
+            },
+            {
+              "stage": "MID-TRAINING",
+              "snapshot": 2,
+              "return_over_clip": 113.5
+            },
+            {
+              "stage": "FINAL  (converged)",
+              "snapshot": "final",
+              "return_over_clip": 127.4
+            }
+          ],
+          "fps": 30,
+          "seconds_per_stage": 6.0,
+          "resolution": [
+            640,
+            480
+          ]
+        },
+        "actual_source_fps": 20,
+        "actual_source_frames": 762,
+        "policy": "CAST",
+        "policy_attribution_basis": "Author confirmed that the supplied successful demonstrations use CAST-trained policies. Original source metadata is retained verbatim.",
+        "output_duration_seconds": 11,
+        "image_crop_width_height_x_y": [
+          512,
+          384,
+          0,
+          128
+        ],
+        "crop_note": "Remove the original title banner and, for DMC, black letterbox bars; retain the complete simulator image.",
+        "layout": "Complete stage intervals shown simultaneously. Shorter stages play at source speed and hold their last frame; longer stages accelerate to fit.",
+        "boundary_detection": "Stage title changes in the actual encoded video; timing uses ffprobe rather than stale duration fields in the sidecars.",
+        "stages": [
+          {
+            "label": "Early",
+            "start_frame": 0,
+            "end_frame": 254,
+            "source_start_seconds": 0.0,
+            "source_end_seconds": 12.7,
+            "source_frame_count": 254,
+            "speed_relative_to_source": 1.1545454545454545,
+            "output_motion_duration_seconds": 11.0,
+            "last_frame_hold_seconds": 0.0,
+            "output_box": [
+              70,
+              355,
+              560,
+              420
+            ]
+          },
+          {
+            "label": "Mid-training",
+            "start_frame": 254,
+            "end_frame": 508,
+            "source_start_seconds": 12.7,
+            "source_end_seconds": 25.4,
+            "source_frame_count": 254,
+            "speed_relative_to_source": 1.1545454545454545,
+            "output_motion_duration_seconds": 11.0,
+            "last_frame_hold_seconds": 0.0,
+            "output_box": [
+              680,
+              355,
+              560,
+              420
+            ]
+          },
+          {
+            "label": "Final",
+            "start_frame": 508,
+            "end_frame": 762,
+            "source_start_seconds": 25.4,
+            "source_end_seconds": 38.1,
+            "source_frame_count": 254,
+            "speed_relative_to_source": 1.1545454545454545,
+            "output_motion_duration_seconds": 11.0,
+            "last_frame_hold_seconds": 0.0,
+            "output_box": [
+              1290,
+              355,
+              560,
+              420
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "09",
+      "start": 98,
+      "duration": 21,
+      "section": "Simulation evidence",
+      "title": "Reach useful performance with less experience.",
+      "narration": "The measured results show the same pattern. In robomimic square, CAST reaches ninety percent success using thirty-eight percent fewer environment steps than DICE-RL. Across five LIBERO tasks, no controls or clipping alone gives zero success, while CAST improves every task over the base.",
+      "slots": [
+        "A05"
+      ],
+      "sources": [
+        "sections/05_experiments.tex",
+        "sections/tables/05_ablations.tex",
+        "figures/experiment_chart_data.json"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 3,
+          "visual": "Transition from the task demonstrations to the measured simulation results.",
+          "text": "The measured results show the same pattern."
+        },
+        {
+          "start": 3,
+          "end": 12,
+          "visual": "Read the right-hand robomimic square chart: steps to the first evaluation reaching 90% success.",
+          "text": "In robomimic square, CAST reaches ninety percent success using thirty-eight percent fewer environment steps than DICE-RL."
+        },
+        {
+          "start": 12,
+          "end": 17,
+          "visual": "The left-hand LIBERO chart summarizes five tasks; no controls and clipping alone yield zero success.",
+          "text": "Across five LIBERO tasks, no controls or clipping alone gives zero success,"
+        },
+        {
+          "start": 17,
+          "end": 21,
+          "visual": "CAST improves over the base on every task; the displayed bars aggregate the five tasks.",
+          "text": "while CAST improves every task over the base."
+        }
+      ],
+      "source_slide_id": "06",
+      "source_start": 66,
+      "segment": "segments/09_existing.mp4",
+      "media_sources": [
+        "explanation/assets/A05_explanation_results.mp4"
+      ],
+      "kind": "existing",
+      "source_segment": "/home/licho/workspace/Porygon/icra_video/explanation/segments/06_slide_06.mp4",
+      "source_trim_start": 9
+    },
+    {
+      "section": "Real robot setup",
+      "title": "From offline refinement to robot execution",
+      "duration": 16,
+      "kind": "setup",
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 5,
+          "visual": "Chest and wrist views from a recorded robot evaluation.",
+          "text": "We next move from simulation to OpenArm, using chest and wrist cameras."
+        },
+        {
+          "start": 5,
+          "end": 11,
+          "visual": "Offline CAST refinement uses recorded successful and failed rollouts.",
+          "text": "CAST learns offline from recorded successes and failures before deployment."
+        },
+        {
+          "start": 11,
+          "end": 16,
+          "visual": "Introduce the successful CAST placement and stacking rollouts.",
+          "text": "We now show the CAST policies completing placement and stacking."
+        }
+      ],
+      "narration": "We next move from simulation to OpenArm, using chest and wrist cameras. CAST learns offline from recorded successes and failures before deployment. We now show the CAST policies completing placement and stacking.",
+      "id": "10",
+      "start": 119,
+      "segment": "segments/10_setup.mp4"
+    },
+    {
+      "section": "Successful placement example",
+      "title": "Jigglypuff placement",
+      "duration": 11,
+      "kind": "placement",
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 5,
+          "visual": "The robot approaches and grasps the toy on a stair.",
+          "text": "For placement, the robot reaches down and grasps Jigglypuff."
+        },
+        {
+          "start": 5,
+          "end": 8,
+          "visual": "The gripper transports the toy over the case.",
+          "text": "It carries the toy over the case,"
+        },
+        {
+          "start": 8,
+          "end": 11,
+          "visual": "The fingers open; the toy falls fully inside the case.",
+          "text": "then releases it fully inside."
+        }
+      ],
+      "narration": "For placement, the robot reaches down and grasps Jigglypuff. It carries the toy over the case, then releases it fully inside.",
+      "id": "11",
+      "start": 135,
+      "segment": "segments/11_placement.mp4",
+      "rollout_source": {
+        "task": "placement",
+        "source_take": "/home/licho/workspace/real_policy_eval/jigglypuff/20260913_004154_978275_4b21de",
+        "metadata": "/home/licho/workspace/real_policy_eval/jigglypuff/20260913_004154_978275_4b21de/take_meta.json",
+        "metadata_sha256": "3c5896cac15f36acc1ce8f1eecc74a0dc3eeba89adccc7a6a05b00cead894ca5",
+        "success_label": true,
+        "checkpoint": "/porygon/real_robot/runs/jigglypuff_continued/best.pt",
+        "policy_label": "CAST",
+        "policy_attribution_basis": "Author confirmed these successful robot recordings use CAST-trained policies. Recorded checkpoint identifiers are retained as source metadata.",
+        "attribution_metadata": "/home/licho/workspace/real_policy_eval/jigglypuff/20260914_181014_490638_b0f486/take_meta.json",
+        "recorded_checkpoint_display_name": "Jigglypuff \u2014 continued BC (separate extra-data run)",
+        "source_start_seconds": 0,
+        "source_duration_seconds": 11,
+        "playback_speed": 1.0,
+        "camera_alignment": "Shared take; both camera tracks start at frame zero and have 15 fps.",
+        "visual_review": "Toy released fully inside the case, visible in both views.",
+        "streams": {
+          "chest": {
+            "path": "/home/licho/workspace/real_policy_eval/jigglypuff/20260913_004154_978275_4b21de/chest_rgb_20260913_044155.avi",
+            "sha256": "85b2ee629640d7f798c9dc369ecadc1ce977e53fb25f20efcb2629573db36477",
+            "frames": 166,
+            "duration_seconds": 11.066667,
+            "fps": "15/1",
+            "width": 640,
+            "height": 480
+          },
+          "left_wrist": {
+            "path": "/home/licho/workspace/real_policy_eval/jigglypuff/20260913_004154_978275_4b21de/left_wrist_rgb_20260913_044155.avi",
+            "sha256": "2bcc9e46a91786c323a7aa4e5159964778312bc0a62b37c35d0c2ec205c195d7",
+            "frames": 166,
+            "duration_seconds": 11.066667,
+            "fps": "15/1",
+            "width": 640,
+            "height": 480
+          }
+        }
+      }
+    },
+    {
+      "section": "Successful stacking example",
+      "title": "Red-on-purple stacking",
+      "duration": 11,
+      "kind": "stacking",
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 4,
+          "visual": "The gripper approaches and grasps the red cube.",
+          "text": "For stacking, it grasps the red cube,"
+        },
+        {
+          "start": 4,
+          "end": 8,
+          "visual": "The held red cube moves above the purple support cube.",
+          "text": "then aligns it above the purple cube."
+        },
+        {
+          "start": 8,
+          "end": 11,
+          "visual": "Wrist view shows release and the completed stack.",
+          "text": "The gripper opens, completing the stack."
+        }
+      ],
+      "narration": "For stacking, it grasps the red cube, then aligns it above the purple cube. The gripper opens, completing the stack.",
+      "id": "12",
+      "start": 146,
+      "segment": "segments/12_stacking.mp4",
+      "rollout_source": {
+        "task": "stacking",
+        "source_take": "/home/licho/workspace/real_policy_eval/stack/20260914_005719_393758_e64e62",
+        "metadata": "/home/licho/workspace/real_policy_eval/stack/20260914_005719_393758_e64e62/take_meta.json",
+        "metadata_sha256": "60abc2e1c41a8998520667a9f3669305ea882ecac9fb00667b689672a639c015",
+        "success_label": true,
+        "checkpoint": "/openarm_ws/policy_checkpoints/stack_continued_v2/best.pt",
+        "policy_label": "CAST",
+        "policy_attribution_basis": "Author confirmed these successful robot recordings use CAST-trained policies. Recorded checkpoint identifiers are retained as source metadata.",
+        "attribution_metadata": "/home/licho/workspace/real_policy_eval/stack/20260914_005719_393758_e64e62/take_meta.json",
+        "recorded_checkpoint_display_name": "Stacking red on purple \u2014 continued BC v2 (new collection)",
+        "source_start_seconds": 0,
+        "source_duration_seconds": 11,
+        "playback_speed": 1.0,
+        "camera_alignment": "Shared take; both camera tracks start at frame zero and have 15 fps.",
+        "visual_review": "Red cube rests on purple cube; wrist view shows fingers open and clear of the red cube.",
+        "streams": {
+          "chest": {
+            "path": "/home/licho/workspace/real_policy_eval/stack/20260914_005719_393758_e64e62/chest_rgb_20260914_045719.avi",
+            "sha256": "00c533b34e5591678cb7f8722c50b4d65c7efc7a9b6e4e408083639164151b17",
+            "frames": 170,
+            "duration_seconds": 11.333333,
+            "fps": "15/1",
+            "width": 640,
+            "height": 480
+          },
+          "left_wrist": {
+            "path": "/home/licho/workspace/real_policy_eval/stack/20260914_005719_393758_e64e62/left_wrist_rgb_20260914_045719.avi",
+            "sha256": "c0fad1766275e1c880083a40b4e2d1c903684242afc6746987a6b6e23f135053",
+            "frames": 170,
+            "duration_seconds": 11.333333,
+            "fps": "15/1",
+            "width": 640,
+            "height": 480
+          }
+        }
+      }
+    },
+    {
+      "section": "Reported robot results",
+      "title": "Reported robot success rates",
+      "duration": 14,
+      "kind": "results",
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 7,
+          "visual": "Placement chart from the paper: base 55%, CAST 95%.",
+          "text": "Looking at the overall results, CAST raises placement success from 55 to 95 percent."
+        },
+        {
+          "start": 7,
+          "end": 14,
+          "visual": "Stacking chart from the paper: base 35%, CAST 70%.",
+          "text": "Stacking improves from 35 to 70 percent, again exceeding both refinement baselines."
+        }
+      ],
+      "narration": "Looking at the overall results, CAST raises placement success from 55 to 95 percent. Stacking improves from 35 to 70 percent, again exceeding both refinement baselines.",
+      "id": "13",
+      "start": 157,
+      "segment": "segments/13_results.mp4"
+    },
+    {
+      "id": "14",
+      "start": 171,
+      "duration": 8,
+      "section": "Takeaway",
+      "title": "Improve the skill. Keep a persistent reference.",
+      "narration": "In short, we guide improvement, limit each target step, and keep the original skill as a reference.",
+      "slots": [],
+      "sources": [
+        "sections/06_conclusion.tex"
+      ],
+      "voiceover_cues": [
+        {
+          "start": 0,
+          "end": 4,
+          "visual": "Point through the three cards: critic guidance, soft restoration, bounded target steps.",
+          "text": "In short, we guide improvement, limit each target step,"
+        },
+        {
+          "start": 4,
+          "end": 8,
+          "visual": "Hold the closing title and project address.",
+          "text": "and keep the original skill as a reference."
+        }
+      ],
+      "source_slide_id": "10",
+      "source_start": 148,
+      "segment": "segments/14_existing.mp4",
+      "media_sources": [],
+      "kind": "existing",
+      "source_segment": "/home/licho/workspace/Porygon/icra_video/explanation/segments/07_slide_10.mp4"
+    }
+  ],
+  "style": "Academic: white canvas, dark text, restrained blue/orange/green, flat plots.",
+  "audio": "No recorded narration yet; ready for the author\u2019s voiceover.",
+  "footage": "CAST learning in three simulators and two successful CAST robot rollouts at 1\u00d7 speed, followed by aggregate evaluation results. Policy attribution follows the author\u2019s clarification.",
+  "sources": [
+    "../explanation/edit_manifest.json",
+    "simulation_sources.json",
+    "rollout_sources.json",
+    "../assets/robot_results.json"
+  ]
+}

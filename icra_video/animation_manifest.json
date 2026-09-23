@@ -7,7 +7,7 @@
     1920,
     1080
   ],
-  "total_seconds": 180,
+  "total_seconds": 156,
   "slots": [
     {
       "id": "A01",
@@ -16,8 +16,8 @@
       "title": "Accumulated drift",
       "brief": "Animate matched synthetic actions with clipping alone versus the exact CAST restoration and caps. Same base, critic, and step cap.",
       "filename": "animations/A01_accumulated_drift.mp4",
-      "slide_start_seconds": 10,
-      "slide_duration_seconds": 20,
+      "slide_start_seconds": 6,
+      "slide_duration_seconds": 12,
       "box_points": [
         42,
         153,
@@ -52,8 +52,8 @@
       "title": "Paired residual actions",
       "brief": "Reveal base actions and learned residual arrows for the same noise samples. Keep the base fixed.",
       "filename": "animations/A02_paired_residuals.mp4",
-      "slide_start_seconds": 30,
-      "slide_duration_seconds": 15,
+      "slide_start_seconds": 18,
+      "slide_duration_seconds": 8,
       "box_points": [
         468,
         159,
@@ -85,35 +85,35 @@
       "id": "A03",
       "slide": 4,
       "kind": "animation",
-      "title": "Construct the action target",
-      "brief": "Animate the normalized critic proposal, paired weak/radial restoration, and combined displacement cap. Restoration is evaluated at the current action.",
+      "title": "Animated Figure 2: sample \u2192 propose \u2192 constrain \u2192 fit",
+      "brief": "Reuse the submitted figure samples and vectors. Reveal the matching equations and zoom into each clockwise stage. Show the raw critic request contracting to the critic cap, then restoration and total clipping around the current action.",
       "filename": "animations/A03_cast_update.mp4",
-      "slide_start_seconds": 45,
-      "slide_duration_seconds": 25,
+      "slide_start_seconds": 26,
+      "slide_duration_seconds": 30,
       "box_points": [
-        342,
-        145,
-        576,
-        324
+        0,
+        0,
+        960,
+        540
       ],
       "box_inches": [
-        4.75,
-        2.01389,
-        8.0,
-        4.5
+        0.0,
+        0.0,
+        13.33333,
+        7.5
       ],
       "suggested_pixels": [
-        1152,
-        648
+        1920,
+        1080
       ],
       "pptx_shape_name": "MEDIA_A03_FRAME",
       "status": "completed; embedded MP4 with poster",
       "poster": "animations/posters/A03_cast_update.png",
       "playback_box_points": [
-        342.0,
-        145.0,
-        576.0,
-        324.0
+        0.0,
+        0.0,
+        960.0,
+        540.0
       ],
       "pptx_video_shape_name": "MEDIA_A03_VIDEO"
     },
@@ -124,8 +124,8 @@
       "title": "Fit \u2192 refresh targets",
       "brief": "Show fixed targets during regression; move the actor toward them, then recompute. Illustrate the soft restoration potential without claiming a hard policy-output bound.",
       "filename": "animations/A04_regress_refresh.mp4",
-      "slide_start_seconds": 70,
-      "slide_duration_seconds": 22,
+      "slide_start_seconds": 56,
+      "slide_duration_seconds": 10,
       "box_points": [
         42,
         150,
@@ -157,11 +157,11 @@
       "id": "A05",
       "slide": 6,
       "kind": "animation",
-      "title": "Measured restoration ablation",
-      "brief": "Animate equal-status bars for the base and four component configurations using the five-task mean success from the submitted paper. This is an aggregate comparison, not a learning curve.",
-      "filename": "animations/A05_measured_learning_progress.mp4",
-      "slide_start_seconds": 92,
-      "slide_duration_seconds": 28,
+      "title": "Benchmark tasks and measured ablation",
+      "brief": "First nine seconds: LIBERO and robomimic human demonstration replays, then DMC with a scripted controller. Remaining twenty-one seconds: the unchanged measured five-task LIBERO component comparison. Task footage illustrates the environments.",
+      "filename": "footage/A05_environments_and_results.mp4",
+      "slide_start_seconds": 66,
+      "slide_duration_seconds": 30,
       "box_points": [
         42,
         147,
@@ -180,7 +180,7 @@
       ],
       "pptx_shape_name": "MEDIA_A05_FRAME",
       "status": "completed; embedded MP4 with poster",
-      "poster": "animations/posters/A05_measured_learning_progress.png",
+      "poster": "footage/posters/A05_environments_and_results.png",
       "playback_box_points": [
         42.0,
         168.28125,
@@ -196,7 +196,7 @@
       "title": "Autonomous placement",
       "brief": "Insert an actual autonomous placement rollout. Current still is a labeled teleoperated illustration, not a CAST evaluation.",
       "filename": "animations/V01_jigglypuff_autonomous.mp4",
-      "slide_start_seconds": 136,
+      "slide_start_seconds": 112,
       "slide_duration_seconds": 16,
       "box_points": [
         42,
@@ -224,7 +224,7 @@
       "title": "Autonomous stacking",
       "brief": "Insert an actual autonomous stacking rollout showing release and stable final stack. Current still is teleoperated; no per-method clip is available here.",
       "filename": "animations/V02_stack_autonomous.mp4",
-      "slide_start_seconds": 152,
+      "slide_start_seconds": 128,
       "slide_duration_seconds": 20,
       "box_points": [
         42,

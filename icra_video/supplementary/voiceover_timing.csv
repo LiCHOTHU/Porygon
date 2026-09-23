@@ -1,0 +1,40 @@
+cue,scene,start_seconds,end_seconds,timecode_in,timecode_out_exclusive,start_frame,end_frame_exclusive,visual,spoken_text
+1,01,0,6,00:00:00:00,00:00:06:00,0,180,Title and OpenArm scene; introduce the problem.,"We introduce CAST, which improves robot skills while keeping the original policy as a reference."
+2,02,6,11,00:00:06:00,00:00:11:00,180,330,A01: the toy critic curve predicts which actions are valuable.,This matters because the critic can misjudge which actions are better.
+3,02,11,15,00:00:11:00,00:00:15:00,330,450,Orange: repeated clipped updates drift away from the blue base.,"As orange shows, even small updates can drift away."
+4,02,15,18,00:00:15:00,00:00:18:00,450,540,Green: restoration keeps the updated policy near the base.,"CAST pulls back, as green shows."
+5,03,18,23,00:00:18:00,00:00:23:00,540,690,A02: frozen base plus learned residual; point to the sum.,So we keep the original policy fixed and learn a correction.
+6,03,23,26,00:00:23:00,00:00:26:00,690,780,The paired samples share the same observation and noise.,Each action keeps its own reference.
+7,04,26,28,00:00:26:00,00:00:28:00,780,840,A03: clockwise overview of Figure 2.,Here’s one learning step.
+8,04,28,31,00:00:28:00,00:00:31:00,840,930,Sample panel: base/current pairs and residual arrows.,We first sample paired actions.
+9,04,31,37,00:00:31:00,00:00:37:00,930,1110,"Critic panel: normalized gradient appears, then contracts to its cap. Scaling follows the cap.","Next, the critic proposes an improvement. We normalize, cap, and scale its gradient."
+10,04,37,40,00:00:37:00,00:00:40:00,1110,1200,Restoration panel: weak pull toward the paired base action.,"We also pull toward the base,"
+11,04,40,44,00:00:40:00,00:00:44:00,1200,1320,Additional radial restoration appears beyond the reference radius.,with a stronger pull beyond the reference radius.
+12,04,44,50,00:00:44:00,00:00:50:00,1320,1500,Combine the vectors and clip around the CURRENT action. The circle bounds the target step.,We combine these arrows and cap the target step around the current action.
+13,04,50,54,00:00:50:00,00:00:54:00,1500,1620,Fit panel: regression to fixed residual targets; squared-error equation.,"We then fit the correction to these fixed targets,"
+14,04,54,56,00:00:54:00,00:00:56:00,1620,1680,Return to the complete clockwise figure; leave a short breath.,and repeat the process.
+15,05,56,61,00:00:56:00,00:01:01:00,1680,1830,A04: the actor moves toward the fixed green squares; fitting error falls.,The policy now learns to match the fixed green targets.
+16,05,61,63,00:01:01:00,00:01:03:00,1830,1890,The animation constructs fresh targets for another fitting round.,"We refresh them and repeat,"
+17,05,63,66,00:01:03:00,00:01:06:00,1890,1980,"Right-hand curve: increasing restoration penalty, with a soft threshold.",while the soft pull leaves room to improve.
+18,06,66,72,00:01:06:00,00:01:12:00,1980,2160,Both policies begin from the same initial state.,"Now let’s look at the experiments. In LIBERO, both policies start from the same state."
+19,06,72,77,00:01:12:00,00:01:17:00,2160,2310,The right-hand CAST rollout places the bottle in the drawer; the left-hand base fails.,CAST places the bottle in the drawer; the base fails.
+20,07,77,81,00:01:17:00,00:01:21:00,2310,2430,Compare the three supplied CAST checkpoints side by side.,"To see how learning progresses, robomimic compares three CAST checkpoints."
+21,07,81,87,00:01:21:00,00:01:27:00,2430,2610,The middle and final policies place the nut onto the square peg; their last frames remain visible.,"The early policy struggles, while later checkpoints complete the nut insertion."
+22,08,87,98,00:01:27:00,00:01:38:00,2610,2940,CAST training checkpoints show a walker progressing toward running.,"Beyond manipulation, DMC tests locomotion with dense rewards. As CAST learns, the walker progresses from unsteady movement toward running."
+23,09,98,101,00:01:38:00,00:01:41:00,2940,3030,Transition from the task demonstrations to the measured simulation results.,The measured results show the same pattern.
+24,09,101,110,00:01:41:00,00:01:50:00,3030,3300,Read the right-hand robomimic square chart: steps to the first evaluation reaching 90% success.,"In robomimic square, CAST reaches ninety percent success using thirty-eight percent fewer environment steps than DICE-RL."
+25,09,110,115,00:01:50:00,00:01:55:00,3300,3450,The left-hand LIBERO chart summarizes five tasks; no controls and clipping alone yield zero success.,"Across five LIBERO tasks, no controls or clipping alone gives zero success,"
+26,09,115,119,00:01:55:00,00:01:59:00,3450,3570,CAST improves over the base on every task; the displayed bars aggregate the five tasks.,while CAST improves every task over the base.
+27,10,119,124,00:01:59:00,00:02:04:00,3570,3720,Chest and wrist views from a recorded robot evaluation.,"We next move from simulation to OpenArm, using chest and wrist cameras."
+28,10,124,130,00:02:04:00,00:02:10:00,3720,3900,Offline CAST refinement uses recorded successful and failed rollouts.,CAST learns offline from recorded successes and failures before deployment.
+29,10,130,135,00:02:10:00,00:02:15:00,3900,4050,Introduce the successful CAST placement and stacking rollouts.,We now show the CAST policies completing placement and stacking.
+30,11,135,140,00:02:15:00,00:02:20:00,4050,4200,The robot approaches and grasps the toy on a stair.,"For placement, the robot reaches down and grasps Jigglypuff."
+31,11,140,143,00:02:20:00,00:02:23:00,4200,4290,The gripper transports the toy over the case.,"It carries the toy over the case,"
+32,11,143,146,00:02:23:00,00:02:26:00,4290,4380,The fingers open; the toy falls fully inside the case.,then releases it fully inside.
+33,12,146,150,00:02:26:00,00:02:30:00,4380,4500,The gripper approaches and grasps the red cube.,"For stacking, it grasps the red cube,"
+34,12,150,154,00:02:30:00,00:02:34:00,4500,4620,The held red cube moves above the purple support cube.,then aligns it above the purple cube.
+35,12,154,157,00:02:34:00,00:02:37:00,4620,4710,Wrist view shows release and the completed stack.,"The gripper opens, completing the stack."
+36,13,157,164,00:02:37:00,00:02:44:00,4710,4920,"Placement chart from the paper: base 55%, CAST 95%.","Looking at the overall results, CAST raises placement success from 55 to 95 percent."
+37,13,164,171,00:02:44:00,00:02:51:00,4920,5130,"Stacking chart from the paper: base 35%, CAST 70%.","Stacking improves from 35 to 70 percent, again exceeding both refinement baselines."
+38,14,171,175,00:02:51:00,00:02:55:00,5130,5250,"Point through the three cards: critic guidance, soft restoration, bounded target steps.","In short, we guide improvement, limit each target step,"
+39,14,175,179,00:02:55:00,00:02:59:00,5250,5370,Hold the closing title and project address.,and keep the original skill as a reference.

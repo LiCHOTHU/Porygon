@@ -1,7 +1,7 @@
 # Build validation
 
-- Passed: 10 slides / 180 seconds
-- Passed: 120-second method segment / 60-second robot segment
+- Passed: 10 slides / 156 seconds; 24 seconds available within the three-minute limit
+- Passed: 96-second method and simulation segment / 60-second robot segment
 - Passed: All narration under 160 words per minute
 - Passed: Speaker notes and automatic slide timings present
 - Passed: Seven named media containers; five completed animation clips and two robot-video reservations

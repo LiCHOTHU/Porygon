@@ -18,13 +18,21 @@ for r in [np.zeros(2),np.array([.1,.1]),np.array([.85,.28]),np.array([-.7,.9])]:
     assert np.allclose(restore,-gradient,atol=1e-8)
     assert np.dot(restore,r)<=1e-12
 checks.append('Restoration matches the negative gradient of the stated potential inside and outside the soft radius.')
-# Verify cap order and distinguish critic cap from total target displacement.
-r=np.array([.85,.28]);g=np.array([1.8,.95])
-dq=.55*clip(g,1.2)
-assert np.isclose(np.linalg.norm(dq),.55*1.2)
-dr=-eta0*r-etaanc*max(1-R/np.linalg.norm(r),0)*r
-assert np.isclose(np.linalg.norm(clip(dq+dr,.30)),.30)
-checks.append('A03 critic cap is applied before guidance scaling; the final target displacement obeys its cap.')
+# Verify the exact original Figure 2 data, not a newly chosen geometry.
+from figure2_animation import DATA,CFG,FIT,LOSSES
+r=DATA['current']-DATA['base']
+g=np.broadcast_to(CFG['normalized_q_gradient'],r.shape)
+dq=CFG['eta_q']*clip(g,CFG['q_cap'])
+m=np.linalg.norm(r,axis=-1,keepdims=True)/np.sqrt(CFG['dimension'])
+dr=-CFG['eta_0']*r-CFG['eta_anc']*np.maximum(1-CFG['rho_rms']/np.maximum(m,1e-12),0)*r
+delta=clip(dq+dr,CFG['total_cap'])
+assert np.allclose(dq,DATA['dq'],atol=1e-7)
+assert np.allclose(dr,DATA['dr'],atol=1e-7)
+assert np.allclose(delta,DATA['delta'],atol=1e-7)
+assert np.allclose(DATA['current']+delta,DATA['target'],atol=1e-7)
+assert np.max(np.linalg.norm(DATA['target']-DATA['current'],axis=-1))<=CFG['total_cap']+1e-7
+assert all(b<a for a,b in zip(LOSSES,LOSSES[1:]))
+checks.append('Animated Figure 2 reuses the submitted figure samples; critic/restoring vectors, cap order, target positions, and translation-actor fitting are numerically verified.')
 assert np.array_equal(data['cast']['history'][0],data['clipping_only']['history'][0])
 assert np.allclose(data['cast']['records'][0]['z'],data['clipping_only']['records'][0]['z'])
 for method in data.values():
@@ -62,13 +70,16 @@ with zipfile.ZipFile(ROOT/'cast_video_slides.pptx') as deck:
         subprocess.run(['ffmpeg','-v','error','-xerror','-i',str(path),'-f','null','-'],check=True,stdout=subprocess.DEVNULL)
 checks.append('Five MP4s fully decode, match their 30 fps / 720p / H.264 durations, and match the files embedded in PowerPoint.')
 checks.append('All five PowerPoint video timing nodes specify automatic start at slide entry.')
+story=json.loads((ROOT/'storyboard.json').read_text())
+assert story['total_duration_seconds']==156 and story['maximum_duration_seconds']==180
+checks.append('The revised draft is 156 seconds, leaving 24 seconds for incoming footage.')
 preview=ROOT/'cast_method_preview.mp4'
 if preview.exists():
     v=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_streams','-show_format','-of','json',str(preview)],text=True))
-    assert abs(float(v['format']['duration'])-120)<.05
+    assert abs(float(v['format']['duration'])-96)<.05
     assert v['streams'][0]['width']==1920 and v['streams'][0]['height']==1080
     subprocess.run(['ffmpeg','-v','error','-xerror','-i',str(preview),'-f','null','-'],check=True,stdout=subprocess.DEVNULL)
-    checks.append('The silent method preview fully decodes and lasts 120 seconds at 1920 × 1080.')
+    checks.append('The silent method preview fully decodes and lasts 96 seconds at 1920 × 1080.')
 report='# Animation validation\n\n'+''.join('- Passed: '+s+'\n' for s in checks)
 report+='\nThe fixed-critic toy is illustrative. PowerPoint XML and media are checked; native PowerPoint slideshow playback is not available in this environment.\n'
 (ROOT/'animations/VALIDATION.md').write_text(report)

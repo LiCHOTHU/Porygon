@@ -1,12 +1,45 @@
 {
-  "status": "awaiting actual evaluation videos",
+  "status": "task demonstration montage completed; author is providing simulation policy footage",
   "proposed_slide": 6,
   "proposed_duration_seconds": 9,
-  "timing": "Use the first nine seconds of slide 6, followed by the measured comparison; keep slide 6 at 28 seconds total.",
+  "timing": "Nine-second task montage at the start of slide 6, followed by 21 seconds of measured evidence. Current total 156 seconds leaves 24 seconds for incoming footage.",
   "clips": [
-    {"benchmark": "LIBERO", "seconds": 3, "video_path": null, "task": null, "policy": null, "checkpoint": null, "evaluation_seed": null, "input": "images", "reward": "sparse task success"},
-    {"benchmark": "robomimic", "seconds": 3, "video_path": null, "task": "square preferred", "policy": null, "checkpoint": null, "evaluation_seed": null, "input": "state", "reward": "sparse task success"},
-    {"benchmark": "DMC", "seconds": 3, "video_path": null, "task": null, "policy": null, "checkpoint": null, "evaluation_seed": null, "input": "state", "reward": "label the actual selected task's setting"}
+    {
+      "benchmark": "LIBERO",
+      "seconds": 3,
+      "video_path": "footage/libero_task_demo.mp4",
+      "task": "LIBERO-90 task 65: red mug on the left plate",
+      "policy": "task illustration, not a CAST checkpoint",
+      "checkpoint": null,
+      "evaluation_seed": null,
+      "input": "images",
+      "reward": "sparse task success",
+      "kind": "recorded human demonstration replay"
+    },
+    {
+      "benchmark": "robomimic",
+      "seconds": 3,
+      "video_path": "footage/robomimic_task_demo.mp4",
+      "task": "NutAssemblySquare",
+      "policy": "task illustration, not a CAST checkpoint",
+      "checkpoint": null,
+      "evaluation_seed": null,
+      "input": "state",
+      "reward": "sparse task success",
+      "kind": "recorded human demonstration replay"
+    },
+    {
+      "benchmark": "DMC",
+      "seconds": 3,
+      "video_path": "footage/dmc_task_demo.mp4",
+      "task": "cartpole balance",
+      "policy": "task illustration, not a CAST checkpoint",
+      "checkpoint": null,
+      "evaluation_seed": null,
+      "input": "state",
+      "reward": "dense",
+      "kind": "scripted controller"
+    }
   ],
   "comparison_guidance": "Use actual saved evaluations; match camera, playback speed and initial state when comparing methods. Label checkpoint progression only when actual checkpoint footage is available."
 }

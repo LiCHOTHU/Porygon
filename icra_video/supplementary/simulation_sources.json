@@ -1,0 +1,286 @@
+{
+  "sim_libero": {
+    "source": "/home/licho/workspace/Porygon/icra_video/task_demos/libero_task32_learning.mp4",
+    "sha256": "5a689ee62ed4cd94e6bc57d2d1c4aa01385cced9c5c593116c8c9a1465274db7",
+    "metadata": "/home/licho/workspace/Porygon/icra_video/task_demos/libero_task32_learning.json",
+    "metadata_contents": {
+      "clip": "libero_task32_learning",
+      "benchmark": "LIBERO-90",
+      "task": "task 32",
+      "kind": "2-stage before/after: frozen base vs CAST-finetuned policy, same initial state",
+      "stages": [
+        {
+          "stage": "FROZEN BASE",
+          "result": "fails",
+          "note": "base success rate ~0.60"
+        },
+        {
+          "stage": "CAST (ours)",
+          "result": "succeeds",
+          "note": "base + trained residual"
+        }
+      ],
+      "resolution": [
+        384,
+        440
+      ],
+      "fps": 20,
+      "source": "real policy rollouts in the LIBERO simulator (agentview camera)"
+    },
+    "actual_source_fps": 20,
+    "actual_source_frames": 503,
+    "policy": "Frozen base versus CAST",
+    "policy_attribution_basis": "Author confirmed that the supplied successful demonstrations use CAST-trained policies. Original source metadata is retained verbatim.",
+    "output_duration_seconds": 11,
+    "image_crop_width_height_x_y": [
+      512,
+      512,
+      0,
+      64
+    ],
+    "crop_note": "Remove the original title banner and, for DMC, black letterbox bars; retain the complete simulator image.",
+    "layout": "Complete stage intervals shown simultaneously. Shorter stages play at source speed and hold their last frame; longer stages accelerate to fit.",
+    "boundary_detection": "Stage title changes in the actual encoded video; timing uses ffprobe rather than stale duration fields in the sidecars.",
+    "stages": [
+      {
+        "label": "Frozen base",
+        "start_frame": 0,
+        "end_frame": 315,
+        "source_start_seconds": 0.0,
+        "source_end_seconds": 15.75,
+        "source_frame_count": 315,
+        "speed_relative_to_source": 1.4318181818181819,
+        "output_motion_duration_seconds": 11.0,
+        "last_frame_hold_seconds": 0.0,
+        "output_box": [
+          160,
+          285,
+          700,
+          700
+        ]
+      },
+      {
+        "label": "CAST",
+        "start_frame": 315,
+        "end_frame": 503,
+        "source_start_seconds": 15.75,
+        "source_end_seconds": 25.15,
+        "source_frame_count": 188,
+        "speed_relative_to_source": 1.0,
+        "output_motion_duration_seconds": 9.4,
+        "last_frame_hold_seconds": 1.5999999999999996,
+        "output_box": [
+          1060,
+          285,
+          700,
+          700
+        ]
+      }
+    ]
+  },
+  "sim_robomimic": {
+    "source": "/home/licho/workspace/Porygon/icra_video/task_demos/robomimic_square_learning.mp4",
+    "sha256": "b0d98a259cd66e3264a802b3fe5bec444bac1d513109a7d08ba8ca43eb0ed12e",
+    "metadata": "/home/licho/workspace/Porygon/icra_video/task_demos/robomimic_square_learning.json",
+    "metadata_contents": {
+      "clip": "robomimic_square_learning",
+      "benchmark": "robomimic",
+      "task": "square (nut-assembly / peg insertion)",
+      "kind": "learning progression: CAST policy rolled out at 3 training checkpoints, early -> mid -> final",
+      "cast_evaluation": true,
+      "stages": [
+        {
+          "stage": "EARLY",
+          "checkpoint": "model_step_2000",
+          "result": "fails the insertion (runs full episode)"
+        },
+        {
+          "stage": "MID",
+          "checkpoint": "model_step_16000",
+          "result": "task solved"
+        },
+        {
+          "stage": "FINAL",
+          "checkpoint": "model_step_31000",
+          "result": "reliable success (~94%)"
+        }
+      ],
+      "run": "newbase_CASTv2_s42 (CAST on square)",
+      "resolution": [
+        256,
+        256
+      ],
+      "note": "real CAST policy rollouts in the robomimic simulator"
+    },
+    "actual_source_fps": 20,
+    "actual_source_frames": 665,
+    "policy": "CAST",
+    "policy_attribution_basis": "Author confirmed that the supplied successful demonstrations use CAST-trained policies. Original source metadata is retained verbatim.",
+    "output_duration_seconds": 10,
+    "image_crop_width_height_x_y": [
+      512,
+      512,
+      0,
+      64
+    ],
+    "crop_note": "Remove the original title banner and, for DMC, black letterbox bars; retain the complete simulator image.",
+    "layout": "Complete stage intervals shown simultaneously. Shorter stages play at source speed and hold their last frame; longer stages accelerate to fit.",
+    "boundary_detection": "Stage title changes in the actual encoded video; timing uses ffprobe rather than stale duration fields in the sidecars.",
+    "stages": [
+      {
+        "label": "Early \u00b7 step 2,000",
+        "start_frame": 0,
+        "end_frame": 414,
+        "source_start_seconds": 0.0,
+        "source_end_seconds": 20.7,
+        "source_frame_count": 414,
+        "speed_relative_to_source": 2.07,
+        "output_motion_duration_seconds": 10.0,
+        "last_frame_hold_seconds": 0.0,
+        "output_box": [
+          70,
+          335,
+          560,
+          560
+        ]
+      },
+      {
+        "label": "Mid \u00b7 step 16,000",
+        "start_frame": 414,
+        "end_frame": 541,
+        "source_start_seconds": 20.7,
+        "source_end_seconds": 27.05,
+        "source_frame_count": 127,
+        "speed_relative_to_source": 1.0,
+        "output_motion_duration_seconds": 6.35,
+        "last_frame_hold_seconds": 3.6500000000000004,
+        "output_box": [
+          680,
+          335,
+          560,
+          560
+        ]
+      },
+      {
+        "label": "Final \u00b7 step 31,000",
+        "start_frame": 541,
+        "end_frame": 665,
+        "source_start_seconds": 27.05,
+        "source_end_seconds": 33.25,
+        "source_frame_count": 124,
+        "speed_relative_to_source": 1.0,
+        "output_motion_duration_seconds": 6.2,
+        "last_frame_hold_seconds": 3.8,
+        "output_box": [
+          1290,
+          335,
+          560,
+          560
+        ]
+      }
+    ]
+  },
+  "sim_dmc": {
+    "source": "/home/licho/workspace/Porygon/icra_video/task_demos/dmc_walker_run_learning.mp4",
+    "sha256": "efd6a88b24207503e89212af61ca0d1832524aecb5c6870822c042e62d1ecfb3",
+    "metadata": "/home/licho/workspace/Porygon/icra_video/task_demos/dmc_walker_run_learning.json",
+    "metadata_contents": {
+      "clip": "dmc_walker_run_learning",
+      "benchmark": "DMC",
+      "domain": "walker",
+      "task": "run",
+      "kind": "learning progress: three training stages, early -> mid -> final",
+      "policy_checkpoint": "/storage/cedar/cedar0/cedarp-agarg35-0/liquan.w/imitation_scratch/dmc_base/sac_walker_run.pt",
+      "stages": [
+        {
+          "stage": "EARLY  (start of training)",
+          "snapshot": 0,
+          "return_over_clip": 77.0
+        },
+        {
+          "stage": "MID-TRAINING",
+          "snapshot": 2,
+          "return_over_clip": 113.5
+        },
+        {
+          "stage": "FINAL  (converged)",
+          "snapshot": "final",
+          "return_over_clip": 127.4
+        }
+      ],
+      "fps": 30,
+      "seconds_per_stage": 6.0,
+      "resolution": [
+        640,
+        480
+      ]
+    },
+    "actual_source_fps": 20,
+    "actual_source_frames": 762,
+    "policy": "CAST",
+    "policy_attribution_basis": "Author confirmed that the supplied successful demonstrations use CAST-trained policies. Original source metadata is retained verbatim.",
+    "output_duration_seconds": 11,
+    "image_crop_width_height_x_y": [
+      512,
+      384,
+      0,
+      128
+    ],
+    "crop_note": "Remove the original title banner and, for DMC, black letterbox bars; retain the complete simulator image.",
+    "layout": "Complete stage intervals shown simultaneously. Shorter stages play at source speed and hold their last frame; longer stages accelerate to fit.",
+    "boundary_detection": "Stage title changes in the actual encoded video; timing uses ffprobe rather than stale duration fields in the sidecars.",
+    "stages": [
+      {
+        "label": "Early",
+        "start_frame": 0,
+        "end_frame": 254,
+        "source_start_seconds": 0.0,
+        "source_end_seconds": 12.7,
+        "source_frame_count": 254,
+        "speed_relative_to_source": 1.1545454545454545,
+        "output_motion_duration_seconds": 11.0,
+        "last_frame_hold_seconds": 0.0,
+        "output_box": [
+          70,
+          355,
+          560,
+          420
+        ]
+      },
+      {
+        "label": "Mid-training",
+        "start_frame": 254,
+        "end_frame": 508,
+        "source_start_seconds": 12.7,
+        "source_end_seconds": 25.4,
+        "source_frame_count": 254,
+        "speed_relative_to_source": 1.1545454545454545,
+        "output_motion_duration_seconds": 11.0,
+        "last_frame_hold_seconds": 0.0,
+        "output_box": [
+          680,
+          355,
+          560,
+          420
+        ]
+      },
+      {
+        "label": "Final",
+        "start_frame": 508,
+        "end_frame": 762,
+        "source_start_seconds": 25.4,
+        "source_end_seconds": 38.1,
+        "source_frame_count": 254,
+        "speed_relative_to_source": 1.1545454545454545,
+        "output_motion_duration_seconds": 11.0,
+        "last_frame_hold_seconds": 0.0,
+        "output_box": [
+          1290,
+          355,
+          560,
+          420
+        ]
+      }
+    ]
+  }
+}
